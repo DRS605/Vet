@@ -1,0 +1,203 @@
+<title>Propuesta ALXOR Vet</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --ink:#2e1b0e; --muted:#7a5f49; --line:#ece1d4; --surface:#ffffff;
+    --paper:#f6ecdb; --paper2:#efe0c8;
+    --accent:#c67a12; --accent-soft:#fff0ce;
+    --grad:linear-gradient(135deg,#6b4423,#2e1b0e);
+    --grad-honey:linear-gradient(135deg,#ffcb3e,#f0a500);
+    --vet:#5e7f2e; --vet-soft:#eef4df; --neg:#c0492f;
+    --honey-soft:#ffefc4; --honey-ink:#9a6b0f;
+    --shadow:0 1px 2px rgba(46,27,14,.05),0 10px 26px rgba(46,27,14,.09);
+  }
+  :root{ --muted:#7a5f49; }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ink:#f4e9d9; --muted:#c1a998;
+      --line:#39281a; --surface:#231710; --paper:#180f08; --paper2:#20140b;
+      --accent:#f0b64a; --accent-soft:#3a2a12; --vet-soft:#26301a; --honey-soft:#3a2c12;
+      --grad:linear-gradient(135deg,#8a5c30,#4a3018);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:#f4e9d9; --muted:#c1a998; --line:#39281a; --surface:#231710;
+    --paper:#180f08; --paper2:#20140b; --accent:#f0b64a; --accent-soft:#3a2a12;
+    --vet-soft:#26301a; --honey-soft:#3a2c12; --grad:linear-gradient(135deg,#8a5c30,#4a3018);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  body{
+    background:radial-gradient(1000px 520px at 85% -10%, rgba(245,168,0,.18), transparent 60%),
+      linear-gradient(180deg,var(--paper),var(--paper2));
+    color:var(--ink); min-height:100vh; line-height:1.55;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:52px 22px 90px;}
+  a{color:var(--accent);}
+
+  .brandline{display:flex;align-items:center;gap:12px;margin-bottom:34px;}
+  .mark{width:42px;height:42px;border-radius:13px;background:var(--grad);position:relative;flex:none;box-shadow:0 7px 18px rgba(46,27,14,.28);}
+  .mark::before{content:"";position:absolute;inset:9px;border:2.5px solid #ffce55;border-radius:50%;}
+  .mark::after{content:"🐾";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:13px;}
+  .brandline .w{font-weight:800;font-size:22px;display:flex;align-items:center;gap:9px;}
+  .brandline .tag{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);background:var(--grad-honey);padding:4px 10px;border-radius:999px;}
+
+  .hero{margin-bottom:8px;}
+  .eyebrow{display:inline-block;font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;}
+  h1{font-size:38px;line-height:1.08;letter-spacing:-.03em;margin:0 0 16px;text-wrap:balance;}
+  h1 .hl{background:var(--grad-honey);color:#2e1b0e;padding:0 8px;border-radius:6px;white-space:nowrap;}
+  .lead{font-size:18px;color:var(--muted);max-width:640px;margin:0;}
+
+  section{margin-top:48px;}
+  h2{font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:0 0 18px;
+    display:flex;align-items:center;gap:10px;}
+  h2::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  .pains{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:640px){.pains{grid-template-columns:1fr;}}
+  .pain{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);}
+  .pain b{display:block;font-size:15px;margin-bottom:3px;}
+  .pain span{font-size:13.5px;color:var(--muted);}
+  .pain .x{color:var(--neg);font-weight:800;margin-right:6px;}
+
+  .star{background:linear-gradient(160deg,#fff8ea,#fdeecb);border:1px solid #f2dca4;border-radius:20px;padding:26px 26px 24px;box-shadow:var(--shadow);}
+  :root[data-theme="dark"] .star, :root:not([data-theme="light"]) .star{background:linear-gradient(160deg,#2a1c0d,#241608);border-color:#4a3319;}
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .star{background:linear-gradient(160deg,#2a1c0d,#241608);border-color:#4a3319;}}
+  .star .k{display:inline-flex;align-items:center;gap:8px;background:var(--grad-honey);color:#2e1b0e;font-weight:800;font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;padding:6px 12px;border-radius:999px;}
+  .star h3{font-size:26px;letter-spacing:-.02em;margin:14px 0 8px;text-wrap:balance;}
+  .star p{margin:0 0 16px;color:var(--muted);font-size:15px;max-width:620px;}
+  .star .pts{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  @media(max-width:640px){.star .pts{grid-template-columns:1fr;}}
+  .star .pt{display:flex;gap:10px;align-items:flex-start;font-size:14px;}
+  .star .pt .e{font-size:19px;flex:none;line-height:1.3;}
+  .star .pt b{color:var(--ink);}
+
+  .mods{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:640px){.mods{grid-template-columns:1fr;}}
+  .mod{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);}
+  .mod .e{width:34px;height:34px;border-radius:10px;background:var(--honey-soft);display:grid;place-items:center;font-size:18px;margin-bottom:10px;}
+  .mod b{display:block;font-size:15px;margin-bottom:3px;}
+  .mod span{font-size:13.5px;color:var(--muted);}
+
+  .comply{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:24px;box-shadow:var(--shadow);}
+  .comply .badge{display:inline-flex;align-items:center;gap:8px;background:var(--vet-soft);color:var(--vet);font-weight:750;font-size:12.5px;padding:6px 12px;border-radius:999px;margin-bottom:14px;}
+  .comply h3{margin:0 0 10px;font-size:20px;letter-spacing:-.01em;}
+  .comply p{margin:0 0 14px;color:var(--muted);font-size:14.5px;}
+  .dates{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0 4px;}
+  .date{flex:1;min-width:180px;background:var(--accent-soft);border-radius:12px;padding:14px 16px;}
+  .date b{font-size:22px;display:block;letter-spacing:-.02em;color:var(--ink);}
+  .date span{font-size:13px;color:var(--muted);}
+  .comply ul{margin:14px 0 0;padding-left:0;list-style:none;}
+  .comply li{font-size:14px;padding:5px 0 5px 26px;position:relative;color:var(--muted);}
+  .comply li::before{content:"✓";position:absolute;left:0;color:var(--vet);font-weight:800;}
+  .comply li b{color:var(--ink);}
+
+  .diffbox{background:var(--grad);color:#fff8ee;border-radius:18px;padding:26px;}
+  .diffbox h3{margin:0 0 16px;font-size:20px;color:#fff;}
+  .diffbox .row{display:flex;gap:12px;padding:11px 0;border-top:1px solid rgba(255,255,255,.14);font-size:14.5px;align-items:flex-start;}
+  .diffbox .row:first-of-type{border-top:none;}
+  .diffbox .row .e{font-size:19px;flex:none;}
+  .diffbox .row b{color:#ffd77a;}
+  .diffbox .row span{color:#f0e2d0;}
+
+  .close{margin-top:48px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px;text-align:center;box-shadow:var(--shadow);}
+  .close h3{font-size:24px;margin:0 0 8px;letter-spacing:-.02em;}
+  .close p{margin:0 auto 20px;color:var(--muted);max-width:480px;font-size:15px;}
+  .cta{display:inline-flex;align-items:center;gap:9px;background:var(--grad-honey);color:#2e1b0e;font-weight:750;font-size:15px;padding:13px 24px;border-radius:12px;text-decoration:none;box-shadow:0 8px 20px rgba(240,165,0,.32);}
+
+  .note{margin-top:34px;font-size:12.5px;color:var(--muted);line-height:1.6;border-top:1px solid var(--line);padding-top:18px;}
+  .note b{color:var(--ink);}
+</style>
+
+<div class="wrap">
+
+  <div class="brandline">
+    <div class="mark"></div>
+    <div class="w">ALXOR <span class="tag">Vet</span></div>
+  </div>
+
+  <div class="hero">
+    <span class="eyebrow">Software de gestión para clínicas veterinarias</span>
+    <h1>Toda tu clínica en orden. Y tus clientes, <span class="hl">de vuelta</span>.</h1>
+    <p class="lead">Fichas, historial, vacunas, cirugías, recordatorios y facturación VeriFactu — en un programa sencillo. Y algo que ningún otro te da: la ficha de cada mascota en el móvil de su dueño.</p>
+  </div>
+
+  <section>
+    <h2>Lo que hoy te quita tiempo (y dinero)</h2>
+    <div class="pains">
+      <div class="pain"><b><span class="x">✕</span>Huecos en la agenda</b><span>Citas que nadie confirma y acaban en ausencias.</span></div>
+      <div class="pain"><b><span class="x">✕</span>Vacunas que se pasan</b><span>Recordar a mano quién toca cada mes es imposible.</span></div>
+      <div class="pain"><b><span class="x">✕</span>Historial disperso</b><span>Consultas, cirugías y tratamientos en papeles y cabezas.</span></div>
+      <div class="pain"><b><span class="x">✕</span>Facturar te frena</b><span>No todo acto necesita factura, pero llega VeriFactu.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>El diferencial</h2>
+    <div class="star">
+      <span class="k">★ Cartilla Viva</span>
+      <h3>La mascota, en el móvil de su dueño</h3>
+      <p>Los demás programas se quedan en la clínica. ALXOR Vet cruza la puerta: el dueño lleva la ficha de su animal, confirma la cita de un toque y sigue el plan del cachorro. Menos ausencias, más fidelidad — sin que tu equipo haga nada extra.</p>
+      <div class="pts">
+        <div class="pt"><span class="e">✅</span><div><b>Recordatorio → confirmación.</b> Cada toque en "Confirmar" sube tu KPI de citas confirmadas.</div></div>
+        <div class="pt"><span class="e">🍼</span><div><b>El cachorro engancha.</b> Plan de crecimiento con hitos que el dueño quiere completar.</div></div>
+        <div class="pt"><span class="e">🔖</span><div><b>QR de vacunas.</b> Útil de verdad: viajes, residencias, peluquería.</div></div>
+        <div class="pt"><span class="e">💬</span><div><b>Tu clínica presente.</b> Entre visita y visita, sigues en su bolsillo.</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Todo lo que incluye</h2>
+    <div class="mods">
+      <div class="mod"><div class="e">👨‍👩‍👧</div><b>Clientes y sus animales</b><span>Un cliente, varias mascotas, cada una con su ficha e historial.</span></div>
+      <div class="mod"><div class="e">📋</div><b>Historial clínico</b><span>Consultas con fecha, diagnóstico y tratamiento; vacunas y cirugías en una línea de tiempo.</span></div>
+      <div class="mod"><div class="e">💉</div><b>Vacunas por especie</b><span>Calendario maestro por especie; la próxima dosis y su aviso se calculan solos.</span></div>
+      <div class="mod"><div class="e">🔔</div><b>Recordatorios automáticos</b><span>Vacunas, revisiones y tratamientos avisan por correo, sin que lo pienses.</span></div>
+      <div class="mod"><div class="e">📅</div><b>Agenda y KPIs</b><span>Citas del día y panel con % de confirmación, cachorros en seguimiento y más.</span></div>
+      <div class="mod"><div class="e">🧾</div><b>Facturación VeriFactu</b><span>Factura solo cuando toca; lo demás, ticket. El registro clínico nunca se pierde.</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cumples con Hacienda, con margen</h2>
+    <div class="comply">
+      <div class="badge">🛡️ Preparado para VERI*FACTU</div>
+      <h3>Facturas inalterables, listas para la AEAT</h3>
+      <p>ALXOR Vet genera cada factura con huella encadenada, firma, sello de tiempo, QR y la leyenda oficial — y puede enviarla a la AEAT en tiempo real. Lo importante: <b>facturar es un paso aparte del acto clínico</b>, así que no te obliga a emitir factura por cada vacuna o consulta.</p>
+      <div class="dates">
+        <div class="date"><b>1 ene 2027</b><span>Obligatorio para sociedades</span></div>
+        <div class="date"><b>1 jul 2027</b><span>Obligatorio para autónomos</span></div>
+      </div>
+      <ul>
+        <li><b>Empezar ahora</b> = llegar cumpliendo, sin prisas de última hora.</li>
+        <li><b>Factura simplificada / ticket</b> para lo que no requiere factura completa.</li>
+        <li>Cuando la AEAT cambie el formato, <b>se actualiza una vez</b> y listo.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Por qué no es "otro programa de veterinarios"</h2>
+    <div class="diffbox">
+      <h3>Tres cosas que los demás no hacen</h3>
+      <div class="row"><span class="e">📲</span><div><b>Llega hasta el dueño.</b> <span>La Cartilla Viva convierte a tus clientes en usuarios activos, no en una ficha dormida.</span></div></div>
+      <div class="row"><span class="e">🍼</span><div><b>Convierte al cachorro en un plan.</b> <span>No una casilla: una experiencia con hitos que fideliza desde el primer día.</span></div></div>
+      <div class="row"><span class="e">🎯</span><div><b>Mide lo que importa.</b> <span>El KPI de citas confirmadas no lo miras: lo mueves, toque a toque.</span></div></div>
+    </div>
+  </section>
+
+  <div class="close">
+    <h3>¿Lo vemos con una demo?</h3>
+    <p>Te enseño las pantallas reales y montamos tu clínica de ejemplo en 15 minutos. Sin compromiso.</p>
+    <a class="cta">Pedir demo →</a>
+  </div>
+
+  <p class="note">
+    <b>Nota honesta sobre "cobrar en B".</b> ALXOR Vet permite registrar y cobrar un acto sin emitir factura completa (ticket / factura simplificada), que es la vía legal. VeriFactu garantiza que las facturas que <b>sí</b> se emiten sean inalterables; no declarar ingresos es otra cosa y el programa no lo oculta.<br><br>
+    ALXOR <b>Vet</b> · Propuesta comercial · Fechas VeriFactu según RD-ley 15/2025 (BOE 3 dic 2025), sujetas a posibles prórrogas de la AEAT.
+  </p>
+
+</div>
