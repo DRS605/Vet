@@ -331,3 +331,364 @@ public sealed class AnularConsulta
         return Resultado.Ok();
     }
 }
+
+/// <summary>Datos de una pauta vacunal para crear o actualizar.</summary>
+public sealed record DatosPautaVacunal(
+    EspecieAnimal Especie,
+    string Nombre,
+    CaracterVacuna Caracter = CaracterVacuna.Recomendada,
+    int? EdadInicioSemanas = null,
+    int? PeriodicidadRefuerzoMeses = null);
+
+/// <summary>
+/// Caso de uso: crear una pauta vacunal (cuadro maestro) en la empresa activa. La combinación
+/// (empresa, especie, nombre) es única: si ya existe se devuelve <c>pauta_vacunal.duplicada</c>.
+/// </summary>
+public sealed class CrearPautaVacunal
+{
+    private readonly IRepositorioPautasVacunales _pautas;
+    private readonly IConsultaPautasVacunales _consulta;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public CrearPautaVacunal(IRepositorioPautasVacunales pautas, IConsultaPautasVacunales consulta, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _pautas = pautas;
+        _consulta = consulta;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<PautaVacunalDto>> EjecutarAsync(Guid empresaId, DatosPautaVacunal datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        var pauta = PautaVacunal.Crear(
+            empresaId, datos.Especie, datos.Nombre, datos.Caracter, _reloj, datos.EdadInicioSemanas, datos.PeriodicidadRefuerzoMeses);
+        if (pauta.EsFallo)
+        {
+            return Resultado.Fallo<PautaVacunalDto>(pauta.Error);
+        }
+
+        // La unicidad se controla antes de insertar (mismo patrón que otros catálogos del ERP): el
+        // índice único de la BD es la barrera final; aquí damos un error de negocio claro.
+        if (await _consulta.ExisteNombreAsync(empresaId, datos.Especie, datos.Nombre.Trim(), null, ct).ConfigureAwait(false))
+        {
+            return Resultado.Fallo<PautaVacunalDto>(Error.Conflicto("pauta_vacunal.duplicada", "Ya existe una pauta con ese nombre para esa especie."));
+        }
+
+        _pautas.Agregar(pauta.Valor);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(PautaVacunalDto.Desde(pauta.Valor));
+    }
+}
+
+/// <summary>Caso de uso: actualizar una pauta vacunal existente.</summary>
+public sealed class ActualizarPautaVacunal
+{
+    private readonly IRepositorioPautasVacunales _pautas;
+    private readonly IConsultaPautasVacunales _consulta;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public ActualizarPautaVacunal(IRepositorioPautasVacunales pautas, IConsultaPautasVacunales consulta, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _pautas = pautas;
+        _consulta = consulta;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<PautaVacunalDto>> EjecutarAsync(Guid pautaId, DatosPautaVacunal datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        var pauta = await _pautas.ObtenerPorIdAsync(pautaId, ct).ConfigureAwait(false);
+        if (pauta is null)
+        {
+            return Resultado.Fallo<PautaVacunalDto>(Error.NoEncontrado("pauta_vacunal.no_encontrada", "La pauta vacunal no existe."));
+        }
+
+        if (await _consulta.ExisteNombreAsync(pauta.EmpresaId, datos.Especie, datos.Nombre.Trim(), pautaId, ct).ConfigureAwait(false))
+        {
+            return Resultado.Fallo<PautaVacunalDto>(Error.Conflicto("pauta_vacunal.duplicada", "Ya existe una pauta con ese nombre para esa especie."));
+        }
+
+        var actualizada = pauta.Actualizar(
+            datos.Especie, datos.Nombre, datos.Caracter, _reloj, datos.EdadInicioSemanas, datos.PeriodicidadRefuerzoMeses);
+        if (actualizada.EsFallo)
+        {
+            return Resultado.Fallo<PautaVacunalDto>(actualizada.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(PautaVacunalDto.Desde(pauta));
+    }
+}
+
+/// <summary>Caso de uso: obtener una pauta vacunal por su identificador.</summary>
+public sealed class ObtenerPautaVacunal
+{
+    private readonly IConsultaPautasVacunales _consulta;
+
+    public ObtenerPautaVacunal(IConsultaPautasVacunales consulta) => _consulta = consulta;
+
+    public async Task<Resultado<PautaVacunalDto>> EjecutarAsync(Guid pautaId, CancellationToken ct = default)
+    {
+        var pauta = await _consulta.ObtenerAsync(pautaId, ct).ConfigureAwait(false);
+        return pauta is null
+            ? Resultado.Fallo<PautaVacunalDto>(Error.NoEncontrado("pauta_vacunal.no_encontrada", "La pauta vacunal no existe."))
+            : Resultado.Ok(pauta);
+    }
+}
+
+/// <summary>Caso de uso: listar las pautas vacunales de la empresa activa, con filtro opcional por especie.</summary>
+public sealed class ListarPautasVacunales
+{
+    private readonly IConsultaPautasVacunales _consulta;
+
+    public ListarPautasVacunales(IConsultaPautasVacunales consulta) => _consulta = consulta;
+
+    public Task<IReadOnlyList<PautaVacunalDto>> EjecutarAsync(Guid empresaId, EspecieAnimal? especie = null, CancellationToken ct = default) =>
+        especie is { } e
+            ? _consulta.ListarPorEspecieAsync(empresaId, e, incluirInactivas: false, ct)
+            : _consulta.ListarAsync(empresaId, incluirInactivas: false, ct);
+}
+
+/// <summary>Caso de uso: desactivar (baja lógica) una pauta vacunal.</summary>
+public sealed class DesactivarPautaVacunal
+{
+    private readonly IRepositorioPautasVacunales _pautas;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public DesactivarPautaVacunal(IRepositorioPautasVacunales pautas, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _pautas = pautas;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado> EjecutarAsync(Guid pautaId, CancellationToken ct = default)
+    {
+        var pauta = await _pautas.ObtenerPorIdAsync(pautaId, ct).ConfigureAwait(false);
+        if (pauta is null)
+        {
+            return Resultado.Fallo(Error.NoEncontrado("pauta_vacunal.no_encontrada", "La pauta vacunal no existe."));
+        }
+
+        pauta.Desactivar(_reloj);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok();
+    }
+}
+
+/// <summary>Datos de una vacunación para registrar.</summary>
+public sealed record DatosVacunacion(
+    Guid AnimalId,
+    DateOnly FechaAplicacion,
+    Guid? PautaVacunalId = null,
+    string? Nombre = null,
+    string? Lote = null,
+    DateOnly? ProximaDosis = null,
+    string? Veterinario = null,
+    string? Notas = null);
+
+/// <summary>Datos de una vacunación al actualizar (el animal no cambia; se toma de la vacunación existente).</summary>
+public sealed record DatosActualizarVacunacion(
+    DateOnly FechaAplicacion,
+    Guid? PautaVacunalId = null,
+    string? Nombre = null,
+    string? Lote = null,
+    DateOnly? ProximaDosis = null,
+    string? Veterinario = null,
+    string? Notas = null);
+
+/// <summary>
+/// Caso de uso: registrar una vacunación de un animal de la empresa activa. Verifica que el animal
+/// existe en la empresa (vía <see cref="IConsultaAnimales"/>). Si se indica una pauta, valida que
+/// existe, es de la empresa y su especie coincide con la del animal; copia el nombre de la pauta si
+/// no se ha dado uno y autocalcula la próxima dosis desde la periodicidad si no se ha indicado.
+/// </summary>
+public sealed class RegistrarVacunacion
+{
+    private readonly IRepositorioVacunaciones _vacunaciones;
+    private readonly IConsultaAnimales _animales;
+    private readonly IRepositorioPautasVacunales _pautas;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public RegistrarVacunacion(
+        IRepositorioVacunaciones vacunaciones,
+        IConsultaAnimales animales,
+        IRepositorioPautasVacunales pautas,
+        IUnidadDeTrabajoClinica unidadDeTrabajo,
+        IReloj reloj)
+    {
+        _vacunaciones = vacunaciones;
+        _animales = animales;
+        _pautas = pautas;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<VacunacionDto>> EjecutarAsync(Guid empresaId, DatosVacunacion datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        // El filtro multiempresa de EF Core garantiza que solo se encuentra el animal si pertenece a la empresa activa.
+        var animal = await _animales.ObtenerAsync(datos.AnimalId, ct).ConfigureAwait(false);
+        if (animal is null)
+        {
+            return Resultado.Fallo<VacunacionDto>(Error.Validacion("vacunacion.animal_no_encontrado", "El animal no existe en esta empresa."));
+        }
+
+        var nombre = datos.Nombre;
+        var proximaDosis = datos.ProximaDosis;
+
+        if (datos.PautaVacunalId is { } pautaId)
+        {
+            var pauta = await _pautas.ObtenerPorIdAsync(pautaId, ct).ConfigureAwait(false);
+            if (pauta is null)
+            {
+                return Resultado.Fallo<VacunacionDto>(Error.Validacion("vacunacion.pauta_no_encontrada", "La pauta vacunal no existe en esta empresa."));
+            }
+
+            if (pauta.Especie != animal.Especie)
+            {
+                return Resultado.Fallo<VacunacionDto>(Error.Validacion("vacunacion.pauta_otra_especie", "La pauta vacunal es de otra especie distinta a la del animal."));
+            }
+
+            if (string.IsNullOrWhiteSpace(nombre))
+            {
+                nombre = pauta.Nombre;
+            }
+
+            proximaDosis ??= PautaVacunal.CalcularProximaDosis(datos.FechaAplicacion, pauta.PeriodicidadRefuerzoMeses);
+        }
+
+        var vacunacion = Vacunacion.Crear(
+            empresaId, datos.AnimalId, nombre, datos.FechaAplicacion, _reloj,
+            datos.PautaVacunalId, datos.Lote, proximaDosis, datos.Veterinario, datos.Notas);
+        if (vacunacion.EsFallo)
+        {
+            return Resultado.Fallo<VacunacionDto>(vacunacion.Error);
+        }
+
+        _vacunaciones.Agregar(vacunacion.Valor);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(VacunacionDto.Desde(vacunacion.Valor));
+    }
+}
+
+/// <summary>Caso de uso: actualizar una vacunación existente (el animal no cambia).</summary>
+public sealed class ActualizarVacunacion
+{
+    private readonly IRepositorioVacunaciones _vacunaciones;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public ActualizarVacunacion(IRepositorioVacunaciones vacunaciones, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _vacunaciones = vacunaciones;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<VacunacionDto>> EjecutarAsync(Guid vacunacionId, DatosActualizarVacunacion datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        var vacunacion = await _vacunaciones.ObtenerPorIdAsync(vacunacionId, ct).ConfigureAwait(false);
+        if (vacunacion is null)
+        {
+            return Resultado.Fallo<VacunacionDto>(Error.NoEncontrado("vacunacion.no_encontrada", "La vacunación no existe."));
+        }
+
+        var actualizada = vacunacion.Actualizar(
+            datos.Nombre, datos.FechaAplicacion, _reloj,
+            datos.PautaVacunalId, datos.Lote, datos.ProximaDosis, datos.Veterinario, datos.Notas);
+        if (actualizada.EsFallo)
+        {
+            return Resultado.Fallo<VacunacionDto>(actualizada.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(VacunacionDto.Desde(vacunacion));
+    }
+}
+
+/// <summary>Caso de uso: obtener una vacunación por su identificador.</summary>
+public sealed class ObtenerVacunacion
+{
+    private readonly IConsultaVacunaciones _consulta;
+
+    public ObtenerVacunacion(IConsultaVacunaciones consulta) => _consulta = consulta;
+
+    public async Task<Resultado<VacunacionDto>> EjecutarAsync(Guid vacunacionId, CancellationToken ct = default)
+    {
+        var vacunacion = await _consulta.ObtenerAsync(vacunacionId, ct).ConfigureAwait(false);
+        return vacunacion is null
+            ? Resultado.Fallo<VacunacionDto>(Error.NoEncontrado("vacunacion.no_encontrada", "La vacunación no existe."))
+            : Resultado.Ok(vacunacion);
+    }
+}
+
+/// <summary>Caso de uso: listar las vacunaciones de un animal, de la más reciente a la más antigua.</summary>
+public sealed class ListarVacunacionesDeAnimal
+{
+    private readonly IConsultaVacunaciones _consulta;
+
+    public ListarVacunacionesDeAnimal(IConsultaVacunaciones consulta) => _consulta = consulta;
+
+    public Task<IReadOnlyList<VacunacionDto>> EjecutarAsync(Guid animalId, CancellationToken ct = default) =>
+        _consulta.ListarPorAnimalAsync(animalId, incluirAnuladas: false, ct);
+}
+
+/// <summary>Caso de uso: listar las próximas vacunas de la empresa en una ventana de días (recordatorios).</summary>
+public sealed class ListarProximasVacunas
+{
+    private readonly IConsultaVacunaciones _consulta;
+    private readonly IReloj _reloj;
+
+    public ListarProximasVacunas(IConsultaVacunaciones consulta, IReloj reloj)
+    {
+        _consulta = consulta;
+        _reloj = reloj;
+    }
+
+    public Task<IReadOnlyList<VacunacionDto>> EjecutarAsync(Guid empresaId, int dias = 30, CancellationToken ct = default)
+    {
+        var hoy = DateOnly.FromDateTime(_reloj.AhoraUtc.UtcDateTime);
+        var hasta = hoy.AddDays(dias < 0 ? 0 : dias);
+        return _consulta.ListarProximasAsync(empresaId, hoy, hasta, incluirAnuladas: false, ct);
+    }
+}
+
+/// <summary>Caso de uso: anular (baja lógica) una vacunación del historial.</summary>
+public sealed class AnularVacunacion
+{
+    private readonly IRepositorioVacunaciones _vacunaciones;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public AnularVacunacion(IRepositorioVacunaciones vacunaciones, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _vacunaciones = vacunaciones;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado> EjecutarAsync(Guid vacunacionId, CancellationToken ct = default)
+    {
+        var vacunacion = await _vacunaciones.ObtenerPorIdAsync(vacunacionId, ct).ConfigureAwait(false);
+        if (vacunacion is null)
+        {
+            return Resultado.Fallo(Error.NoEncontrado("vacunacion.no_encontrada", "La vacunación no existe."));
+        }
+
+        vacunacion.Anular(_reloj);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok();
+    }
+}

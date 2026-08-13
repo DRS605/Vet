@@ -83,5 +83,84 @@ public interface IConsultaConsultas
     Task<IReadOnlyList<ConsultaDto>> ListarPorAnimalAsync(Guid animalId, bool incluirAnuladas = false, CancellationToken ct = default);
 }
 
+/// <summary>Vista de una pauta vacunal (cuadro maestro de vacunación por especie).</summary>
+public sealed record PautaVacunalDto(
+    Guid Id,
+    EspecieAnimal Especie,
+    string Nombre,
+    CaracterVacuna Caracter,
+    int? EdadInicioSemanas,
+    int? PeriodicidadRefuerzoMeses,
+    bool Activo)
+{
+    public static PautaVacunalDto Desde(PautaVacunal p)
+    {
+        ArgumentNullException.ThrowIfNull(p);
+        return new PautaVacunalDto(
+            p.Id, p.Especie, p.Nombre, p.Caracter, p.EdadInicioSemanas, p.PeriodicidadRefuerzoMeses, p.Activo);
+    }
+}
+
+/// <summary>Repositorio de pautas vacunales (escritura).</summary>
+public interface IRepositorioPautasVacunales
+{
+    Task<PautaVacunal?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default);
+
+    void Agregar(PautaVacunal pauta);
+}
+
+/// <summary>Consultas de lectura de pautas vacunales.</summary>
+public interface IConsultaPautasVacunales
+{
+    Task<PautaVacunalDto?> ObtenerAsync(Guid id, CancellationToken ct = default);
+
+    Task<IReadOnlyList<PautaVacunalDto>> ListarAsync(Guid empresaId, bool incluirInactivas = false, CancellationToken ct = default);
+
+    Task<IReadOnlyList<PautaVacunalDto>> ListarPorEspecieAsync(Guid empresaId, EspecieAnimal especie, bool incluirInactivas = false, CancellationToken ct = default);
+
+    /// <summary>¿Existe ya una pauta con ese nombre para la especie en la empresa? Opcionalmente excluye un id (al actualizar).</summary>
+    Task<bool> ExisteNombreAsync(Guid empresaId, EspecieAnimal especie, string nombre, Guid? excluirId = null, CancellationToken ct = default);
+}
+
+/// <summary>Vista de una vacunación (dosis aplicada a un animal).</summary>
+public sealed record VacunacionDto(
+    Guid Id,
+    Guid AnimalId,
+    Guid? PautaVacunalId,
+    string Nombre,
+    DateOnly FechaAplicacion,
+    string? Lote,
+    DateOnly? ProximaDosis,
+    string? Veterinario,
+    string? Notas,
+    bool Activo)
+{
+    public static VacunacionDto Desde(Vacunacion v)
+    {
+        ArgumentNullException.ThrowIfNull(v);
+        return new VacunacionDto(
+            v.Id, v.AnimalId, v.PautaVacunalId, v.Nombre, v.FechaAplicacion, v.Lote, v.ProximaDosis, v.Veterinario, v.Notas, v.Activo);
+    }
+}
+
+/// <summary>Repositorio de vacunaciones (escritura).</summary>
+public interface IRepositorioVacunaciones
+{
+    Task<Vacunacion?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default);
+
+    void Agregar(Vacunacion vacunacion);
+}
+
+/// <summary>Consultas de lectura del historial de vacunaciones.</summary>
+public interface IConsultaVacunaciones
+{
+    Task<VacunacionDto?> ObtenerAsync(Guid id, CancellationToken ct = default);
+
+    Task<IReadOnlyList<VacunacionDto>> ListarPorAnimalAsync(Guid animalId, bool incluirAnuladas = false, CancellationToken ct = default);
+
+    /// <summary>Vacunaciones cuya próxima dosis cae en la ventana [desde, hasta], ordenadas por próxima dosis ascendente. Base para recordatorios/KPI.</summary>
+    Task<IReadOnlyList<VacunacionDto>> ListarProximasAsync(Guid empresaId, DateOnly desde, DateOnly hasta, bool incluirAnuladas = false, CancellationToken ct = default);
+}
+
 /// <summary>Unidad de trabajo del módulo Clínica.</summary>
 public interface IUnidadDeTrabajoClinica : IUnidadDeTrabajo;

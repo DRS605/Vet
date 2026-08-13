@@ -25,6 +25,10 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<Consulta> Consultas => Set<Consulta>();
 
+    public DbSet<PautaVacunal> PautasVacunales => Set<PautaVacunal>();
+
+    public DbSet<Vacunacion> Vacunaciones => Set<Vacunacion>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Esquema);
@@ -164,6 +168,154 @@ internal sealed class RepositorioConsultas : IRepositorioConsultas, IConsultaCon
             .ToListAsync(ct)
             .ConfigureAwait(false);
         return consultas.Select(ConsultaDto.Desde).ToList();
+    }
+}
+
+internal sealed class ConfiguracionPautaVacunal : IEntityTypeConfiguration<PautaVacunal>
+{
+    public void Configure(EntityTypeBuilder<PautaVacunal> builder)
+    {
+        builder.ToTable("pauta_vacunal");
+        builder.HasKey(p => p.Id);
+        builder.Property(p => p.Id).HasColumnName("id");
+        builder.Property(p => p.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(p => p.Especie).HasColumnName("especie").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(p => p.Nombre).HasColumnName("nombre").HasMaxLength(PautaVacunal.LongitudMaximaNombre).IsRequired();
+        builder.Property(p => p.Caracter).HasColumnName("caracter").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(p => p.EdadInicioSemanas).HasColumnName("edad_inicio_semanas");
+        builder.Property(p => p.PeriodicidadRefuerzoMeses).HasColumnName("periodicidad_refuerzo_meses");
+        builder.Property(p => p.Activo).HasColumnName("activo").IsRequired();
+        builder.Property(p => p.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(p => p.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        builder.HasIndex(p => new { p.EmpresaId, p.Especie, p.Nombre })
+            .HasDatabaseName("ix_pauta_vacunal_empresa_especie_nombre")
+            .IsUnique();
+        builder.Ignore(p => p.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioPautasVacunales : IRepositorioPautasVacunales, IConsultaPautasVacunales
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioPautasVacunales(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<PautaVacunal?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.PautasVacunales.SingleOrDefaultAsync(p => p.Id == id, ct);
+
+    public void Agregar(PautaVacunal pauta) => _contexto.PautasVacunales.Add(pauta);
+
+    public async Task<PautaVacunalDto?> ObtenerAsync(Guid id, CancellationToken ct = default)
+    {
+        var pauta = await _contexto.PautasVacunales.SingleOrDefaultAsync(p => p.Id == id, ct).ConfigureAwait(false);
+        return pauta is null ? null : PautaVacunalDto.Desde(pauta);
+    }
+
+    public async Task<IReadOnlyList<PautaVacunalDto>> ListarAsync(Guid empresaId, bool incluirInactivas = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.PautasVacunales.Where(p => p.EmpresaId == empresaId);
+        if (!incluirInactivas)
+        {
+            consulta = consulta.Where(p => p.Activo);
+        }
+
+        var pautas = await consulta.OrderBy(p => p.Especie).ThenBy(p => p.Nombre).ToListAsync(ct).ConfigureAwait(false);
+        return pautas.Select(PautaVacunalDto.Desde).ToList();
+    }
+
+    public async Task<IReadOnlyList<PautaVacunalDto>> ListarPorEspecieAsync(Guid empresaId, EspecieAnimal especie, bool incluirInactivas = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.PautasVacunales.Where(p => p.EmpresaId == empresaId && p.Especie == especie);
+        if (!incluirInactivas)
+        {
+            consulta = consulta.Where(p => p.Activo);
+        }
+
+        var pautas = await consulta.OrderBy(p => p.Nombre).ToListAsync(ct).ConfigureAwait(false);
+        return pautas.Select(PautaVacunalDto.Desde).ToList();
+    }
+
+    public Task<bool> ExisteNombreAsync(Guid empresaId, EspecieAnimal especie, string nombre, Guid? excluirId = null, CancellationToken ct = default) =>
+        _contexto.PautasVacunales.AnyAsync(
+            p => p.EmpresaId == empresaId && p.Especie == especie && p.Nombre == nombre && (excluirId == null || p.Id != excluirId),
+            ct);
+}
+
+internal sealed class ConfiguracionVacunacion : IEntityTypeConfiguration<Vacunacion>
+{
+    public void Configure(EntityTypeBuilder<Vacunacion> builder)
+    {
+        builder.ToTable("vacunacion");
+        builder.HasKey(v => v.Id);
+        builder.Property(v => v.Id).HasColumnName("id");
+        builder.Property(v => v.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(v => v.AnimalId).HasColumnName("animal_id").IsRequired();
+        builder.Property(v => v.PautaVacunalId).HasColumnName("pauta_vacunal_id");
+        builder.Property(v => v.Nombre).HasColumnName("nombre").HasMaxLength(Vacunacion.LongitudMaximaNombre).IsRequired();
+        builder.Property(v => v.FechaAplicacion).HasColumnName("fecha_aplicacion").IsRequired();
+        builder.Property(v => v.Lote).HasColumnName("lote").HasMaxLength(Vacunacion.LongitudMaximaLote);
+        builder.Property(v => v.ProximaDosis).HasColumnName("proxima_dosis");
+        builder.Property(v => v.Veterinario).HasColumnName("veterinario").HasMaxLength(Vacunacion.LongitudMaximaVeterinario);
+        builder.Property(v => v.Notas).HasColumnName("notas").HasMaxLength(Vacunacion.LongitudMaximaNotas);
+        builder.Property(v => v.Activo).HasColumnName("activo").IsRequired();
+        builder.Property(v => v.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(v => v.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        builder.HasIndex(v => new { v.EmpresaId, v.AnimalId }).HasDatabaseName("ix_vacunacion_empresa_animal");
+        builder.HasIndex(v => new { v.EmpresaId, v.ProximaDosis }).HasDatabaseName("ix_vacunacion_empresa_proxima_dosis");
+        builder.Ignore(v => v.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioVacunaciones : IRepositorioVacunaciones, IConsultaVacunaciones
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioVacunaciones(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<Vacunacion?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.Vacunaciones.SingleOrDefaultAsync(v => v.Id == id, ct);
+
+    public void Agregar(Vacunacion vacunacion) => _contexto.Vacunaciones.Add(vacunacion);
+
+    public async Task<VacunacionDto?> ObtenerAsync(Guid id, CancellationToken ct = default)
+    {
+        var vacunacion = await _contexto.Vacunaciones.SingleOrDefaultAsync(v => v.Id == id, ct).ConfigureAwait(false);
+        return vacunacion is null ? null : VacunacionDto.Desde(vacunacion);
+    }
+
+    public async Task<IReadOnlyList<VacunacionDto>> ListarPorAnimalAsync(Guid animalId, bool incluirAnuladas = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.Vacunaciones.Where(v => v.AnimalId == animalId);
+        if (!incluirAnuladas)
+        {
+            consulta = consulta.Where(v => v.Activo);
+        }
+
+        var vacunaciones = await consulta
+            .OrderByDescending(v => v.FechaAplicacion)
+            .ThenByDescending(v => v.CreadoEn)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return vacunaciones.Select(VacunacionDto.Desde).ToList();
+    }
+
+    public async Task<IReadOnlyList<VacunacionDto>> ListarProximasAsync(Guid empresaId, DateOnly desde, DateOnly hasta, bool incluirAnuladas = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.Vacunaciones
+            .Where(v => v.EmpresaId == empresaId && v.ProximaDosis != null && v.ProximaDosis >= desde && v.ProximaDosis <= hasta);
+        if (!incluirAnuladas)
+        {
+            consulta = consulta.Where(v => v.Activo);
+        }
+
+        var vacunaciones = await consulta
+            .OrderBy(v => v.ProximaDosis)
+            .ThenBy(v => v.Nombre)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return vacunaciones.Select(VacunacionDto.Desde).ToList();
     }
 }
 

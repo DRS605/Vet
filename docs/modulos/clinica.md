@@ -21,14 +21,18 @@ sobre la que se construirán las historias clínicas, las visitas y las vacunas.
 ```
 AlxorCore.Clinica/                   # puro, sin frameworks
   Dominio/        Animal, EspecieAnimal, SexoAnimal, AnimalCreado (evento);
-                  Consulta, ConsultaRegistrada (evento)
-  Aplicacion/     DatosAnimal, AnimalDto, DatosConsulta, ConsultaDto, casos de uso, contratos
+                  Consulta, ConsultaRegistrada (evento);
+                  PautaVacunal, CaracterVacuna, PautaVacunalCreada (evento);
+                  Vacunacion, VacunacionRegistrada (evento)
+  Aplicacion/     DatosAnimal, AnimalDto, DatosConsulta, ConsultaDto, DatosPautaVacunal,
+                  PautaVacunalDto, DatosVacunacion, VacunacionDto, casos de uso, contratos
                   (IRepositorioAnimales, IConsultaAnimales, IRepositorioConsultas,
-                  IConsultaConsultas, IUnidadDeTrabajoClinica)
+                  IConsultaConsultas, IRepositorioPautasVacunales, IConsultaPautasVacunales,
+                  IRepositorioVacunaciones, IConsultaVacunaciones, IUnidadDeTrabajoClinica)
 AlxorCore.Clinica.Infraestructura/   # adaptadores
-  Persistencia.cs ClinicaDbContext, ConfiguracionAnimal/ConfiguracionConsulta,
-                  RepositorioAnimales/RepositorioConsultas, DbContextFactory
-  Persistencia/Migraciones/          MigracionInicialClinica, AgregarConsultas
+  Persistencia.cs ClinicaDbContext, ConfiguracionAnimal/Consulta/PautaVacunal/Vacunacion,
+                  RepositorioAnimales/Consultas/PautasVacunales/Vacunaciones, DbContextFactory
+  Persistencia/Migraciones/          MigracionInicialClinica, AgregarConsultas, AgregarVacunas
   RegistroServicios.AgregarModuloClinica(...)
 ```
 
@@ -158,6 +162,94 @@ Todas las rutas requieren empresa activa. Lectura → `consulta.leer`; alta/edic
 
 La migración `AgregarConsultas` crea la tabla `consulta` y activa su RLS por empresa.
 
+## Agregado `PautaVacunal` (cuadro maestro de vacunación)
+
+Tercer agregado del módulo. Una **pauta vacunal** es el **cuadro maestro** de vacunación de una
+especie dentro de la empresa (p. ej. «Polivalente (DHPPi/L)» para perros, «Rabia»): describe qué
+vacuna se pone, a qué edad se empieza y cada cuánto se refuerza. Las dosis concretas aplicadas a cada
+animal son `Vacunacion`. Raíz de agregado multiempresa (`RaizAgregadoEmpresa<Guid>`). Esquema
+`clinica`, tabla `pauta_vacunal`.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `Especie` | `EspecieAnimal` | Especie a la que aplica. Persistida como texto. |
+| `Nombre` | `string` | Obligatorio, máx. 120. |
+| `Caracter` | `CaracterVacuna` | `Legal`, `Recomendada`, `Opcional`. Persistido como texto. |
+| `EdadInicioSemanas` | `int?` | Edad recomendada de inicio, en semanas. Si se indica, ≥ 0. |
+| `PeriodicidadRefuerzoMeses` | `int?` | Meses entre refuerzos (12 = anual). Si se indica, > 0. `null` = dosis única / sin refuerzo. |
+| `Activo` | `bool` | Baja lógica. |
+| `CreadoEn` / `ActualizadoEn` | `DateTimeOffset` | |
+
+Índice **único** `(empresa_id, especie, nombre)` (`ix_pauta_vacunal_empresa_especie_nombre`): dentro
+de una empresa no puede repetirse el nombre de una vacuna para la misma especie. Al crear una pauta se
+emite el evento de dominio `PautaVacunalCreada`.
+
+El helper estático `PautaVacunal.CalcularProximaDosis(DateOnly fechaAplicacion, int? periodicidadMeses)`
+devuelve `fechaAplicacion.AddMonths(periodicidad)` si la periodicidad es > 0, y `null` en otro caso.
+
+## Agregado `Vacunacion` (dosis aplicada)
+
+Cuarto agregado del módulo. Una **vacunación** es una **dosis concreta** aplicada a un animal; cuelga
+del `Animal` (guarda solo su `animal_id`, sin clave foránea entre esquemas) y puede apoyarse en una
+`PautaVacunal` o ser ad-hoc. El `Nombre` se guarda como **instantánea (snapshot)** para que el
+historial sea estable aunque la pauta cambie o se borre. El historial **no se borra**: una vacunación
+se **anula** con una baja lógica. Raíz de agregado multiempresa. Esquema `clinica`, tabla `vacunacion`.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `AnimalId` | `Guid` | Animal vacunado. Obligatorio. Índice `(empresa_id, animal_id)`. |
+| `PautaVacunalId` | `Guid?` | Pauta maestra usada (`null` = ad-hoc). |
+| `Nombre` | `string` | Obligatorio, máx. 120. Instantánea estable del historial. |
+| `FechaAplicacion` | `DateOnly` | Obligatoria. **No puede ser futura**. |
+| `Lote` | `string?` | Máx. 60. |
+| `ProximaDosis` | `DateOnly?` | Puede venir dada o autocalcularse desde la periodicidad de la pauta. Índice `(empresa_id, proxima_dosis)`. |
+| `Veterinario` | `string?` | Texto libre. Máx. 120. |
+| `Notas` | `string?` | Máx. 1000. |
+| `Activo` | `bool` | Baja lógica («anular»). |
+| `CreadoEn` / `ActualizadoEn` | `DateTimeOffset` | |
+
+Al registrar una vacunación se emite el evento de dominio `VacunacionRegistrada`. Las cadenas se
+normalizan (se recortan; vacías → `null`) igual que en `Animal`.
+
+### API de vacunas
+
+Todas las rutas requieren empresa activa. Lectura → `vacuna.leer`; alta/edición/baja → `vacuna.gestionar`.
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| `GET` | `/vacunas/pautas` | `vacuna.leer` | Lista las pautas (filtro opcional `?especie=`). |
+| `POST` | `/vacunas/pautas` | `vacuna.gestionar` | Crea una pauta. Devuelve **201**. |
+| `GET` | `/vacunas/pautas/{id}` | `vacuna.leer` | Obtiene una pauta. |
+| `PUT` | `/vacunas/pautas/{id}` | `vacuna.gestionar` | Actualiza una pauta. |
+| `DELETE` | `/vacunas/pautas/{id}` | `vacuna.gestionar` | Desactiva (baja lógica) una pauta (**204**). |
+| `GET` | `/animales/{animalId}/vacunas` | `vacuna.leer` | Historial de vacunas del animal (más reciente primero). |
+| `POST` | `/animales/{animalId}/vacunas` | `vacuna.gestionar` | Registra una vacunación (la ruta es la fuente del animal). **201**. |
+| `GET` | `/vacunas/{id}` | `vacuna.leer` | Obtiene una vacunación. |
+| `PUT` | `/vacunas/{id}` | `vacuna.gestionar` | Actualiza una vacunación (el animal no cambia). |
+| `DELETE` | `/vacunas/{id}` | `vacuna.gestionar` | Anula (baja lógica) una vacunación (**204**). |
+| `GET` | `/vacunas/proximas?dias=30` | `vacuna.leer` | Próximas dosis de la empresa en la ventana de días (por defecto 30). |
+
+### Reglas e invariantes
+
+- La combinación `(empresa, especie, nombre)` de una pauta es **única**: si ya existe se devuelve
+  `pauta_vacunal.duplicada` (**409**). Se comprueba en el caso de uso antes de insertar; el índice
+  único de la base de datos es la barrera final.
+- Al **registrar una vacunación** el **animal debe existir en la empresa activa** (vía
+  `IConsultaAnimales`); si no, `vacunacion.animal_no_encontrado` (400). Si se indica una pauta, debe
+  existir en la empresa (`vacunacion.pauta_no_encontrada`) y su especie debe **coincidir** con la del
+  animal (`vacunacion.pauta_otra_especie`).
+- Si no se indica `Nombre`, se **copia** de la pauta. Si no se indica `ProximaDosis` y la pauta tiene
+  periodicidad, se **autocalcula** con `CalcularProximaDosis`.
+- La **fecha de aplicación** es obligatoria y no puede ser futura. `Lote` (≤ 60), `Veterinario`
+  (≤ 120) y `Notas` (≤ 1000) son opcionales.
+- El **historial de vacunas** de un animal se ordena por fecha de aplicación descendente. Las
+  **próximas dosis** se listan por `proxima_dosis` ascendente (base para recordatorios/KPI).
+- **Multiempresa**: cada empresa solo ve sus propias pautas y vacunaciones (filtro global de EF Core
+  por `empresa_id` + RLS de PostgreSQL sobre ambas tablas).
+
+La migración `AgregarVacunas` crea las tablas `pauta_vacunal` y `vacunacion` (con sus índices) y
+activa la RLS por empresa sobre ambas.
+
 ## Tests
 
 - **Unitarios** (`AlxorCore.Clinica.PruebasUnitarias`):
@@ -167,6 +259,12 @@ La migración `AgregarConsultas` crea la tabla `consulta` y activa su RLS por em
   - `Consulta`: creación válida (emite `ConsultaRegistrada`), animal obligatorio, fecha futura,
     longitudes de motivo/diagnóstico/tratamiento/veterinario, peso ≤ 0, normalización, `Actualizar`
     y `Anular`.
+  - `PautaVacunal`: creación válida (emite `PautaVacunalCreada`), nombre vacío/largo, especie/carácter
+    inválidos, edad negativa, periodicidad ≤ 0, `Actualizar`, `Desactivar` y `CalcularProximaDosis`
+    con y sin periodicidad.
+  - `Vacunacion`: creación válida (emite `VacunacionRegistrada`), animal obligatorio, nombre
+    vacío/largo, fecha futura, longitudes de lote/veterinario/notas, normalización, `Actualizar`
+    y `Anular`.
   - xUnit + FluentAssertions con un `IReloj` fijo.
 - **Integración** (`AlxorCore.IntegrationTests`), contra un **PostgreSQL real**:
   - `Animal`: alta/obtención/edición por API, alta con cliente inexistente (400), listado por
@@ -174,3 +272,7 @@ La migración `AgregarConsultas` crea la tabla `consulta` y activa su RLS por em
   - `Consulta`: registro/obtención/edición por API, orden del historial, registro con animal
     inexistente (400), anulación y **aislamiento multiempresa** (una empresa no ve ni registra
     consultas de animales de otra).
+  - `Vacunas`: creación de pauta y listado por especie, pauta duplicada (409), registro de vacunación
+    ligada a pauta (comprueba que la próxima dosis se **autocalcula** y el nombre se **copia**),
+    registro con pauta de otra especie (400), orden del historial de vacunas, anulación,
+    `GET /vacunas/proximas` (ventana) y **aislamiento multiempresa**.

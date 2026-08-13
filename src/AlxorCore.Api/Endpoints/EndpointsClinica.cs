@@ -1,5 +1,6 @@
 using AlxorCore.Api.Comun;
 using AlxorCore.Clinica.Aplicacion;
+using AlxorCore.Clinica.Dominio;
 using AlxorCore.Nucleo.Autorizacion;
 using AlxorCore.Nucleo.Multiempresa;
 using AlxorCore.Nucleo.Resultados;
@@ -63,6 +64,52 @@ public static class EndpointsClinica
             .WithSummary("Anula (baja lógica) una consulta.")
             .RequierePermiso(Permisos.ConsultaGestionar);
 
+        var vacunas = rutas.MapGroup("/vacunas").WithTags("Vacunas");
+
+        vacunas.MapGet("/pautas", ListarPautasAsync)
+            .WithSummary("Lista las pautas vacunales (cuadro maestro), con filtro opcional por especie.")
+            .RequierePermiso(Permisos.VacunaLeer);
+
+        vacunas.MapPost("/pautas", CrearPautaAsync)
+            .WithSummary("Crea una pauta vacunal (cuadro maestro por especie).")
+            .RequierePermiso(Permisos.VacunaGestionar);
+
+        vacunas.MapGet("/pautas/{id:guid}", ObtenerPautaAsync)
+            .WithSummary("Obtiene una pauta vacunal.")
+            .RequierePermiso(Permisos.VacunaLeer);
+
+        vacunas.MapPut("/pautas/{id:guid}", ActualizarPautaAsync)
+            .WithSummary("Actualiza una pauta vacunal.")
+            .RequierePermiso(Permisos.VacunaGestionar);
+
+        vacunas.MapDelete("/pautas/{id:guid}", DesactivarPautaAsync)
+            .WithSummary("Desactiva (baja lógica) una pauta vacunal.")
+            .RequierePermiso(Permisos.VacunaGestionar);
+
+        vacunas.MapGet("/proximas", ListarProximasVacunasAsync)
+            .WithSummary("Lista las próximas dosis de vacuna de la empresa en la ventana indicada.")
+            .RequierePermiso(Permisos.VacunaLeer);
+
+        vacunas.MapGet("/{id:guid}", ObtenerVacunacionAsync)
+            .WithSummary("Obtiene una vacunación.")
+            .RequierePermiso(Permisos.VacunaLeer);
+
+        vacunas.MapPut("/{id:guid}", ActualizarVacunacionAsync)
+            .WithSummary("Actualiza una vacunación.")
+            .RequierePermiso(Permisos.VacunaGestionar);
+
+        vacunas.MapDelete("/{id:guid}", AnularVacunacionAsync)
+            .WithSummary("Anula (baja lógica) una vacunación.")
+            .RequierePermiso(Permisos.VacunaGestionar);
+
+        animales.MapGet("/{animalId:guid}/vacunas", ListarVacunasAsync)
+            .WithSummary("Lista las vacunaciones de un animal.")
+            .RequierePermiso(Permisos.VacunaLeer);
+
+        animales.MapPost("/{animalId:guid}/vacunas", RegistrarVacunacionAsync)
+            .WithSummary("Registra una vacunación de un animal.")
+            .RequierePermiso(Permisos.VacunaGestionar);
+
         return rutas;
     }
 
@@ -121,5 +168,69 @@ public static class EndpointsClinica
         (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
 
     private static async Task<IResult> AnularConsultaAsync(Guid id, AnularConsulta caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> ListarPautasAsync(EspecieAnimal? especie, IContextoEmpresa contexto, ListarPautasVacunales caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, especie, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> CrearPautaAsync(DatosPautaVacunal datos, IContextoEmpresa contexto, CrearPautaVacunal caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, datos, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/vacunas/pautas/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> ObtenerPautaAsync(Guid id, ObtenerPautaVacunal caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> ActualizarPautaAsync(Guid id, DatosPautaVacunal datos, ActualizarPautaVacunal caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> DesactivarPautaAsync(Guid id, DesactivarPautaVacunal caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> ListarProximasVacunasAsync(int? dias, IContextoEmpresa contexto, ListarProximasVacunas caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, dias ?? 30, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> ListarVacunasAsync(Guid animalId, ListarVacunacionesDeAnimal caso, CancellationToken ct) =>
+        Results.Ok(await caso.EjecutarAsync(animalId, ct).ConfigureAwait(false));
+
+    private static async Task<IResult> RegistrarVacunacionAsync(Guid animalId, DatosVacunacion datos, IContextoEmpresa contexto, RegistrarVacunacion caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        // La ruta es la fuente de verdad del animal vacunado.
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, datos with { AnimalId = animalId }, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/vacunas/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> ObtenerVacunacionAsync(Guid id, ObtenerVacunacion caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> ActualizarVacunacionAsync(Guid id, DatosActualizarVacunacion datos, ActualizarVacunacion caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> AnularVacunacionAsync(Guid id, AnularVacunacion caso, CancellationToken ct) =>
         (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
 }

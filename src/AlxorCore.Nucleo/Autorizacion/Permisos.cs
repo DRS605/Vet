@@ -30,6 +30,8 @@ public static class Permisos
     public const string AnimalGestionar = "animal.gestionar";
     public const string ConsultaLeer = "consulta.leer";
     public const string ConsultaGestionar = "consulta.gestionar";
+    public const string VacunaLeer = "vacuna.leer";
+    public const string VacunaGestionar = "vacuna.gestionar";
 
     // Informes y datos
     public const string InformeLeer = "informe.leer";
@@ -48,6 +50,7 @@ public static class Permisos
         ClienteGestionar, ProductoGestionar,
         AnimalLeer, AnimalGestionar,
         ConsultaLeer, ConsultaGestionar,
+        VacunaLeer, VacunaGestionar,
         InformeLeer, DatosExportar,
         EmpresaAjustes, UsuarioGestionar,
     };
