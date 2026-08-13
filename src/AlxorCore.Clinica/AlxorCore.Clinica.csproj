@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>AlxorCore.Clinica</RootNamespace>
+    <AssemblyName>AlxorCore.Clinica</AssemblyName>
+  </PropertyGroup>
+
+  <!--
+    Clínica es el primer módulo del producto veterinario. El animal pertenece a un cliente
+    (Terceros): referencia su capa de Aplicación (contrato IConsultaClientes) para validar que el
+    propietario existe, nunca su infraestructura.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\AlxorCore.Nucleo\AlxorCore.Nucleo.csproj" />
+    <ProjectReference Include="..\AlxorCore.Terceros\AlxorCore.Terceros.csproj" />
+  </ItemGroup>
+
+</Project>

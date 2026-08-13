@@ -13,6 +13,8 @@
     <ProjectReference Include="..\AlxorCore.Organizacion.Infraestructura\AlxorCore.Organizacion.Infraestructura.csproj" />
     <ProjectReference Include="..\AlxorCore.Terceros\AlxorCore.Terceros.csproj" />
     <ProjectReference Include="..\AlxorCore.Terceros.Infraestructura\AlxorCore.Terceros.Infraestructura.csproj" />
+    <ProjectReference Include="..\AlxorCore.Clinica\AlxorCore.Clinica.csproj" />
+    <ProjectReference Include="..\AlxorCore.Clinica.Infraestructura\AlxorCore.Clinica.Infraestructura.csproj" />
     <ProjectReference Include="..\AlxorCore.Catalogo\AlxorCore.Catalogo.csproj" />
     <ProjectReference Include="..\AlxorCore.Catalogo.Infraestructura\AlxorCore.Catalogo.Infraestructura.csproj" />
     <ProjectReference Include="..\AlxorCore.Facturacion\AlxorCore.Facturacion.csproj" />

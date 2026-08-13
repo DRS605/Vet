@@ -25,6 +25,10 @@ public static class Permisos
     public const string ClienteGestionar = "cliente.gestionar";
     public const string ProductoGestionar = "producto.gestionar";
 
+    // Clínica (producto veterinario)
+    public const string AnimalLeer = "animal.leer";
+    public const string AnimalGestionar = "animal.gestionar";
+
     // Informes y datos
     public const string InformeLeer = "informe.leer";
     public const string DatosExportar = "datos.exportar";
@@ -40,6 +44,7 @@ public static class Permisos
         GastoLeer, GastoGestionar,
         CobroRegistrar, PagoRegistrar,
         ClienteGestionar, ProductoGestionar,
+        AnimalLeer, AnimalGestionar,
         InformeLeer, DatosExportar,
         EmpresaAjustes, UsuarioGestionar,
     };

@@ -58,6 +58,7 @@ public sealed class FabricaApiPruebas : WebApplicationFactory<Program>, IAsyncLi
         var identidad = ambito.ServiceProvider.GetRequiredService<IdentidadDbContext>();
         var organizacion = ambito.ServiceProvider.GetRequiredService<OrganizacionDbContext>();
         var terceros = ambito.ServiceProvider.GetRequiredService<AlxorCore.Terceros.Infraestructura.TercerosDbContext>();
+        var clinica = ambito.ServiceProvider.GetRequiredService<AlxorCore.Clinica.Infraestructura.ClinicaDbContext>();
         var catalogo = ambito.ServiceProvider.GetRequiredService<AlxorCore.Catalogo.Infraestructura.CatalogoDbContext>();
         var facturacion = ambito.ServiceProvider.GetRequiredService<AlxorCore.Facturacion.Infraestructura.FacturacionDbContext>();
         var gastos = ambito.ServiceProvider.GetRequiredService<AlxorCore.Gastos.Infraestructura.GastosDbContext>();
@@ -67,6 +68,7 @@ public sealed class FabricaApiPruebas : WebApplicationFactory<Program>, IAsyncLi
         await identidad.Database.MigrateAsync().ConfigureAwait(false);
         await organizacion.Database.MigrateAsync().ConfigureAwait(false);
         await terceros.Database.MigrateAsync().ConfigureAwait(false);
+        await clinica.Database.MigrateAsync().ConfigureAwait(false);
         await catalogo.Database.MigrateAsync().ConfigureAwait(false);
         await facturacion.Database.MigrateAsync().ConfigureAwait(false);
         await gastos.Database.MigrateAsync().ConfigureAwait(false);
@@ -74,7 +76,7 @@ public sealed class FabricaApiPruebas : WebApplicationFactory<Program>, IAsyncLi
         await auditoria.Database.MigrateAsync().ConfigureAwait(false);
 
         await identidad.Database.ExecuteSqlRawAsync(
-            "TRUNCATE identidad.usuario, organizacion.empresa, organizacion.membresia, organizacion.serie_numeracion, terceros.cliente, terceros.proveedor, catalogo.producto, catalogo.movimiento_stock, facturacion.factura, facturacion.linea_factura, facturacion.factura_recurrente, facturacion.linea_recurrente, facturacion.presupuesto, facturacion.linea_presupuesto, gastos.gasto, tesoreria.movimiento, auditoria.registro_auditoria")
+            "TRUNCATE identidad.usuario, organizacion.empresa, organizacion.membresia, organizacion.serie_numeracion, terceros.cliente, terceros.proveedor, clinica.animal, catalogo.producto, catalogo.movimiento_stock, facturacion.factura, facturacion.linea_factura, facturacion.factura_recurrente, facturacion.linea_recurrente, facturacion.presupuesto, facturacion.linea_presupuesto, gastos.gasto, tesoreria.movimiento, auditoria.registro_auditoria")
             .ConfigureAwait(false);
     }
 
