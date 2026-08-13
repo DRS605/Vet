@@ -69,6 +69,17 @@ public static class RegistroServicios
         servicios.AddScoped<ListarProximasVacunas>();
         servicios.AddScoped<AnularVacunacion>();
 
+        servicios.AddScoped<RepositorioCirugias>();
+        servicios.AddScoped<IRepositorioCirugias>(sp => sp.GetRequiredService<RepositorioCirugias>());
+        servicios.AddScoped<IConsultaCirugias>(sp => sp.GetRequiredService<RepositorioCirugias>());
+
+        servicios.AddScoped<RegistrarCirugia>();
+        servicios.AddScoped<ActualizarCirugia>();
+        servicios.AddScoped<ObtenerCirugia>();
+        servicios.AddScoped<ListarCirugiasDeAnimal>();
+        servicios.AddScoped<ListarProximasRevisiones>();
+        servicios.AddScoped<AnularCirugia>();
+
         return servicios;
     }
 }

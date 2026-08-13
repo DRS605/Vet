@@ -110,6 +110,32 @@ public static class EndpointsClinica
             .WithSummary("Registra una vacunación de un animal.")
             .RequierePermiso(Permisos.VacunaGestionar);
 
+        var cirugias = rutas.MapGroup("/cirugias").WithTags("Cirugías");
+
+        cirugias.MapGet("/proximas-revisiones", ListarProximasRevisionesAsync)
+            .WithSummary("Lista las próximas revisiones quirúrgicas de la empresa en la ventana indicada.")
+            .RequierePermiso(Permisos.CirugiaLeer);
+
+        cirugias.MapGet("/{id:guid}", ObtenerCirugiaAsync)
+            .WithSummary("Obtiene una cirugía.")
+            .RequierePermiso(Permisos.CirugiaLeer);
+
+        cirugias.MapPut("/{id:guid}", ActualizarCirugiaAsync)
+            .WithSummary("Actualiza una cirugía.")
+            .RequierePermiso(Permisos.CirugiaGestionar);
+
+        cirugias.MapDelete("/{id:guid}", AnularCirugiaAsync)
+            .WithSummary("Anula (baja lógica) una cirugía.")
+            .RequierePermiso(Permisos.CirugiaGestionar);
+
+        animales.MapGet("/{animalId:guid}/cirugias", ListarCirugiasAsync)
+            .WithSummary("Lista el historial de cirugías de un animal.")
+            .RequierePermiso(Permisos.CirugiaLeer);
+
+        animales.MapPost("/{animalId:guid}/cirugias", RegistrarCirugiaAsync)
+            .WithSummary("Registra una cirugía de un animal.")
+            .RequierePermiso(Permisos.CirugiaGestionar);
+
         return rutas;
     }
 
@@ -233,4 +259,38 @@ public static class EndpointsClinica
 
     private static async Task<IResult> AnularVacunacionAsync(Guid id, AnularVacunacion caso, CancellationToken ct) =>
         (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> ListarCirugiasAsync(Guid animalId, ListarCirugiasDeAnimal caso, CancellationToken ct) =>
+        Results.Ok(await caso.EjecutarAsync(animalId, ct).ConfigureAwait(false));
+
+    private static async Task<IResult> RegistrarCirugiaAsync(Guid animalId, DatosCirugia datos, IContextoEmpresa contexto, RegistrarCirugia caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        // La ruta es la fuente de verdad del animal intervenido.
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, datos with { AnimalId = animalId }, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/cirugias/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> ObtenerCirugiaAsync(Guid id, ObtenerCirugia caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> ActualizarCirugiaAsync(Guid id, DatosActualizarCirugia datos, ActualizarCirugia caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> AnularCirugiaAsync(Guid id, AnularCirugia caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> ListarProximasRevisionesAsync(int? dias, IContextoEmpresa contexto, ListarProximasRevisiones caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, dias ?? 30, ct).ConfigureAwait(false));
+    }
 }

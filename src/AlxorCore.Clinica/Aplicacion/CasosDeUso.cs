@@ -692,3 +692,180 @@ public sealed class AnularVacunacion
         return Resultado.Ok();
     }
 }
+
+/// <summary>Datos de una cirugía (intervención quirúrgica) para registrar.</summary>
+public sealed record DatosCirugia(
+    Guid AnimalId,
+    DateOnly Fecha,
+    string Nombre,
+    string? Descripcion = null,
+    string? Cirujano = null,
+    string? Anestesia = null,
+    string? Complicaciones = null,
+    DateOnly? ProximaRevision = null);
+
+/// <summary>Datos de una cirugía al actualizar (el animal no cambia; se toma de la cirugía existente).</summary>
+public sealed record DatosActualizarCirugia(
+    DateOnly Fecha,
+    string Nombre,
+    string? Descripcion = null,
+    string? Cirujano = null,
+    string? Anestesia = null,
+    string? Complicaciones = null,
+    DateOnly? ProximaRevision = null);
+
+/// <summary>
+/// Caso de uso: registrar una cirugía en el historial de un animal de la empresa activa. Verifica
+/// que el animal existe en la empresa (a través de <see cref="IConsultaAnimales"/>).
+/// </summary>
+public sealed class RegistrarCirugia
+{
+    private readonly IRepositorioCirugias _cirugias;
+    private readonly IConsultaAnimales _animales;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public RegistrarCirugia(IRepositorioCirugias cirugias, IConsultaAnimales animales, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _cirugias = cirugias;
+        _animales = animales;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<CirugiaDto>> EjecutarAsync(Guid empresaId, DatosCirugia datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        // El filtro multiempresa de EF Core garantiza que solo se encuentra el animal si pertenece a la empresa activa.
+        var animal = await _animales.ObtenerAsync(datos.AnimalId, ct).ConfigureAwait(false);
+        if (animal is null)
+        {
+            return Resultado.Fallo<CirugiaDto>(Error.Validacion("cirugia.animal_no_encontrado", "El animal no existe en esta empresa."));
+        }
+
+        var cirugia = Cirugia.Crear(
+            empresaId, datos.AnimalId, datos.Fecha, datos.Nombre, _reloj,
+            datos.Descripcion, datos.Cirujano, datos.Anestesia, datos.Complicaciones, datos.ProximaRevision);
+        if (cirugia.EsFallo)
+        {
+            return Resultado.Fallo<CirugiaDto>(cirugia.Error);
+        }
+
+        _cirugias.Agregar(cirugia.Valor);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(CirugiaDto.Desde(cirugia.Valor));
+    }
+}
+
+/// <summary>Caso de uso: actualizar una cirugía existente (el animal no cambia).</summary>
+public sealed class ActualizarCirugia
+{
+    private readonly IRepositorioCirugias _cirugias;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public ActualizarCirugia(IRepositorioCirugias cirugias, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _cirugias = cirugias;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<CirugiaDto>> EjecutarAsync(Guid cirugiaId, DatosActualizarCirugia datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        var cirugia = await _cirugias.ObtenerPorIdAsync(cirugiaId, ct).ConfigureAwait(false);
+        if (cirugia is null)
+        {
+            return Resultado.Fallo<CirugiaDto>(Error.NoEncontrado("cirugia.no_encontrada", "La cirugía no existe."));
+        }
+
+        var actualizada = cirugia.Actualizar(
+            datos.Fecha, datos.Nombre, _reloj,
+            datos.Descripcion, datos.Cirujano, datos.Anestesia, datos.Complicaciones, datos.ProximaRevision);
+        if (actualizada.EsFallo)
+        {
+            return Resultado.Fallo<CirugiaDto>(actualizada.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(CirugiaDto.Desde(cirugia));
+    }
+}
+
+/// <summary>Caso de uso: obtener una cirugía por su identificador.</summary>
+public sealed class ObtenerCirugia
+{
+    private readonly IConsultaCirugias _consulta;
+
+    public ObtenerCirugia(IConsultaCirugias consulta) => _consulta = consulta;
+
+    public async Task<Resultado<CirugiaDto>> EjecutarAsync(Guid cirugiaId, CancellationToken ct = default)
+    {
+        var cirugia = await _consulta.ObtenerAsync(cirugiaId, ct).ConfigureAwait(false);
+        return cirugia is null
+            ? Resultado.Fallo<CirugiaDto>(Error.NoEncontrado("cirugia.no_encontrada", "La cirugía no existe."))
+            : Resultado.Ok(cirugia);
+    }
+}
+
+/// <summary>Caso de uso: listar las cirugías de un animal, de la más reciente a la más antigua.</summary>
+public sealed class ListarCirugiasDeAnimal
+{
+    private readonly IConsultaCirugias _consulta;
+
+    public ListarCirugiasDeAnimal(IConsultaCirugias consulta) => _consulta = consulta;
+
+    public Task<IReadOnlyList<CirugiaDto>> EjecutarAsync(Guid animalId, CancellationToken ct = default) =>
+        _consulta.ListarPorAnimalAsync(animalId, incluirAnuladas: false, ct);
+}
+
+/// <summary>Caso de uso: listar las próximas revisiones quirúrgicas de la empresa en una ventana de días (recordatorios).</summary>
+public sealed class ListarProximasRevisiones
+{
+    private readonly IConsultaCirugias _consulta;
+    private readonly IReloj _reloj;
+
+    public ListarProximasRevisiones(IConsultaCirugias consulta, IReloj reloj)
+    {
+        _consulta = consulta;
+        _reloj = reloj;
+    }
+
+    public Task<IReadOnlyList<CirugiaDto>> EjecutarAsync(Guid empresaId, int dias = 30, CancellationToken ct = default)
+    {
+        var hoy = DateOnly.FromDateTime(_reloj.AhoraUtc.UtcDateTime);
+        var hasta = hoy.AddDays(dias < 0 ? 0 : dias);
+        return _consulta.ListarProximasRevisionesAsync(empresaId, hoy, hasta, incluirAnuladas: false, ct);
+    }
+}
+
+/// <summary>Caso de uso: anular (baja lógica) una cirugía del historial.</summary>
+public sealed class AnularCirugia
+{
+    private readonly IRepositorioCirugias _cirugias;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public AnularCirugia(IRepositorioCirugias cirugias, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _cirugias = cirugias;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado> EjecutarAsync(Guid cirugiaId, CancellationToken ct = default)
+    {
+        var cirugia = await _cirugias.ObtenerPorIdAsync(cirugiaId, ct).ConfigureAwait(false);
+        if (cirugia is null)
+        {
+            return Resultado.Fallo(Error.NoEncontrado("cirugia.no_encontrada", "La cirugía no existe."));
+        }
+
+        cirugia.Anular(_reloj);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok();
+    }
+}

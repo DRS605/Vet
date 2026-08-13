@@ -162,5 +162,45 @@ public interface IConsultaVacunaciones
     Task<IReadOnlyList<VacunacionDto>> ListarProximasAsync(Guid empresaId, DateOnly desde, DateOnly hasta, bool incluirAnuladas = false, CancellationToken ct = default);
 }
 
+/// <summary>Vista de una cirugía (intervención quirúrgica de un animal).</summary>
+public sealed record CirugiaDto(
+    Guid Id,
+    Guid AnimalId,
+    DateOnly Fecha,
+    string Nombre,
+    string? Descripcion,
+    string? Cirujano,
+    string? Anestesia,
+    string? Complicaciones,
+    DateOnly? ProximaRevision,
+    bool Activo)
+{
+    public static CirugiaDto Desde(Cirugia c)
+    {
+        ArgumentNullException.ThrowIfNull(c);
+        return new CirugiaDto(
+            c.Id, c.AnimalId, c.Fecha, c.Nombre, c.Descripcion, c.Cirujano, c.Anestesia, c.Complicaciones, c.ProximaRevision, c.Activo);
+    }
+}
+
+/// <summary>Repositorio de cirugías (escritura).</summary>
+public interface IRepositorioCirugias
+{
+    Task<Cirugia?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default);
+
+    void Agregar(Cirugia cirugia);
+}
+
+/// <summary>Consultas de lectura del historial de cirugías.</summary>
+public interface IConsultaCirugias
+{
+    Task<CirugiaDto?> ObtenerAsync(Guid id, CancellationToken ct = default);
+
+    Task<IReadOnlyList<CirugiaDto>> ListarPorAnimalAsync(Guid animalId, bool incluirAnuladas = false, CancellationToken ct = default);
+
+    /// <summary>Cirugías cuya próxima revisión cae en la ventana [desde, hasta], ordenadas por próxima revisión ascendente. Base para recordatorios/KPI.</summary>
+    Task<IReadOnlyList<CirugiaDto>> ListarProximasRevisionesAsync(Guid empresaId, DateOnly desde, DateOnly hasta, bool incluirAnuladas = false, CancellationToken ct = default);
+}
+
 /// <summary>Unidad de trabajo del módulo Clínica.</summary>
 public interface IUnidadDeTrabajoClinica : IUnidadDeTrabajo;

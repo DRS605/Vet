@@ -29,6 +29,8 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<Vacunacion> Vacunaciones => Set<Vacunacion>();
 
+    public DbSet<Cirugia> Cirugias => Set<Cirugia>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Esquema);
@@ -316,6 +318,83 @@ internal sealed class RepositorioVacunaciones : IRepositorioVacunaciones, IConsu
             .ToListAsync(ct)
             .ConfigureAwait(false);
         return vacunaciones.Select(VacunacionDto.Desde).ToList();
+    }
+}
+
+internal sealed class ConfiguracionCirugia : IEntityTypeConfiguration<Cirugia>
+{
+    public void Configure(EntityTypeBuilder<Cirugia> builder)
+    {
+        builder.ToTable("cirugia");
+        builder.HasKey(c => c.Id);
+        builder.Property(c => c.Id).HasColumnName("id");
+        builder.Property(c => c.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(c => c.AnimalId).HasColumnName("animal_id").IsRequired();
+        builder.Property(c => c.Fecha).HasColumnName("fecha").IsRequired();
+        builder.Property(c => c.Nombre).HasColumnName("nombre").HasMaxLength(Cirugia.LongitudMaximaNombre).IsRequired();
+        builder.Property(c => c.Descripcion).HasColumnName("descripcion").HasMaxLength(Cirugia.LongitudMaximaDescripcion);
+        builder.Property(c => c.Cirujano).HasColumnName("cirujano").HasMaxLength(Cirugia.LongitudMaximaCirujano);
+        builder.Property(c => c.Anestesia).HasColumnName("anestesia").HasMaxLength(Cirugia.LongitudMaximaAnestesia);
+        builder.Property(c => c.Complicaciones).HasColumnName("complicaciones").HasMaxLength(Cirugia.LongitudMaximaComplicaciones);
+        builder.Property(c => c.ProximaRevision).HasColumnName("proxima_revision");
+        builder.Property(c => c.Activo).HasColumnName("activo").IsRequired();
+        builder.Property(c => c.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(c => c.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        builder.HasIndex(c => new { c.EmpresaId, c.AnimalId }).HasDatabaseName("ix_cirugia_empresa_animal");
+        builder.HasIndex(c => new { c.EmpresaId, c.ProximaRevision }).HasDatabaseName("ix_cirugia_empresa_proxima_revision");
+        builder.Ignore(c => c.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioCirugias : IRepositorioCirugias, IConsultaCirugias
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioCirugias(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<Cirugia?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.Cirugias.SingleOrDefaultAsync(c => c.Id == id, ct);
+
+    public void Agregar(Cirugia cirugia) => _contexto.Cirugias.Add(cirugia);
+
+    public async Task<CirugiaDto?> ObtenerAsync(Guid id, CancellationToken ct = default)
+    {
+        var cirugia = await _contexto.Cirugias.SingleOrDefaultAsync(c => c.Id == id, ct).ConfigureAwait(false);
+        return cirugia is null ? null : CirugiaDto.Desde(cirugia);
+    }
+
+    public async Task<IReadOnlyList<CirugiaDto>> ListarPorAnimalAsync(Guid animalId, bool incluirAnuladas = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.Cirugias.Where(c => c.AnimalId == animalId);
+        if (!incluirAnuladas)
+        {
+            consulta = consulta.Where(c => c.Activo);
+        }
+
+        var cirugias = await consulta
+            .OrderByDescending(c => c.Fecha)
+            .ThenByDescending(c => c.CreadoEn)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return cirugias.Select(CirugiaDto.Desde).ToList();
+    }
+
+    public async Task<IReadOnlyList<CirugiaDto>> ListarProximasRevisionesAsync(Guid empresaId, DateOnly desde, DateOnly hasta, bool incluirAnuladas = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.Cirugias
+            .Where(c => c.EmpresaId == empresaId && c.ProximaRevision != null && c.ProximaRevision >= desde && c.ProximaRevision <= hasta);
+        if (!incluirAnuladas)
+        {
+            consulta = consulta.Where(c => c.Activo);
+        }
+
+        var cirugias = await consulta
+            .OrderBy(c => c.ProximaRevision)
+            .ThenBy(c => c.Nombre)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return cirugias.Select(CirugiaDto.Desde).ToList();
     }
 }
 

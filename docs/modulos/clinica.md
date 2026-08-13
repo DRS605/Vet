@@ -250,6 +250,59 @@ Todas las rutas requieren empresa activa. Lectura → `vacuna.leer`; alta/edici�
 La migración `AgregarVacunas` crea las tablas `pauta_vacunal` y `vacunacion` (con sus índices) y
 activa la RLS por empresa sobre ambas.
 
+## Agregado `Cirugia` (intervención quirúrgica)
+
+`Cirugia` es la **quinta raíz de agregado** del producto veterinario y **cierra el historial
+clínico**: junto a `Consulta` y `Vacunacion`, deja constancia de las operaciones realizadas a un
+animal. Cuelga del animal (solo guarda su `AnimalId`, sin FK entre esquemas). El historial no se
+borra físicamente: una cirugía se «anula» con una baja lógica (`Activo = false`).
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `AnimalId` | `Guid` | Animal intervenido. Obligatorio. Índice `(empresa_id, animal_id)`. |
+| `Fecha` | `DateOnly` | Fecha de la intervención. Obligatoria. **No puede ser futura**. |
+| `Nombre` | `string` | Procedimiento (p. ej. «Esterilización (OVH)»). Obligatorio, máx. 200. |
+| `Descripcion` | `string?` | Detalle o notas de la intervención. Máx. 2000. |
+| `Cirujano` | `string?` | Texto libre (aún no hay entidad Profesional). Máx. 120. |
+| `Anestesia` | `string?` | Tipo o pauta de anestesia. Máx. 200. |
+| `Complicaciones` | `string?` | Complicaciones durante o tras la intervención. Máx. 2000. |
+| `ProximaRevision` | `DateOnly?` | P. ej. retirada de puntos. Si se indica, **no puede ser anterior a `Fecha`**. Índice `(empresa_id, proxima_revision)`. |
+| `Activo` | `bool` | Baja lógica («anular»). |
+| `CreadoEn` / `ActualizadoEn` | `DateTimeOffset` | |
+
+Al registrar una cirugía se emite el evento de dominio `CirugiaRegistrada`. Las cadenas se
+normalizan (se recortan; vacías → `null`) igual que en el resto del módulo.
+
+### API de cirugías
+
+Todas las rutas requieren empresa activa. Lectura → `cirugia.leer`; alta/edición/baja →
+`cirugia.gestionar`.
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| `GET` | `/animales/{animalId}/cirugias` | `cirugia.leer` | Historial de cirugías del animal (más reciente primero). |
+| `POST` | `/animales/{animalId}/cirugias` | `cirugia.gestionar` | Registra una cirugía (la ruta es la fuente del animal). **201**. |
+| `GET` | `/cirugias/{id}` | `cirugia.leer` | Obtiene una cirugía. |
+| `PUT` | `/cirugias/{id}` | `cirugia.gestionar` | Actualiza una cirugía (el animal no cambia). |
+| `DELETE` | `/cirugias/{id}` | `cirugia.gestionar` | Anula (baja lógica) una cirugía (**204**). |
+| `GET` | `/cirugias/proximas-revisiones?dias=30` | `cirugia.leer` | Próximas revisiones de la empresa en la ventana de días (por defecto 30). |
+
+### Reglas e invariantes
+
+- Al **registrar una cirugía** el **animal debe existir en la empresa activa** (vía
+  `IConsultaAnimales`); si no, `cirugia.animal_no_encontrado` (400).
+- La **fecha** es obligatoria y no puede ser futura (`cirugia.fecha_futura`). El **nombre** del
+  procedimiento es obligatorio (`cirugia.nombre_vacio`, `cirugia.nombre_largo` ≤ 200).
+  `Descripcion` (≤ 2000), `Cirujano` (≤ 120), `Anestesia` (≤ 200) y `Complicaciones` (≤ 2000) son
+  opcionales.
+- Si se indica `ProximaRevision`, **no puede ser anterior a `Fecha`** (`cirugia.revision_anterior_a_fecha`).
+- El **historial de cirugías** de un animal se ordena por fecha descendente. Las **próximas
+  revisiones** se listan por `proxima_revision` ascendente (base para recordatorios/KPI).
+- **Multiempresa**: cada empresa solo ve sus propias cirugías (filtro global de EF Core por
+  `empresa_id` + RLS de PostgreSQL sobre la tabla).
+
+La migración `AgregarCirugias` crea la tabla `cirugia` (con sus índices) y activa la RLS por empresa.
+
 ## Tests
 
 - **Unitarios** (`AlxorCore.Clinica.PruebasUnitarias`):
@@ -265,6 +318,9 @@ activa la RLS por empresa sobre ambas.
   - `Vacunacion`: creación válida (emite `VacunacionRegistrada`), animal obligatorio, nombre
     vacío/largo, fecha futura, longitudes de lote/veterinario/notas, normalización, `Actualizar`
     y `Anular`.
+  - `Cirugia`: creación válida (emite `CirugiaRegistrada`), animal obligatorio, fecha futura, nombre
+    vacío/largo, longitudes de descripción/cirujano/anestesia/complicaciones, próxima revisión
+    anterior a la fecha, normalización, `Actualizar` y `Anular`.
   - xUnit + FluentAssertions con un `IReloj` fijo.
 - **Integración** (`AlxorCore.IntegrationTests`), contra un **PostgreSQL real**:
   - `Animal`: alta/obtención/edición por API, alta con cliente inexistente (400), listado por
@@ -276,3 +332,6 @@ activa la RLS por empresa sobre ambas.
     ligada a pauta (comprueba que la próxima dosis se **autocalcula** y el nombre se **copia**),
     registro con pauta de otra especie (400), orden del historial de vacunas, anulación,
     `GET /vacunas/proximas` (ventana) y **aislamiento multiempresa**.
+  - `Cirugia`: registro/obtención/edición por API, orden del historial, registro con animal
+    inexistente (400), `GET /cirugias/proximas-revisiones` (ventana), anulación y **aislamiento
+    multiempresa** (una empresa no ve ni registra cirugías de animales de otra).
