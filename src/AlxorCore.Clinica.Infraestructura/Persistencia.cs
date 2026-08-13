@@ -23,6 +23,8 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<Animal> Animales => Set<Animal>();
 
+    public DbSet<Consulta> Consultas => Set<Consulta>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Esquema);
@@ -105,6 +107,64 @@ internal sealed class RepositorioAnimales : IRepositorioAnimales, IConsultaAnima
     }
 
     private DateOnly Hoy => DateOnly.FromDateTime(_reloj.AhoraUtc.UtcDateTime);
+}
+
+internal sealed class ConfiguracionConsulta : IEntityTypeConfiguration<Consulta>
+{
+    public void Configure(EntityTypeBuilder<Consulta> builder)
+    {
+        builder.ToTable("consulta");
+        builder.HasKey(c => c.Id);
+        builder.Property(c => c.Id).HasColumnName("id");
+        builder.Property(c => c.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(c => c.AnimalId).HasColumnName("animal_id").IsRequired();
+        builder.Property(c => c.Fecha).HasColumnName("fecha").IsRequired();
+        builder.Property(c => c.Motivo).HasColumnName("motivo").HasMaxLength(Consulta.LongitudMaximaMotivo);
+        builder.Property(c => c.Diagnostico).HasColumnName("diagnostico").HasMaxLength(Consulta.LongitudMaximaDiagnostico);
+        builder.Property(c => c.Tratamiento).HasColumnName("tratamiento").HasMaxLength(Consulta.LongitudMaximaTratamiento);
+        builder.Property(c => c.PesoKg).HasColumnName("peso_kg").HasColumnType("numeric(6,3)");
+        builder.Property(c => c.Veterinario).HasColumnName("veterinario").HasMaxLength(Consulta.LongitudMaximaVeterinario);
+        builder.Property(c => c.Activo).HasColumnName("activo").IsRequired();
+        builder.Property(c => c.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(c => c.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        builder.HasIndex(c => new { c.EmpresaId, c.AnimalId }).HasDatabaseName("ix_consulta_empresa_animal");
+        builder.Ignore(c => c.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioConsultas : IRepositorioConsultas, IConsultaConsultas
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioConsultas(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<Consulta?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.Consultas.SingleOrDefaultAsync(c => c.Id == id, ct);
+
+    public void Agregar(Consulta consulta) => _contexto.Consultas.Add(consulta);
+
+    public async Task<ConsultaDto?> ObtenerAsync(Guid id, CancellationToken ct = default)
+    {
+        var consulta = await _contexto.Consultas.SingleOrDefaultAsync(c => c.Id == id, ct).ConfigureAwait(false);
+        return consulta is null ? null : ConsultaDto.Desde(consulta);
+    }
+
+    public async Task<IReadOnlyList<ConsultaDto>> ListarPorAnimalAsync(Guid animalId, bool incluirAnuladas = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.Consultas.Where(c => c.AnimalId == animalId);
+        if (!incluirAnuladas)
+        {
+            consulta = consulta.Where(c => c.Activo);
+        }
+
+        var consultas = await consulta
+            .OrderByDescending(c => c.Fecha)
+            .ThenByDescending(c => c.CreadoEn)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return consultas.Select(ConsultaDto.Desde).ToList();
+    }
 }
 
 /// <summary>Factoría en tiempo de diseño para migraciones.</summary>

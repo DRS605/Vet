@@ -47,5 +47,41 @@ public interface IConsultaAnimales
     Task<IReadOnlyList<AnimalDto>> ListarPorClienteAsync(Guid clienteId, bool incluirInactivos = false, CancellationToken ct = default);
 }
 
+/// <summary>Vista de una consulta (entrada del historial clínico).</summary>
+public sealed record ConsultaDto(
+    Guid Id,
+    Guid AnimalId,
+    DateOnly Fecha,
+    string? Motivo,
+    string? Diagnostico,
+    string? Tratamiento,
+    decimal? PesoKg,
+    string? Veterinario,
+    bool Activo)
+{
+    public static ConsultaDto Desde(Consulta c)
+    {
+        ArgumentNullException.ThrowIfNull(c);
+        return new ConsultaDto(
+            c.Id, c.AnimalId, c.Fecha, c.Motivo, c.Diagnostico, c.Tratamiento, c.PesoKg, c.Veterinario, c.Activo);
+    }
+}
+
+/// <summary>Repositorio de consultas (escritura).</summary>
+public interface IRepositorioConsultas
+{
+    Task<Consulta?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default);
+
+    void Agregar(Consulta consulta);
+}
+
+/// <summary>Consultas de lectura del historial clínico.</summary>
+public interface IConsultaConsultas
+{
+    Task<ConsultaDto?> ObtenerAsync(Guid id, CancellationToken ct = default);
+
+    Task<IReadOnlyList<ConsultaDto>> ListarPorAnimalAsync(Guid animalId, bool incluirAnuladas = false, CancellationToken ct = default);
+}
+
 /// <summary>Unidad de trabajo del módulo Clínica.</summary>
 public interface IUnidadDeTrabajoClinica : IUnidadDeTrabajo;

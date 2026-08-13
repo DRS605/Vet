@@ -177,3 +177,157 @@ public sealed class DarDeBajaAnimal
         return Resultado.Ok();
     }
 }
+
+/// <summary>Datos de una consulta (entrada del historial clínico) para registrar.</summary>
+public sealed record DatosConsulta(
+    Guid AnimalId,
+    DateOnly Fecha,
+    string? Motivo = null,
+    string? Diagnostico = null,
+    string? Tratamiento = null,
+    decimal? PesoKg = null,
+    string? Veterinario = null);
+
+/// <summary>Datos de una consulta al actualizar (el animal no cambia; se toma de la consulta existente).</summary>
+public sealed record DatosActualizarConsulta(
+    DateOnly Fecha,
+    string? Motivo = null,
+    string? Diagnostico = null,
+    string? Tratamiento = null,
+    decimal? PesoKg = null,
+    string? Veterinario = null);
+
+/// <summary>
+/// Caso de uso: registrar una consulta en el historial de un animal de la empresa activa. Verifica
+/// que el animal existe en la empresa (a través de <see cref="IConsultaAnimales"/>).
+/// </summary>
+public sealed class RegistrarConsulta
+{
+    private readonly IRepositorioConsultas _consultas;
+    private readonly IConsultaAnimales _animales;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public RegistrarConsulta(IRepositorioConsultas consultas, IConsultaAnimales animales, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _consultas = consultas;
+        _animales = animales;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<ConsultaDto>> EjecutarAsync(Guid empresaId, DatosConsulta datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        // El filtro multiempresa de EF Core garantiza que solo se encuentra el animal si pertenece a la empresa activa.
+        var animal = await _animales.ObtenerAsync(datos.AnimalId, ct).ConfigureAwait(false);
+        if (animal is null)
+        {
+            return Resultado.Fallo<ConsultaDto>(Error.Validacion("consulta.animal_no_encontrado", "El animal no existe en esta empresa."));
+        }
+
+        var consulta = Consulta.Crear(
+            empresaId, datos.AnimalId, datos.Fecha, _reloj,
+            datos.Motivo, datos.Diagnostico, datos.Tratamiento, datos.PesoKg, datos.Veterinario);
+        if (consulta.EsFallo)
+        {
+            return Resultado.Fallo<ConsultaDto>(consulta.Error);
+        }
+
+        _consultas.Agregar(consulta.Valor);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(ConsultaDto.Desde(consulta.Valor));
+    }
+}
+
+/// <summary>Caso de uso: actualizar una consulta existente (el animal no cambia).</summary>
+public sealed class ActualizarConsulta
+{
+    private readonly IRepositorioConsultas _consultas;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public ActualizarConsulta(IRepositorioConsultas consultas, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _consultas = consultas;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<ConsultaDto>> EjecutarAsync(Guid consultaId, DatosActualizarConsulta datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        var consulta = await _consultas.ObtenerPorIdAsync(consultaId, ct).ConfigureAwait(false);
+        if (consulta is null)
+        {
+            return Resultado.Fallo<ConsultaDto>(Error.NoEncontrado("consulta.no_encontrada", "La consulta no existe."));
+        }
+
+        var actualizada = consulta.Actualizar(
+            datos.Fecha, _reloj, datos.Motivo, datos.Diagnostico, datos.Tratamiento, datos.PesoKg, datos.Veterinario);
+        if (actualizada.EsFallo)
+        {
+            return Resultado.Fallo<ConsultaDto>(actualizada.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(ConsultaDto.Desde(consulta));
+    }
+}
+
+/// <summary>Caso de uso: obtener una consulta por su identificador.</summary>
+public sealed class ObtenerConsulta
+{
+    private readonly IConsultaConsultas _consulta;
+
+    public ObtenerConsulta(IConsultaConsultas consulta) => _consulta = consulta;
+
+    public async Task<Resultado<ConsultaDto>> EjecutarAsync(Guid consultaId, CancellationToken ct = default)
+    {
+        var consulta = await _consulta.ObtenerAsync(consultaId, ct).ConfigureAwait(false);
+        return consulta is null
+            ? Resultado.Fallo<ConsultaDto>(Error.NoEncontrado("consulta.no_encontrada", "La consulta no existe."))
+            : Resultado.Ok(consulta);
+    }
+}
+
+/// <summary>Caso de uso: listar el historial clínico (consultas) de un animal, de la más reciente a la más antigua.</summary>
+public sealed class ListarConsultasDeAnimal
+{
+    private readonly IConsultaConsultas _consulta;
+
+    public ListarConsultasDeAnimal(IConsultaConsultas consulta) => _consulta = consulta;
+
+    public Task<IReadOnlyList<ConsultaDto>> EjecutarAsync(Guid animalId, CancellationToken ct = default) =>
+        _consulta.ListarPorAnimalAsync(animalId, incluirAnuladas: false, ct);
+}
+
+/// <summary>Caso de uso: anular (baja lógica) una consulta del historial.</summary>
+public sealed class AnularConsulta
+{
+    private readonly IRepositorioConsultas _consultas;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public AnularConsulta(IRepositorioConsultas consultas, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _consultas = consultas;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado> EjecutarAsync(Guid consultaId, CancellationToken ct = default)
+    {
+        var consulta = await _consultas.ObtenerPorIdAsync(consultaId, ct).ConfigureAwait(false);
+        if (consulta is null)
+        {
+            return Resultado.Fallo(Error.NoEncontrado("consulta.no_encontrada", "La consulta no existe."));
+        }
+
+        consulta.Anular(_reloj);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok();
+    }
+}

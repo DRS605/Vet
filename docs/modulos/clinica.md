@@ -20,12 +20,15 @@ sobre la que se construirán las historias clínicas, las visitas y las vacunas.
 
 ```
 AlxorCore.Clinica/                   # puro, sin frameworks
-  Dominio/        Animal, EspecieAnimal, SexoAnimal, AnimalCreado (evento)
-  Aplicacion/     DatosAnimal, AnimalDto, casos de uso, contratos (IRepositorioAnimales,
-                  IConsultaAnimales, IUnidadDeTrabajoClinica)
+  Dominio/        Animal, EspecieAnimal, SexoAnimal, AnimalCreado (evento);
+                  Consulta, ConsultaRegistrada (evento)
+  Aplicacion/     DatosAnimal, AnimalDto, DatosConsulta, ConsultaDto, casos de uso, contratos
+                  (IRepositorioAnimales, IConsultaAnimales, IRepositorioConsultas,
+                  IConsultaConsultas, IUnidadDeTrabajoClinica)
 AlxorCore.Clinica.Infraestructura/   # adaptadores
-  Persistencia.cs ClinicaDbContext, ConfiguracionAnimal, RepositorioAnimales, DbContextFactory
-  Persistencia/Migraciones/          MigracionInicialClinica
+  Persistencia.cs ClinicaDbContext, ConfiguracionAnimal/ConfiguracionConsulta,
+                  RepositorioAnimales/RepositorioConsultas, DbContextFactory
+  Persistencia/Migraciones/          MigracionInicialClinica, AgregarConsultas
   RegistroServicios.AgregarModuloClinica(...)
 ```
 
@@ -106,12 +109,68 @@ Los errores se devuelven como `ProblemDetails` (RFC 7807) con un `codigo` establ
   de dominio.
 - Migración inicial: `MigracionInicialClinica` (activa la RLS por empresa sobre `animal`).
 
+## Agregado `Consulta` (historial clínico)
+
+Segundo agregado del módulo. Una **consulta** es una entrada del historial clínico de un animal;
+cuelga del `Animal` (guarda solo su `animal_id`, sin clave foránea entre esquemas). El historial
+**no se borra**: una consulta se **anula** con una baja lógica. Raíz de agregado multiempresa
+(`RaizAgregadoEmpresa<Guid>`). Esquema `clinica`, tabla `consulta`.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `AnimalId` | `Guid` | Animal atendido. Obligatorio. Índice `(empresa_id, animal_id)`. |
+| `Fecha` | `DateOnly` | Obligatoria. **No puede ser futura** (se valida con `IReloj`). |
+| `Motivo` | `string?` | Motivo de la visita. Máx. 200. |
+| `Diagnostico` | `string?` | Máx. 2000. |
+| `Tratamiento` | `string?` | Máx. 2000. |
+| `PesoKg` | `decimal?` | `numeric(6,3)`. Si se indica, **> 0**. Peso tomado en la visita. |
+| `Veterinario` | `string?` | Profesional que atiende (texto libre; aún no hay entidad Profesional). Máx. 120. |
+| `Activo` | `bool` | Baja lógica («anular»). |
+| `CreadoEn` / `ActualizadoEn` | `DateTimeOffset` | |
+
+Al registrar una consulta se emite el evento de dominio `ConsultaRegistrada`. Las cadenas se
+normalizan (se recortan; vacías → `null`) igual que en `Animal`.
+
+### API de consultas
+
+Todas las rutas requieren empresa activa. Lectura → `consulta.leer`; alta/edición/anulación →
+`consulta.gestionar`.
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| `GET` | `/animales/{animalId}/consultas` | `consulta.leer` | Historial clínico del animal (más reciente primero). |
+| `POST` | `/animales/{animalId}/consultas` | `consulta.gestionar` | Registra una consulta. Devuelve **201**. |
+| `GET` | `/consultas/{id}` | `consulta.leer` | Obtiene una consulta. |
+| `PUT` | `/consultas/{id}` | `consulta.gestionar` | Actualiza una consulta (el animal no cambia). |
+| `DELETE` | `/consultas/{id}` | `consulta.gestionar` | Anula (baja lógica) una consulta (**204**). |
+
+### Reglas e invariantes
+
+- El **animal debe existir en la empresa activa** al registrar la consulta; si no, se devuelve
+  `consulta.animal_no_encontrado` (400). La comprobación usa `IConsultaAnimales`, cuyo filtro
+  multiempresa garantiza además que el animal pertenece a la empresa activa.
+- La **fecha** es obligatoria y no puede ser futura.
+- `Motivo` (≤ 200), `Diagnostico` (≤ 2000), `Tratamiento` (≤ 2000) y `Veterinario` (≤ 120) son
+  opcionales; el **peso**, si se indica, debe ser mayor que cero.
+- El **historial se ordena** por fecha descendente y, a igualdad, por fecha de creación descendente.
+- **Multiempresa**: cada empresa solo ve las consultas de sus propios animales (filtro global de EF
+  Core por `empresa_id` + RLS de PostgreSQL sobre `consulta`).
+
+La migración `AgregarConsultas` crea la tabla `consulta` y activa su RLS por empresa.
+
 ## Tests
 
-- **Unitarios** (`AlxorCore.Clinica.PruebasUnitarias`): creación válida y sus rechazos (nombre
-  vacío/largo, cliente vacío, especie/sexo inválidos, fecha futura, peso ≤ 0), normalización del
-  microchip, `EdadMeses`, `EsCachorro` en los límites del umbral por especie, `Actualizar` y
-  `Desactivar`. xUnit + FluentAssertions con un `IReloj` fijo.
-- **Integración** (`AlxorCore.IntegrationTests`): alta/obtención/edición por API, alta con cliente
-  inexistente (400), listado por cliente, baja lógica, cálculo de cachorro y **aislamiento
-  multiempresa**, contra un **PostgreSQL real**.
+- **Unitarios** (`AlxorCore.Clinica.PruebasUnitarias`):
+  - `Animal`: creación válida y sus rechazos (nombre vacío/largo, cliente vacío, especie/sexo
+    inválidos, fecha futura, peso ≤ 0), normalización del microchip, `EdadMeses`, `EsCachorro` en
+    los límites del umbral por especie, `Actualizar` y `Desactivar`.
+  - `Consulta`: creación válida (emite `ConsultaRegistrada`), animal obligatorio, fecha futura,
+    longitudes de motivo/diagnóstico/tratamiento/veterinario, peso ≤ 0, normalización, `Actualizar`
+    y `Anular`.
+  - xUnit + FluentAssertions con un `IReloj` fijo.
+- **Integración** (`AlxorCore.IntegrationTests`), contra un **PostgreSQL real**:
+  - `Animal`: alta/obtención/edición por API, alta con cliente inexistente (400), listado por
+    cliente, baja lógica, cálculo de cachorro y **aislamiento multiempresa**.
+  - `Consulta`: registro/obtención/edición por API, orden del historial, registro con animal
+    inexistente (400), anulación y **aislamiento multiempresa** (una empresa no ve ni registra
+    consultas de animales de otra).

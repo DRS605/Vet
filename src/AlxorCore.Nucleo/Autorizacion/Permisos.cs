@@ -28,6 +28,8 @@ public static class Permisos
     // Clínica (producto veterinario)
     public const string AnimalLeer = "animal.leer";
     public const string AnimalGestionar = "animal.gestionar";
+    public const string ConsultaLeer = "consulta.leer";
+    public const string ConsultaGestionar = "consulta.gestionar";
 
     // Informes y datos
     public const string InformeLeer = "informe.leer";
@@ -45,6 +47,7 @@ public static class Permisos
         CobroRegistrar, PagoRegistrar,
         ClienteGestionar, ProductoGestionar,
         AnimalLeer, AnimalGestionar,
+        ConsultaLeer, ConsultaGestionar,
         InformeLeer, DatosExportar,
         EmpresaAjustes, UsuarioGestionar,
     };

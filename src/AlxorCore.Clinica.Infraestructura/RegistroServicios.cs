@@ -31,12 +31,22 @@ public static class RegistroServicios
         servicios.AddScoped<IRepositorioAnimales>(sp => sp.GetRequiredService<RepositorioAnimales>());
         servicios.AddScoped<IConsultaAnimales>(sp => sp.GetRequiredService<RepositorioAnimales>());
 
+        servicios.AddScoped<RepositorioConsultas>();
+        servicios.AddScoped<IRepositorioConsultas>(sp => sp.GetRequiredService<RepositorioConsultas>());
+        servicios.AddScoped<IConsultaConsultas>(sp => sp.GetRequiredService<RepositorioConsultas>());
+
         servicios.AddScoped<CrearAnimal>();
         servicios.AddScoped<ActualizarAnimal>();
         servicios.AddScoped<ListarAnimales>();
         servicios.AddScoped<ListarAnimalesDeCliente>();
         servicios.AddScoped<ObtenerAnimal>();
         servicios.AddScoped<DarDeBajaAnimal>();
+
+        servicios.AddScoped<RegistrarConsulta>();
+        servicios.AddScoped<ActualizarConsulta>();
+        servicios.AddScoped<ObtenerConsulta>();
+        servicios.AddScoped<ListarConsultasDeAnimal>();
+        servicios.AddScoped<AnularConsulta>();
 
         return servicios;
     }
