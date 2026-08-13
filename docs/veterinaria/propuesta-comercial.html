@@ -102,6 +102,22 @@
   .diffbox .row b{color:#ffd77a;}
   .diffbox .row span{color:#f0e2d0;}
 
+  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;align-items:stretch;}
+  @media(max-width:640px){.plans{grid-template-columns:1fr;}}
+  .plan{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:20px 18px;box-shadow:var(--shadow);display:flex;flex-direction:column;}
+  .plan.best{border:2px solid var(--accent);position:relative;box-shadow:0 14px 34px rgba(198,122,18,.18);}
+  .plan .ribbon{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--grad-honey);color:#2e1b0e;font-weight:800;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:4px 11px;border-radius:999px;white-space:nowrap;}
+  .plan .pn{font-size:13px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);}
+  .plan .pp{font-size:30px;font-weight:800;letter-spacing:-.02em;margin:8px 0 2px;}
+  .plan .pp small{font-size:14px;font-weight:600;color:var(--muted);}
+  .plan .pd{font-size:13px;color:var(--muted);margin-bottom:14px;min-height:34px;}
+  .plan ul{list-style:none;padding:0;margin:0 0 4px;flex:1;}
+  .plan li{font-size:13.5px;padding:6px 0 6px 24px;position:relative;color:var(--ink);border-top:1px solid var(--line);}
+  .plan li:first-child{border-top:none;}
+  .plan li::before{content:"✓";position:absolute;left:0;color:var(--vet);font-weight:800;}
+  .plan li.na{color:var(--muted);} .plan li.na::before{content:"–";color:var(--muted);}
+  .plans-note{font-size:12px;color:var(--muted);margin-top:12px;text-align:center;}
+
   .close{margin-top:48px;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px;text-align:center;box-shadow:var(--shadow);}
   .close h3{font-size:24px;margin:0 0 8px;letter-spacing:-.02em;}
   .close p{margin:0 auto 20px;color:var(--muted);max-width:480px;font-size:15px;}
@@ -187,6 +203,53 @@
       <div class="row"><span class="e">🍼</span><div><b>Convierte al cachorro en un plan.</b> <span>No una casilla: una experiencia con hitos que fideliza desde el primer día.</span></div></div>
       <div class="row"><span class="e">🎯</span><div><b>Mide lo que importa.</b> <span>El KPI de citas confirmadas no lo miras: lo mueves, toque a toque.</span></div></div>
     </div>
+  </section>
+
+  <section>
+    <h2>Planes</h2>
+    <div class="plans">
+      <div class="plan">
+        <div class="pn">Esencial</div>
+        <div class="pp">39 €<small> /mes</small></div>
+        <div class="pd">Para la clínica que quiere dejar el papel y cumplir con Hacienda.</div>
+        <ul>
+          <li>Clientes y sus animales</li>
+          <li>Historial: consultas, vacunas, cirugías</li>
+          <li>Vacunas por especie + recordatorios por correo</li>
+          <li>Agenda y KPIs de confirmación</li>
+          <li>Facturación VeriFactu</li>
+          <li class="na">Cartilla Viva (app del dueño)</li>
+          <li class="na">Avisos por WhatsApp / SMS</li>
+        </ul>
+      </div>
+      <div class="plan best">
+        <span class="ribbon">★ El recomendado</span>
+        <div class="pn">Pro</div>
+        <div class="pp">69 €<small> /mes</small></div>
+        <div class="pd">Todo lo de Esencial + el diferencial que te distingue del resto.</div>
+        <ul>
+          <li><b>Cartilla Viva</b>: la mascota en el móvil del dueño</li>
+          <li>Confirmar cita de un toque</li>
+          <li>Plan de crecimiento del cachorro</li>
+          <li>Avisos por WhatsApp / SMS</li>
+          <li>Multiveterinario (agenda por profesional)</li>
+          <li>Todo lo del plan Esencial</li>
+        </ul>
+      </div>
+      <div class="plan">
+        <div class="pn">Clínica+</div>
+        <div class="pp">A medida</div>
+        <div class="pd">Para varios centros o volúmenes altos, con acompañamiento.</div>
+        <ul>
+          <li>Varias sedes y roles avanzados</li>
+          <li>Soporte prioritario y formación</li>
+          <li>Migración de tus datos actuales</li>
+          <li>Informes y exportación para la gestoría</li>
+          <li>Todo lo del plan Pro</li>
+        </ul>
+      </div>
+    </div>
+    <p class="plans-note">Precios orientativos (IVA no incluido) · facturación mensual o anual · sin permanencia. Ajustables a tu propuesta final.</p>
   </section>
 
   <div class="close">
