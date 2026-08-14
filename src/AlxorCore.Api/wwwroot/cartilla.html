@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#2e1b0e" />
+  <title>Cartilla Viva</title>
+  <style>
+    :root{
+      /* Identidad CHOCOLATE + MIEL (cálida, "animal"). */
+      --ink:#2e1b0e; --muted:#8a6f5c; --line:#ece1d4; --surface:#ffffff;
+      --accent:#c67a12; --accent-soft:#fff0ce;
+      --grad:linear-gradient(135deg,#6b4423,#2e1b0e);
+      --grad-honey:linear-gradient(135deg,#ffcb3e,#f0a500);
+      --vet:#5e7f2e; --vet-soft:#eef4df;
+      --pos:#5e7f2e; --neg:#c0492f; --warn:#c9871a;
+      --honey-soft:#ffefc4; --honey-ink:#9a6b0f;
+      --shadow:0 1px 2px rgba(46,27,14,.06),0 10px 26px rgba(46,27,14,.10);
+      --radius:16px;
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;}
+    body{
+      background:
+        radial-gradient(900px 460px at 82% -10%, rgba(245,168,0,.20), transparent 60%),
+        linear-gradient(180deg,#f7f0e6,#efe2cd);
+      color:var(--ink); min-height:100vh;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+      font-size:15px; -webkit-font-smoothing:antialiased; line-height:1.45;
+      padding:0 0 40px;
+    }
+    button{font-family:inherit;cursor:pointer;}
+    .wrap{max-width:460px; margin:0 auto; padding:0 16px;}
+
+    /* Cabecera */
+    .top{padding:22px 16px 12px; max-width:460px; margin:0 auto;}
+    .brand{display:flex; align-items:center; gap:9px; color:var(--muted); font-weight:700; font-size:12.5px; letter-spacing:.02em;}
+    .mark{width:30px;height:30px;border-radius:10px;background:var(--grad);position:relative;flex:none;box-shadow:0 6px 16px rgba(46,27,14,.28);}
+    .mark::before{content:"🐾";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:13px;}
+    .clinic{color:var(--ink);}
+
+    .hero{display:flex; align-items:center; gap:14px; margin-top:16px;}
+    .avatar{width:60px;height:60px;border-radius:20px;background:var(--accent-soft);display:grid;place-items:center;font-size:32px;flex:none;box-shadow:var(--shadow);}
+    .hero h1{margin:0; font-size:24px; letter-spacing:-.01em;}
+    .hero .meta{color:var(--muted); font-size:13.5px; margin-top:2px;}
+    .kicker{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--honey-ink);}
+
+    /* Selector de animales */
+    .pets{display:flex; gap:8px; overflow-x:auto; padding:16px 16px 4px; max-width:460px; margin:0 auto; -webkit-overflow-scrolling:touch;}
+    .pets::-webkit-scrollbar{display:none;}
+    .pet{flex:none; border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:999px; padding:8px 14px; font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:7px; box-shadow:var(--shadow);}
+    .pet.on{background:var(--grad); color:#fff; border-color:transparent;}
+
+    /* Tarjetas */
+    .card{background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin:14px 0; box-shadow:var(--shadow);}
+    .lab{font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:8px;}
+    .confirm-card{background:linear-gradient(160deg,#fffaf0,#fff3d6); border-color:#f3dca0;}
+    .when{font-size:20px; font-weight:800; letter-spacing:-.01em;}
+    .det{color:var(--muted); font-size:13.5px; margin-top:4px;}
+    .chip{display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:5px 11px; border-radius:999px;}
+    .chip.ok{background:var(--vet-soft); color:var(--vet);}
+    .chip.warn{background:var(--honey-soft); color:var(--honey-ink);}
+    .chip.due{background:#fbe4dd; color:var(--neg);}
+    .chip.done{background:var(--vet); color:#fff;}
+
+    .btn{width:100%; border:none; border-radius:13px; padding:15px; font-size:16px; font-weight:800; color:#fff; background:var(--grad-honey); color:var(--ink); box-shadow:0 8px 20px rgba(240,165,0,.35); margin-top:14px; transition:transform .08s ease, opacity .15s;}
+    .btn:active{transform:scale(.98);}
+    .btn[disabled]{opacity:.55; cursor:default; box-shadow:none;}
+    .btn.done-state{background:var(--vet-soft); color:var(--vet); box-shadow:none;}
+
+    .vrow{display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 0; border-top:1px dashed var(--line);}
+    .vrow:first-of-type{border-top:none;}
+    .vrow .vn{font-weight:600;}
+    .vrow .vd{font-size:12px; color:var(--muted); margin-top:1px;}
+
+    .qr-note{margin-top:12px; padding:12px; border:1px dashed var(--line); border-radius:12px; color:var(--muted); font-size:12.5px; display:flex; align-items:center; gap:10px; background:#fbf6ee;}
+    .qr-note .q{width:34px;height:34px;border-radius:8px;background:repeating-linear-gradient(45deg,#e7d8c2,#e7d8c2 3px,#f6efe3 3px,#f6efe3 6px);flex:none;}
+
+    /* Plan de crecimiento */
+    .prog{height:8px; border-radius:999px; background:var(--line); overflow:hidden; margin:4px 0 14px;}
+    .prog > i{display:block; height:100%; background:var(--grad-honey);}
+    .mile{display:flex; align-items:flex-start; gap:12px; padding:9px 0;}
+    .ms{width:26px;height:26px;border-radius:50%;flex:none;display:grid;place-items:center;font-weight:800;font-size:12.5px;background:var(--line);color:var(--muted);}
+    .mile.done .ms{background:var(--vet); color:#fff;}
+    .mile.now .ms{background:var(--grad-honey); color:var(--ink);}
+    .mt b{display:block; font-size:14px;}
+    .mt span{font-size:12px; color:var(--muted);}
+    .mile.now .mt span{color:var(--honey-ink); font-weight:700;}
+
+    /* Estados */
+    .state{max-width:460px; margin:0 auto; padding:70px 24px; text-align:center; color:var(--muted);}
+    .state .big{font-size:44px; margin-bottom:10px;}
+    .state h2{color:var(--ink); margin:0 0 6px; font-size:20px;}
+    .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--accent);margin:0 auto 16px;animation:spin .8s linear infinite;}
+    @keyframes spin{to{transform:rotate(360deg);}}
+    .foot{text-align:center; color:var(--muted); font-size:11.5px; padding:24px 16px 0;}
+
+    /* Toast */
+    .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; padding:13px 18px; border-radius:12px; font-weight:700; font-size:14px; box-shadow:0 12px 30px rgba(46,27,14,.35); opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:50; max-width:90vw;}
+    .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+    .toast.err{background:var(--neg);}
+
+    .hidden{display:none !important;}
+  </style>
+</head>
+<body>
+  <div id="loading" class="state">
+    <div class="spinner"></div>
+    <div>Cargando la cartilla…</div>
+  </div>
+
+  <div id="error" class="state hidden">
+    <div class="big">🐾</div>
+    <h2 id="error-title">No hemos podido abrir la cartilla</h2>
+    <p id="error-msg">El enlace no es válido o ha caducado. Pídele a tu clínica un enlace nuevo.</p>
+  </div>
+
+  <main id="app" class="hidden">
+    <header class="top">
+      <div class="brand"><span class="mark"></span> <span>Cartilla Viva · <span class="clinic" id="clinic">—</span></span></div>
+      <div class="hero">
+        <div class="avatar" id="avatar">🐾</div>
+        <div>
+          <div class="kicker" id="hello">Hola</div>
+          <h1 id="pet-name">—</h1>
+          <div class="meta" id="pet-meta">—</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="pets hidden" id="pets"></div>
+
+    <div class="wrap" id="content"></div>
+
+    <div class="foot">ALXOR Vet · Cartilla Viva. Tus datos, en tu bolsillo.</div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    "use strict";
+
+    // ---- Token de la URL (única credencial del portal) ----
+    const params = new URLSearchParams(window.location.search);
+    const TOKEN = (params.get("token") || "").trim();
+
+    const EMOJI = {
+      Perro: "🐕", Gato: "🐈", Conejo: "🐇", Ave: "🐦", Huron: "🦦", Reptil: "🦎", Otro: "🐾",
+    };
+
+    let cartilla = null;
+    let seleccion = 0;
+
+    const $ = (id) => document.getElementById(id);
+
+    function mostrar(el) {
+      $("loading").classList.add("hidden");
+      $("error").classList.add("hidden");
+      $("app").classList.add("hidden");
+      el.classList.remove("hidden");
+    }
+
+    function toast(mensaje, esError) {
+      const t = $("toast");
+      t.textContent = mensaje;
+      t.classList.toggle("err", !!esError);
+      t.classList.add("show");
+      window.clearTimeout(toast._t);
+      toast._t = window.setTimeout(() => t.classList.remove("show"), 2600);
+    }
+
+    function fmtFecha(iso) {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      const f = new Intl.DateTimeFormat("es-ES", {
+        weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+      });
+      const txt = f.format(d);
+      return txt.charAt(0).toUpperCase() + txt.slice(1);
+    }
+
+    function chipVacuna(estado) {
+      if (estado === "Al día") return '<span class="chip ok">✓ Al día</span>';
+      if (estado === "Próxima") return '<span class="chip warn">Próxima</span>';
+      if (estado === "Pendiente") return '<span class="chip due">Toca renovar</span>';
+      return '<span class="chip">' + estado + "</span>";
+    }
+
+    async function cargar() {
+      if (!TOKEN) {
+        return fallo("Falta el enlace", "Abre la cartilla desde el enlace que te ha enviado tu clínica.");
+      }
+      try {
+        const resp = await fetch("/portal/" + encodeURIComponent(TOKEN), { headers: { Accept: "application/json" } });
+        if (resp.status === 404) {
+          return fallo("Enlace no válido", "El enlace no es válido o ha caducado. Pídele a tu clínica un enlace nuevo.");
+        }
+        if (!resp.ok) {
+          return fallo("Algo ha ido mal", "No hemos podido cargar la cartilla. Inténtalo de nuevo en un momento.");
+        }
+        cartilla = await resp.json();
+        pintar();
+      } catch (e) {
+        fallo("Sin conexión", "No hemos podido conectar. Comprueba tu conexión e inténtalo de nuevo.");
+      }
+    }
+
+    function fallo(titulo, mensaje) {
+      $("error-title").textContent = titulo;
+      $("error-msg").textContent = mensaje;
+      mostrar($("error"));
+    }
+
+    function pintar() {
+      if (!cartilla || !cartilla.animales || cartilla.animales.length === 0) {
+        $("clinic").textContent = (cartilla && cartilla.nombreClinica) || "Tu clínica";
+        return vacio();
+      }
+
+      $("clinic").textContent = cartilla.nombreClinica || "Tu clínica";
+      $("hello").textContent = cartilla.nombreCliente ? "Hola, " + cartilla.nombreCliente : "Hola";
+
+      if (cartilla.animales.length > 1) {
+        pintarSelector();
+      }
+      pintarAnimal();
+      mostrar($("app"));
+    }
+
+    function vacio() {
+      $("hello").textContent = cartilla.nombreCliente ? "Hola, " + cartilla.nombreCliente : "Hola";
+      $("pet-name").textContent = "Aún no hay mascotas";
+      $("pet-meta").textContent = "Cuando tu clínica añada tus animales, aparecerán aquí.";
+      $("avatar").textContent = "🐾";
+      $("content").innerHTML = "";
+      mostrar($("app"));
+    }
+
+    function pintarSelector() {
+      const cont = $("pets");
+      cont.classList.remove("hidden");
+      cont.innerHTML = "";
+      cartilla.animales.forEach((a, i) => {
+        const b = document.createElement("button");
+        b.className = "pet" + (i === seleccion ? " on" : "");
+        b.innerHTML = (EMOJI[a.especie] || "🐾") + " " + escapar(a.nombre);
+        b.addEventListener("click", () => { seleccion = i; pintarSelector(); pintarAnimal(); });
+        cont.appendChild(b);
+      });
+    }
+
+    function escapar(s) {
+      const d = document.createElement("div");
+      d.textContent = s == null ? "" : String(s);
+      return d.innerHTML;
+    }
+
+    function pintarAnimal() {
+      const a = cartilla.animales[seleccion];
+      $("avatar").textContent = EMOJI[a.especie] || "🐾";
+      $("pet-name").textContent = a.nombre;
+      const meta = [a.especieTexto, a.edadTexto, a.esCachorro ? "Cachorro" : null].filter(Boolean).join(" · ");
+      $("pet-meta").textContent = meta;
+
+      const partes = [];
+      partes.push(bloqueCita(a.proximaCita));
+      partes.push(bloqueVacunas(a.vacunas));
+      if (a.esCachorro && a.hitos && a.hitos.length) {
+        partes.push(bloquePlan(a.hitos));
+      }
+      $("content").innerHTML = partes.join("");
+      cablearConfirmar(a.proximaCita);
+    }
+
+    function bloqueCita(cita) {
+      if (!cita) {
+        return '<div class="card"><div class="lab">Próxima cita</div>'
+          + '<div class="det">No tienes ninguna cita próxima. Tu clínica te avisará cuando toque. 🐾</div></div>';
+      }
+      const confirmada = cita.estado === "Confirmada";
+      const boton = confirmada
+        ? '<button class="btn done-state" disabled>Confirmada ✓</button>'
+        : '<button class="btn" id="btn-confirmar" data-cita="' + cita.citaId + '">Confirmar cita ✓</button>';
+      return '<div class="card confirm-card">'
+        + '<div class="lab">Tu próxima cita</div>'
+        + '<div class="when">' + fmtFecha(cita.inicio) + "</div>"
+        + '<div class="det">' + (escapar(cita.motivo) || cita.tipo || "Visita") + "</div>"
+        + '<div style="margin-top:8px">' + (confirmada
+            ? '<span class="chip done">Confirmada</span>'
+            : '<span class="chip warn">' + escapar(cita.estadoTexto || "Por confirmar") + "</span>") + "</div>"
+        + boton
+        + "</div>";
+    }
+
+    function bloqueVacunas(vacunas) {
+      let filas = "";
+      if (!vacunas || vacunas.length === 0) {
+        filas = '<div class="det">Todavía no hay vacunas registradas.</div>';
+      } else {
+        filas = vacunas.map((v) => {
+          const prox = v.proximaDosis ? '<div class="vd">Próxima dosis: ' + fmtDosis(v.proximaDosis) + "</div>" : "";
+          return '<div class="vrow"><div><div class="vn">' + escapar(v.nombre) + "</div>" + prox + "</div>" + chipVacuna(v.estado) + "</div>";
+        }).join("");
+      }
+      const qr = '<div class="qr-note"><span class="q"></span><span>Código QR de la cartilla para viajes, residencia o peluquería: <b>próximamente</b>.</span></div>';
+      return '<div class="card"><div class="lab">Vacunas</div>' + filas + qr + "</div>";
+    }
+
+    function fmtDosis(iso) {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return "";
+      return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "short", year: "numeric" }).format(d);
+    }
+
+    function bloquePlan(hitos) {
+      const hechos = hitos.filter((h) => h.estado === "Hecho").length;
+      const pct = Math.round((hechos / hitos.length) * 100);
+      const filas = hitos.map((h) => {
+        const cls = h.estado === "Hecho" ? "done" : (h.estado === "Actual" ? "now" : "");
+        const marca = h.estado === "Hecho" ? "✓" : String(h.orden);
+        const sufijo = h.estado === "Actual" ? " · te toca 👉" : "";
+        return '<div class="mile ' + cls + '"><span class="ms">' + marca + '</span>'
+          + '<div class="mt"><b>' + escapar(h.titulo) + "</b><span>" + escapar(h.detalle) + sufijo + "</span></div></div>";
+      }).join("");
+      return '<div class="card"><div class="lab">Plan de crecimiento 🍼</div>'
+        + '<div class="det" style="margin-bottom:8px">Tu progreso · ' + hechos + " de " + hitos.length + " hitos</div>"
+        + '<div class="prog"><i style="width:' + pct + '%"></i></div>'
+        + filas + "</div>";
+    }
+
+    function cablearConfirmar(cita) {
+      const btn = $("btn-confirmar");
+      if (!btn || !cita) return;
+      btn.addEventListener("click", () => confirmar(btn, cita.citaId), { once: true });
+    }
+
+    async function confirmar(btn, citaId) {
+      const textoOriginal = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Confirmando…";
+      try {
+        const resp = await fetch("/portal/" + encodeURIComponent(TOKEN) + "/citas/" + encodeURIComponent(citaId) + "/confirmar", {
+          method: "POST", headers: { Accept: "application/json" },
+        });
+        if (!resp.ok) throw new Error("estado " + resp.status);
+        const actualizada = await resp.json();
+        // Actualiza el modelo local para que el estado persista al cambiar de mascota.
+        const a = cartilla.animales[seleccion];
+        if (a.proximaCita && a.proximaCita.citaId === citaId) {
+          a.proximaCita.estado = actualizada.estado || "Confirmada";
+          a.proximaCita.estadoTexto = actualizada.estadoTexto || "Confirmada";
+        }
+        btn.classList.add("done-state");
+        btn.textContent = "Confirmada ✓";
+        toast("¡Cita confirmada! Nos vemos pronto 🐾", false);
+        pintarAnimal();
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = textoOriginal;
+        cablearConfirmar(cita);
+        toast("No se pudo confirmar. Inténtalo de nuevo.", true);
+      }
+    }
+
+    cargar();
+  </script>
+</body>
+</html>

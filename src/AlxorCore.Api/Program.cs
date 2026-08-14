@@ -112,6 +112,7 @@ if (app.Environment.IsDevelopment())
     await ambito.ServiceProvider.GetRequiredService<AlxorCore.Terceros.Infraestructura.TercerosDbContext>().Database.MigrateAsync().ConfigureAwait(false);
     await ambito.ServiceProvider.GetRequiredService<AlxorCore.Clinica.Infraestructura.ClinicaDbContext>().Database.MigrateAsync().ConfigureAwait(false);
     await ambito.ServiceProvider.GetRequiredService<AlxorCore.Catalogo.Infraestructura.CatalogoDbContext>().Database.MigrateAsync().ConfigureAwait(false);
+    // (La migración de Clínica incluye la tabla clinica.acceso_portal de la Cartilla Viva.)
     await ambito.ServiceProvider.GetRequiredService<AlxorCore.Facturacion.Infraestructura.FacturacionDbContext>().Database.MigrateAsync().ConfigureAwait(false);
     await ambito.ServiceProvider.GetRequiredService<AlxorCore.Gastos.Infraestructura.GastosDbContext>().Database.MigrateAsync().ConfigureAwait(false);
     await ambito.ServiceProvider.GetRequiredService<AlxorCore.Tesoreria.Infraestructura.TesoreriaDbContext>().Database.MigrateAsync().ConfigureAwait(false);
@@ -141,6 +142,7 @@ app.MapearOrganizacion();
 app.MapearUsuarios();
 app.MapearTerceros();
 app.MapearClinica();
+app.MapearPortal();
 app.MapearCatalogo();
 app.MapearFacturacion();
 app.MapearGastos();

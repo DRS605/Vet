@@ -37,6 +37,8 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<ActoClinico> ActosClinicos => Set<ActoClinico>();
 
+    public DbSet<AccesoPortal> AccesosPortal => Set<AccesoPortal>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Esquema);
@@ -729,6 +731,54 @@ internal sealed class RepositorioActosClinicos : IRepositorioActosClinicos, ICon
             .ConfigureAwait(false);
         return actos.Select(ActoClinicoDto.Desde).ToList();
     }
+}
+
+internal sealed class ConfiguracionAccesoPortal : IEntityTypeConfiguration<AccesoPortal>
+{
+    public void Configure(EntityTypeBuilder<AccesoPortal> builder)
+    {
+        builder.ToTable("acceso_portal");
+        builder.HasKey(a => a.Id);
+        builder.Property(a => a.Id).HasColumnName("id");
+        builder.Property(a => a.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(a => a.ClienteId).HasColumnName("cliente_id").IsRequired();
+        builder.Property(a => a.Token).HasColumnName("token").HasMaxLength(AccesoPortal.LongitudMaximaToken).IsRequired();
+        builder.Property(a => a.Activo).HasColumnName("activo").IsRequired();
+        builder.Property(a => a.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(a => a.RevocadoEn).HasColumnName("revocado_en");
+
+        // El token es la credencial del portal: único en todo el sistema (índice único global).
+        builder.HasIndex(a => a.Token).HasDatabaseName("ux_acceso_portal_token").IsUnique();
+        // Un cliente tiene como mucho un acceso activo (índice único parcial).
+        builder.HasIndex(a => new { a.EmpresaId, a.ClienteId })
+            .HasDatabaseName("ux_acceso_portal_cliente_activo")
+            .IsUnique()
+            .HasFilter("activo");
+        builder.Ignore(a => a.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioAccesosPortal : IRepositorioAccesosPortal, IConsultaAccesosPortal
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioAccesosPortal(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<AccesoPortal?> ObtenerActivoPorClienteAsync(Guid clienteId, CancellationToken ct = default) =>
+        _contexto.AccesosPortal.SingleOrDefaultAsync(a => a.ClienteId == clienteId && a.Activo, ct);
+
+    public void Agregar(AccesoPortal acceso) => _contexto.AccesosPortal.Add(acceso);
+
+    // Resolución del token: ignora el filtro multiempresa (aún no hay empresa fijada). Es la única
+    // consulta que cruza empresas, y solo mediante un token opaco de ≥32 bytes. Solo resuelve accesos
+    // activos: un token revocado o inexistente devuelve null (⇒ 404, sin filtrar información).
+    public Task<AccesoPortal?> ObtenerPorTokenAsync(string token, CancellationToken ct = default) =>
+        _contexto.AccesosPortal
+            .IgnoreQueryFilters()
+            .SingleOrDefaultAsync(a => a.Token == token && a.Activo, ct);
+
+    public Task<AccesoPortal?> ObtenerPorClienteAsync(Guid clienteId, CancellationToken ct = default) =>
+        _contexto.AccesosPortal.SingleOrDefaultAsync(a => a.ClienteId == clienteId && a.Activo, ct);
 }
 
 /// <summary>Factoría en tiempo de diseño para migraciones.</summary>

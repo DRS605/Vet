@@ -69,6 +69,21 @@ vacunales, clientes con animales —incluido un cachorro—, consultas, vacunaci
 una cirugía con revisión, citas confirmadas y actos por facturar). Es **idempotente**: no vuelve a
 sembrar si la empresa ya tiene animales. Luego abre `http://localhost:8080/vet.html` y entra.
 
+### Cartilla Viva (portal del dueño)
+
+El diferencial del producto es la **Cartilla Viva** en **`/cartilla.html`**: el portal móvil del
+dueño de la mascota, **sin login con contraseña**. Se accede por un **enlace con token** que la
+clínica genera para un cliente (`POST /clientes/{clienteId}/portal`, permiso `cliente.gestionar`). El
+token se crea con aleatoriedad criptográfica (`RandomNumberGenerator`, URL-safe, ≥32 bytes) y es la
+única credencial: de él se resuelven la empresa y el cliente, y con ellos se **fija el contexto de
+empresa del servidor** antes de cualquier consulta, de modo que el filtro multiempresa (y la RLS)
+siguen aplicando. Los endpoints públicos por token (`GET /portal/{token}`,
+`POST /portal/{token}/citas/{citaId}/confirmar`) van fuera del pipeline JWT y devuelven **404** ante
+un token inválido o revocado. La cartilla muestra la clínica, los animales del dueño con su cuadro de
+vacunas y su próxima cita (con **Confirmar de un toque**) y, para los cachorros, el plan de
+crecimiento con hitos. El script de demo imprime al final el enlace `/cartilla.html?token=…` de la
+dueña de Nala para abrir el portal.
+
 ## Arranque rápido (Docker)
 
 Con Docker basta un comando para levantar la API + PostgreSQL:

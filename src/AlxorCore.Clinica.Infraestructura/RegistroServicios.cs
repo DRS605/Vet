@@ -130,6 +130,20 @@ public static class RegistroServicios
         servicios.AddScoped<ListarActosClinicos>();
         servicios.AddScoped<ListarActosDeAnimal>();
 
+        // Cartilla Viva: acceso por token al portal del dueño. El token se genera con aleatoriedad
+        // criptográfica (servicio, no dominio). El caso de uso por token fija el contexto de empresa
+        // desde el propio token (IContextoEmpresaMutable, ya registrado por la API).
+        servicios.AddSingleton<IGeneradorTokenPortal, GeneradorTokenPortal>();
+        servicios.AddScoped<RepositorioAccesosPortal>();
+        servicios.AddScoped<IRepositorioAccesosPortal>(sp => sp.GetRequiredService<RepositorioAccesosPortal>());
+        servicios.AddScoped<IConsultaAccesosPortal>(sp => sp.GetRequiredService<RepositorioAccesosPortal>());
+
+        servicios.AddScoped<GenerarAccesoPortal>();
+        servicios.AddScoped<RevocarAccesoPortal>();
+        servicios.AddScoped<ObtenerAccesoPortal>();
+        servicios.AddScoped<ObtenerCartillaPorToken>();
+        servicios.AddScoped<ConfirmarCitaPorToken>();
+
         return servicios;
     }
 }

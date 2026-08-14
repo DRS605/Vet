@@ -97,10 +97,11 @@ def main():
         paso(f"creada «{emp['razonSocial']}»")
     _token = llamar("POST", f"/empresas/{emp['id']}/seleccionar")["token"]
 
-    # Idempotencia: si ya hay animales, no volvemos a sembrar.
+    # Idempotencia: si ya hay animales, no volvemos a sembrar, pero sí aseguramos el enlace de la
+    # Cartilla Viva de la dueña de Nala para poder abrir la demo del portal.
     if llamar("GET", "/animales"):
         print("\nLa clínica ya tiene animales: no se vuelve a sembrar para no duplicar.")
-        credenciales()
+        credenciales(enlace_cartilla_de("Laura Giménez Ortí"))
         return
 
     hoy = date.today()
@@ -240,7 +241,22 @@ def main():
             if (k + h) % 3 != 0:
                 llamar("POST", f"/citas/{cita['id']}/atender")
             n_hist += 1
-    paso(f"{len(citas_hoy)} citas hoy ({n_conf} confirmadas/atendidas) + {n_hist} citas históricas para el gráfico")
+    # Citas próximas (días siguientes): algunas «solicitadas» para que el dueño las confirme desde la
+    # Cartilla Viva, y alguna ya confirmada. Son las que aparecen en el portal como «tu próxima cita».
+    proximas = [
+        ("Nala", 3, (10, 0), 30, "Revision", "Revisión anual + vacuna polivalente", None),
+        ("Simba", 6, (11, 30), 20, "Vacuna", "Refuerzo trivalente felina", None),
+        ("Coco", 4, (12, 0), 30, "Vacuna", "2ª dosis primovacunación", None),
+        ("Kira", 5, (9, 30), 20, "Revision", "Control de tratamiento", "confirmar"),
+    ]
+    for nombre, dias, (h, m), dur, tipo, motivo, accion in proximas:
+        cita = llamar("POST", "/citas", {
+            "animalId": animales[nombre], "inicio": dtiso(hoy + timedelta(days=dias), h, m),
+            "duracionMinutos": dur, "tipo": tipo, "motivo": motivo, "veterinario": NOMBRE,
+        })
+        if accion == "confirmar":
+            llamar("POST", f"/citas/{cita['id']}/confirmar")
+    paso(f"{len(citas_hoy)} citas hoy ({n_conf} confirmadas/atendidas) + {len(proximas)} próximas + {n_hist} citas históricas para el gráfico")
 
     # 9) Actos clínicos pendientes de facturar.
     print("Facturación")
@@ -266,15 +282,38 @@ def main():
     except RuntimeError as e:
         paso(f"omitidos ({e})")
 
+    # 11) Cartilla Viva: enlace del portal del dueño para la dueña de Nala (Laura).
+    print("Cartilla Viva")
+    acceso = llamar("POST", f"/clientes/{clientes['Laura Giménez Ortí']}/portal")
+    enlace_cartilla = BASE + acceso["enlace"]
+    paso("enlace de la Cartilla Viva de Laura (dueña de Nala) generado")
+
     print("\n¡Listo! Clínica de demo cargada.")
-    credenciales()
+    credenciales(enlace_cartilla)
 
 
-def credenciales():
+def enlace_cartilla_de(nombre_cliente):
+    """Genera (o regenera) el acceso de portal de un cliente por su nombre y devuelve la URL completa."""
+    try:
+        clientes = llamar("GET", "/clientes")
+        cliente = next((c for c in clientes if c.get("nombre") == nombre_cliente), None)
+        if not cliente:
+            return None
+        acceso = llamar("POST", f"/clientes/{cliente['id']}/portal")
+        return BASE + acceso["enlace"]
+    except RuntimeError:
+        return None
+
+
+def credenciales(enlace_cartilla=None):
     print("\n" + "─" * 52)
     print(f"  Abre:       {BASE}/vet.html")
     print(f"  Usuario:    {EMAIL}")
     print(f"  Contraseña: {PASS}")
+    if enlace_cartilla:
+        print("  " + "·" * 48)
+        print("  Cartilla Viva (portal del dueño, sin login):")
+        print(f"  {enlace_cartilla}")
     print("─" * 52)
 
 
