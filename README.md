@@ -49,6 +49,26 @@ La API sirve también una **interfaz web** (SPA) en la raíz (`/`), en el mismo 
 `docker compose up` la tienes en `http://localhost:8080`: login, panel con KPIs, facturas, clientes,
 productos, gastos, cobros e informes. Diseño limpio, pocos colores y pocos clics.
 
+### ALXOR Vet (SPA veterinaria)
+
+El producto veterinario tiene su propia interfaz en **`/vet.html`** (identidad chocolate + miel),
+conectada a los endpoints reales del módulo Clínica. Incluye: login (y selección de empresa si hay
+varias), panel con el KPI de confirmación de citas y el gráfico mensual, agenda del día con
+confirmar/atender/cancelar, clientes y sus fichas, ficha de animal con historial unificado
+(consultas · vacunas · cirugías · actos) y modales para registrarlos, cuadro vacunal por especie,
+recordatorios (generar/enviar) y facturación de actos pendientes (factura VeriFactu o ticket).
+
+Para verla con datos, siembra una clínica de demo con la API arrancada:
+
+```bash
+python3 scripts/datos-demo-vet.py http://localhost:8080   # usa http://localhost:8080 por defecto
+```
+
+Crea la cuenta `demo-vet@alxorcore.es` (contraseña `Demo1234!`) con una clínica ya poblada (pautas
+vacunales, clientes con animales —incluido un cachorro—, consultas, vacunaciones con próxima dosis,
+una cirugía con revisión, citas confirmadas y actos por facturar). Es **idempotente**: no vuelve a
+sembrar si la empresa ya tiene animales. Luego abre `http://localhost:8080/vet.html` y entra.
+
 ## Arranque rápido (Docker)
 
 Con Docker basta un comando para levantar la API + PostgreSQL:

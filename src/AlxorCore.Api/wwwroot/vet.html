@@ -1,0 +1,880 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ALXOR Vet</title>
+  <style>
+    :root{
+      /* Identidad CHOCOLATE + MIEL (cálida, "animal"). */
+      --ink:#2e1b0e; --muted:#8a6f5c; --line:#ece1d4; --surface:#ffffff;
+      --appbg:#f7f0e6; --bg:#f2e6d3;
+      --accent:#c67a12; --accent-soft:#fff0ce;
+      --grad:linear-gradient(135deg,#6b4423,#2e1b0e);
+      --grad-honey:linear-gradient(135deg,#ffcb3e,#f0a500);
+      --vet:#5e7f2e; --vet-soft:#eef4df;
+      --pos:#5e7f2e; --neg:#c0492f; --warn:#c9871a;
+      --honey-soft:#ffefc4; --honey-ink:#9a6b0f;
+      --shadow:0 1px 2px rgba(46,27,14,.06),0 8px 22px rgba(46,27,14,.09);
+      --radius:15px;
+    }
+    *{box-sizing:border-box;}
+    html,body{height:100%;margin:0;}
+    body{
+      background:
+        radial-gradient(1100px 560px at 82% -12%, rgba(245,168,0,.18), transparent 60%),
+        linear-gradient(180deg,#f7f0e6,#efe2cd);
+      color:var(--ink); font-size:14px; -webkit-font-smoothing:antialiased;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+    }
+    button,input,select,textarea{font-family:inherit;}
+    button{cursor:pointer;}
+    a{color:var(--accent);text-decoration:none;}
+
+    /* Marca */
+    .mark{width:36px;height:36px;border-radius:12px;background:var(--grad);position:relative;flex:none;box-shadow:0 6px 16px rgba(46,27,14,.28);}
+    .mark::before{content:"🐾";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:15px;}
+    .wordmark{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:-.01em;}
+    .tag{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);background:var(--grad-honey);padding:4px 9px;border-radius:999px;}
+
+    /* Login */
+    .login{display:grid;grid-template-columns:1.05fr .95fr;min-height:100vh;}
+    .login .promo{background:var(--grad);color:#fff;padding:56px 60px;display:flex;flex-direction:column;position:relative;overflow:hidden;}
+    .login .promo::before{content:"";position:absolute;width:520px;height:520px;right:-180px;top:-160px;background:rgba(255,203,62,.14);border-radius:50%;}
+    .login .promo::after{content:"";position:absolute;width:340px;height:340px;left:-120px;bottom:-140px;background:rgba(255,255,255,.06);border-radius:50%;}
+    .promo .wordmark{color:#fff;position:relative;}
+    .promo .mark{background:rgba(255,255,255,.16);box-shadow:none;}
+    .promo .tag{color:var(--ink);}
+    .promo h2{font-size:33px;line-height:1.15;letter-spacing:-.03em;margin:auto 0 14px;max-width:460px;position:relative;}
+    .promo p.lead{font-size:15px;opacity:.92;max-width:430px;margin:0 0 30px;position:relative;line-height:1.55;}
+    .promo ul{list-style:none;padding:0;margin:0;position:relative;}
+    .promo li{display:flex;align-items:center;gap:11px;padding:8px 0;font-size:14.5px;opacity:.96;}
+    .promo li .e{font-size:18px;}
+    .login .panel-login{display:grid;place-items:center;padding:24px;background:#fff;}
+    .login-card{width:100%;max-width:360px;}
+    .login-card h1{font-size:22px;letter-spacing:-.02em;margin:6px 0 4px;}
+    .login-card .sub{color:var(--muted);margin:0 0 24px;}
+    label{display:block;font-size:12.5px;color:var(--muted);margin:14px 0 6px;font-weight:600;}
+    input,select,textarea{width:100%;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:#fff;font-size:14px;color:var(--ink);outline:none;transition:border-color .15s,box-shadow .15s;}
+    input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+    textarea{min-height:74px;resize:vertical;}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:var(--grad);color:#fff;border:none;border-radius:11px;padding:11px 16px;font-weight:650;font-size:13.5px;box-shadow:0 6px 16px rgba(46,27,14,.22);white-space:nowrap;}
+    .btn:hover{filter:brightness(1.05);}
+    .btn.block{width:100%;margin-top:22px;}
+    .btn.v{background:var(--grad-honey);color:var(--ink);box-shadow:0 6px 16px rgba(240,165,0,.30);}
+    .btn.line{background:#fff;color:var(--ink);border:1px solid var(--line);box-shadow:none;}
+    .btn.ghost{background:var(--accent-soft);color:var(--accent);box-shadow:none;}
+    .btn.small{padding:8px 13px;font-size:12.5px;}
+    .btn.tiny{padding:6px 11px;font-size:12px;border-radius:9px;}
+    .btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;}
+    .btn:disabled{opacity:.5;cursor:not-allowed;}
+    .error{color:var(--neg);font-size:12.5px;margin-top:12px;min-height:16px;}
+
+    /* App shell */
+    .app{display:none;grid-template-columns:230px 1fr;min-height:100vh;}
+    .sidebar{background:#fff;border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;}
+    .sidebar .head{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 18px;}
+    .navlabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#b09a85;padding:6px 10px;font-weight:700;}
+    nav a{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:10px;color:var(--muted);font-weight:560;margin-bottom:2px;position:relative;font-size:13.5px;cursor:pointer;}
+    nav a svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;}
+    nav a:hover{background:#faf5ec;color:var(--ink);}
+    nav a.active{background:var(--accent-soft);color:var(--accent);}
+    nav a.active::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;background:var(--grad-honey);border-radius:0 3px 3px 0;}
+    .sidebar .spacer{flex:1;}
+    .userbox{display:flex;align-items:center;gap:10px;padding:10px 6px 2px;border-top:1px solid var(--line);}
+    .userbox .who b{font-size:12.5px;} .userbox .who span{font-size:11.5px;color:var(--muted);}
+    .avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px;flex:none;}
+    .avatar.mini{width:26px;height:26px;font-size:11px;border-radius:8px;}
+
+    .main{display:flex;flex-direction:column;min-width:0;}
+    .topbar{height:60px;border-bottom:1px solid var(--line);background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 26px;}
+    .topbar .title{font-size:16px;font-weight:680;letter-spacing:-.01em;}
+    .company{display:flex;align-items:center;gap:10px;}
+    .company .chip{display:inline-flex;align-items:center;gap:8px;background:#f6efe4;border:1px solid var(--line);padding:6px 12px;border-radius:999px;color:var(--muted);font-weight:600;font-size:12.5px;}
+    .company .chip .cname{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+    .content{padding:24px 26px;max-width:1160px;width:100%;}
+    .hamb{display:none;background:none;border:none;font-size:22px;line-height:1;color:var(--ink);padding:4px 9px;border-radius:9px;}
+
+    h3.sec{font-size:20px;margin:0 0 3px;letter-spacing:-.02em;}
+    .subt{color:var(--muted);margin:0 0 18px;font-size:13.5px;}
+
+    .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+    .kpi{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);}
+    .kpi .ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent);}
+    .kpi .ico svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;}
+    .kpi.vet .ico{background:var(--vet-soft);color:var(--vet);}
+    .kpi.warn2 .ico{background:var(--honey-soft);color:var(--honey-ink);}
+    .kpi.pos2 .ico{background:var(--vet-soft);color:var(--pos);}
+    .kpi .lbl{color:var(--muted);font-size:12px;margin-top:13px;}
+    .kpi .val{font-size:25px;font-weight:760;letter-spacing:-.02em;margin-top:3px;}
+    .kpi .delta{font-size:11.5px;font-weight:600;margin-top:5px;color:var(--muted);}
+
+    .panel{background:#fff;border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+    .panel+.panel{margin-top:16px;}
+    .ph{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap;}
+    .ph h4{font-size:15px;margin:0;letter-spacing:-.01em;}
+    .ph .sp{color:var(--muted);font-size:12.5px;}
+
+    table{width:100%;border-collapse:collapse;}
+    th,td{text-align:left;padding:12px 18px;font-size:13.5px;}
+    th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;border-bottom:1px solid var(--line);}
+    tbody tr{border-bottom:1px solid #f4efe7;} tbody tr:last-child{border-bottom:none;}
+    tbody tr.clickable{cursor:pointer;} tbody tr.clickable:hover{background:#faf7f1;}
+    td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:650;white-space:nowrap;}
+    .pill.ok{background:var(--vet-soft);color:var(--pos);} .pill.wait{background:#fbeecd;color:var(--warn);}
+    .pill.part{background:var(--accent-soft);color:var(--accent);} .pill.neg{background:#f7e3dd;color:var(--neg);}
+    .pill.vet{background:var(--vet-soft);color:var(--vet);} .pill.cach{background:var(--honey-soft);color:var(--honey-ink);}
+    .pill.b{background:#efe7db;color:#7a5f49;} .pill.info{background:#efe1cf;color:#8a5a1e;}
+    .muted{color:var(--muted);}
+
+    .grid2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;}
+    .toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+    .toolbar input,.toolbar select{width:auto;min-width:220px;}
+    .toolbar .grow{flex:1;}
+
+    .ag{display:flex;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid #f4efe7;}
+    .ag:last-child{border-bottom:none;}
+    .ag .hr{font-variant-numeric:tabular-nums;font-weight:700;font-size:13px;width:44px;color:var(--ink);}
+    .ag .dot{width:9px;height:9px;border-radius:50%;flex:none;}
+    .ag .who{flex:1;min-width:0;} .ag .who b{font-size:13px;} .ag .who span{font-size:11.5px;color:var(--muted);display:block;}
+
+    .bars{display:flex;align-items:flex-end;gap:10px;height:130px;padding:14px 18px 0;}
+    .bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:6px;height:100%;}
+    .bar .stack{width:66%;min-height:4px;border-radius:6px 6px 0 0;background:var(--accent-soft);position:relative;display:flex;flex-direction:column-reverse;overflow:hidden;}
+    .bar .stack .conf{background:linear-gradient(180deg,#7aa03a,#557129);width:100%;}
+    .bar small{font-size:10.5px;color:var(--muted);}
+    .bar .pct{font-size:10.5px;font-weight:700;color:var(--vet);}
+    .legend{display:flex;gap:16px;padding:8px 18px 14px;font-size:11.5px;color:var(--muted);}
+    .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:middle;}
+
+    .clienthead{display:flex;align-items:center;gap:14px;padding:2px 2px 18px;flex-wrap:wrap;}
+    .clienthead .big{width:52px;height:52px;border-radius:14px;background:var(--grad);color:#fff;display:grid;place-items:center;font-weight:750;font-size:19px;flex:none;}
+    .clienthead h3{margin:0;font-size:20px;} .clienthead .meta{color:var(--muted);font-size:12.5px;margin-top:4px;display:flex;gap:14px;flex-wrap:wrap;}
+    .pets{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:16px;}
+    .pet{border:1px solid var(--line);border-radius:14px;padding:15px;background:#fff;box-shadow:var(--shadow);cursor:pointer;transition:transform .12s,box-shadow .12s;}
+    .pet:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(46,27,14,.12);}
+    .pet .av{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--honey-soft);}
+    .pet h5{margin:10px 0 2px;font-size:15px;} .pet .spx{color:var(--muted);font-size:12px;}
+    .pet .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;}
+
+    .tl{padding:8px 18px 12px;}
+    .tl .it{display:grid;grid-template-columns:70px 22px 1fr;gap:0;}
+    .tl .date{font-size:11.5px;color:var(--muted);text-align:right;padding-right:12px;padding-top:12px;font-variant-numeric:tabular-nums;line-height:1.3;}
+    .tl .rail{position:relative;display:flex;justify-content:center;}
+    .tl .rail::before{content:"";position:absolute;top:0;bottom:0;width:2px;background:var(--line);}
+    .tl .rail .d{width:13px;height:13px;border-radius:50%;margin-top:11px;z-index:1;border:2.5px solid #fff;}
+    .tl .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:11px 13px;margin:5px 0 9px;box-shadow:0 1px 2px rgba(46,27,14,.05);}
+    .tl .card .h{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+    .tl .card .h b{font-size:13.5px;} .tl .card .txt{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.45;}
+    .tl .card .txt b{color:var(--ink);font-weight:600;}
+
+    .species-tabs{display:flex;gap:8px;padding:2px 0 16px;flex-wrap:wrap;}
+    .species-tabs .sp{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px;border:1px solid var(--line);background:#fff;font-weight:600;font-size:13px;color:var(--muted);cursor:pointer;}
+    .species-tabs .sp.on{background:var(--honey-soft);color:var(--honey-ink);border-color:transparent;}
+    .species-tabs .sp .e{font-size:15px;}
+
+    .rem{display:flex;gap:13px;padding:13px 18px;border-bottom:1px solid #f4efe7;align-items:flex-start;}
+    .rem:last-child{border-bottom:none;}
+    .rem .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;font-size:17px;}
+    .rem .ic.vac{background:var(--vet-soft);} .rem .ic.rev{background:var(--accent-soft);} .rem .ic.tra{background:var(--honey-soft);}
+    .rem .info{flex:1;min-width:0;} .rem .info b{font-size:13.5px;} .rem .info p{margin:3px 0 0;font-size:12.5px;color:var(--muted);}
+    .rem .act{display:flex;align-items:center;gap:7px;}
+
+    .empty{padding:44px 20px;text-align:center;color:var(--muted);}
+    .empty .big{width:52px;height:52px;border-radius:14px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;margin:0 auto 14px;font-size:24px;}
+    .empty h3{margin:0 0 6px;font-size:15px;color:var(--ink);}
+
+    .check{width:18px;height:18px;border-radius:5px;border:2px solid #d8c6ac;display:inline-block;vertical-align:middle;cursor:pointer;flex:none;}
+    .check.on{background:var(--accent);border-color:var(--accent);position:relative;}
+    .check.on::after{content:"";position:absolute;left:4px;top:1px;width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg);}
+    .barfoot{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;background:#faf5ec;border-top:1px solid var(--line);gap:10px;flex-wrap:wrap;}
+    .barfoot .tot{font-size:13px;color:var(--muted);} .barfoot .tot b{font-size:18px;color:var(--ink);margin-left:8px;}
+
+    /* Modal */
+    .modal-bg{position:fixed;inset:0;background:rgba(46,27,14,.42);display:none;place-items:center;padding:24px;z-index:60;}
+    .modal{background:#fff;border-radius:18px;width:100%;max-width:540px;box-shadow:0 24px 60px rgba(46,27,14,.30);max-height:90vh;display:flex;flex-direction:column;}
+    .modal-head{padding:18px 22px;border-bottom:1px solid var(--line);font-weight:700;font-size:16px;}
+    .modal-body{padding:20px 22px;overflow:auto;}
+    .modal-foot{padding:16px 22px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px;}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .modal .error{margin-top:6px;}
+
+    /* Toast */
+    .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 20px;border-radius:12px;font-weight:600;font-size:14px;box-shadow:0 10px 30px rgba(46,27,14,.3);z-index:80;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;}
+    .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px);}
+    .toast.ok{background:var(--pos);} .toast.err{background:var(--neg);}
+
+    .backdrop{display:none;position:fixed;inset:0;background:rgba(46,27,14,.35);z-index:40;}
+    .backdrop.show{display:block;}
+    .loading{color:var(--muted);padding:8px 2px;}
+
+    @media(max-width:980px){ .kpis{grid-template-columns:repeat(2,1fr);} .pets{grid-template-columns:repeat(2,1fr);} }
+    @media(max-width:900px){
+      .app{grid-template-columns:1fr;}
+      .sidebar{position:fixed;left:0;top:0;bottom:0;width:262px;z-index:50;transform:translateX(-100%);transition:transform .22s ease;box-shadow:0 10px 40px rgba(46,27,14,.2);}
+      .sidebar.open{transform:translateX(0);}
+      .hamb{display:inline-flex;align-items:center;}
+      .topbar{padding:0 14px;} .content{padding:16px 14px;}
+      .grid2{grid-template-columns:1fr;}
+      .login{grid-template-columns:1fr;} .login .promo{display:none;}
+      .company .chip .cname{max-width:32vw;}
+    }
+    @media(max-width:640px){ .kpis{grid-template-columns:1fr;} .pets{grid-template-columns:1fr;} .grid-2{grid-template-columns:1fr;} }
+  </style>
+</head>
+<body>
+  <!-- LOGIN -->
+  <div id="login" class="login">
+    <div class="promo">
+      <div class="wordmark"><span class="mark"></span> ALXOR <span class="tag">Vet</span></div>
+      <h2>La clínica, en la palma de la mano.</h2>
+      <p class="lead">Agenda, historiales, vacunas y recordatorios que se convierten en citas confirmadas. Cálido con los dueños, riguroso con la clínica.</p>
+      <ul>
+        <li><span class="e">🗓️</span> Agenda con KPI de confirmación</li>
+        <li><span class="e">💉</span> Cuadro vacunal por especie y próximas dosis</li>
+        <li><span class="e">🔔</span> Recordatorios automáticos por correo</li>
+        <li><span class="e">🧾</span> Actos clínicos que facturas de un clic</li>
+      </ul>
+    </div>
+    <div class="panel-login">
+      <div class="login-card">
+        <div class="wordmark" style="margin-bottom:26px"><span class="mark"></span> ALXOR <span class="tag">Vet</span></div>
+        <h1>Bienvenido a la clínica</h1>
+        <p class="sub">Entra para gestionar tu día.</p>
+        <label>Correo electrónico</label>
+        <input id="email" type="email" autocomplete="username" value="demo-vet@alxorcore.es" />
+        <label>Contraseña</label>
+        <input id="pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()" />
+        <button class="btn block" id="btnEntrar" onclick="entrar()">Entrar</button>
+        <div class="error" id="loginError"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EMPRESA (selección si hay varias) -->
+  <div id="empresaSel" class="login" style="display:none;grid-template-columns:1fr">
+    <div class="panel-login">
+      <div class="login-card" style="max-width:420px">
+        <div class="wordmark" style="margin-bottom:20px"><span class="mark"></span> ALXOR <span class="tag">Vet</span></div>
+        <h1>Elige la clínica</h1>
+        <p class="sub">Tu usuario tiene acceso a varias empresas.</p>
+        <div id="empresaLista"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app" class="app">
+    <aside class="sidebar">
+      <div class="head"><div class="wordmark" style="font-size:17px"><span class="mark"></span> ALXOR</div><span class="tag">Vet</span></div>
+      <div class="navlabel">Clínica</div>
+      <nav id="nav"></nav>
+      <div class="spacer"></div>
+      <div class="userbox"><div class="avatar" id="sideAvatar">V</div><div class="who"><b id="sideNombre">Usuario</b><br><span id="sideEmpresa">—</span></div></div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0">
+          <button class="hamb" onclick="toggleMenu()" aria-label="Menú">☰</button>
+          <div class="title" id="viewTitle">Inicio</div>
+        </div>
+        <div class="company"><span class="chip" id="empresaChip"></span><div class="avatar" id="avatar">V</div></div>
+      </header>
+      <div class="content" id="view"></div>
+    </div>
+    <div class="backdrop" id="backdrop" onclick="closeMenu()"></div>
+  </div>
+
+  <!-- MODAL -->
+  <div class="modal-bg" id="modalBg">
+    <div class="modal">
+      <div class="modal-head" id="modalTitle"></div>
+      <div class="modal-body" id="modalBody"></div>
+      <div class="modal-foot">
+        <button class="btn line" onclick="cerrarModal()">Cancelar</button>
+        <button class="btn" id="modalOk" onclick="guardarModal()">Guardar</button>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+const API = "";
+let token=null, empresa=null, usuario=null, vista="inicio";
+let ctx = {}; // estado de navegación (clienteId, animalId, especie…)
+
+/* ---------- utilidades ---------- */
+const $ = id => document.getElementById(id);
+const val = id => { const e=$(id); return e ? e.value.trim() : ""; };
+const num = id => { const v=val(id); return v===""?null:Number(v.replace(",",".")); };
+const eur = n => (Number(n)||0).toLocaleString("es-ES",{minimumFractionDigits:2,maximumFractionDigits:2})+" €";
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fdate = s => { if(!s) return "—"; const p=String(s).slice(0,10).split("-"); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:String(s); };
+const MESES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+function fdateCorta(s){ if(!s) return ""; const d=String(s).slice(0,10).split("-"); return d.length===3?`${d[2]} ${MESES[+d[1]-1]}<br>${d[0]}`:s; }
+function iniciales(nombre){ return (nombre||"?").split(/\s+/).slice(0,2).map(p=>p[0]||"").join("").toUpperCase()||"?"; }
+function tz(){ const o=-new Date().getTimezoneOffset(); const s=o>=0?"+":"-"; const a=Math.abs(o); return s+String(Math.floor(a/60)).padStart(2,"0")+":"+String(a%60).padStart(2,"0"); }
+function hoyISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function inicioMesISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`; }
+function diaDesde(dstr){ return dstr+"T00:00:00"+tz(); }
+function diaHasta(dstr){ return dstr+"T23:59:59"+tz(); }
+const ESPECIES = [["Perro","🐕"],["Gato","🐈"],["Conejo","🐇"],["Ave","🦜"],["Huron","🦡"]];
+function emojiEspecie(e){ const m={Perro:"🐕",Gato:"🐈",Conejo:"🐇",Ave:"🦜",Huron:"🦡"}; return m[e]||"🐾"; }
+function edadTexto(a){ if(a.edadMeses==null) return "Edad desconocida"; const m=a.edadMeses; if(m<12) return `${m} mes${m===1?"":"es"}`; const y=Math.floor(m/12); return `${y} año${y===1?"":"s"}`; }
+
+const ICON = {
+  inicio:'<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>',
+  agenda:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  clientes:'<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>',
+  animales:'<svg viewBox="0 0 24 24"><path d="M4.5 12.5c0-2 1.5-3 2.5-2s.5 3-1 3-1.5-1-1.5-1M17 12.5c0-2 1.5-3 2.5-2s.5 3-1 3-1.5-1-1.5-1M9 8c0-2 1.2-3 2-2s.5 3-.8 3M15 8c0-2-1.2-3-2-2s-.5 3 .8 3M12 12c-2.5 0-4 2-4 4s1.5 3 4 3 4-1.5 4-3-1.5-4-4-4z"/></svg>',
+  vacunas:'<svg viewBox="0 0 24 24"><path d="M12 3l2 4 4 .5-3 3 .8 4L12 17l-3.8 2 .8-4-3-3 4-.5z"/></svg>',
+  recordatorios:'<svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M10 21a2 2 0 0 0 4 0"/></svg>',
+  facturacion:'<svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/></svg>',
+  check:'<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>',
+  plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'
+};
+const NAV = [
+  ["inicio","Inicio"],["agenda","Agenda"],["clientes","Clientes"],
+  ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["facturacion","Facturación"]
+];
+const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",recordatorios:"Recordatorios",facturacion:"Facturación"};
+
+/* ---------- fetch con Bearer ---------- */
+async function api(path, opts={}){
+  const h = Object.assign({"Content-Type":"application/json"}, opts.headers||{});
+  if(token) h["Authorization"]="Bearer "+token;
+  const r = await fetch(API+path, Object.assign({}, opts, {headers:h}));
+  if(!r.ok){
+    let m="";
+    try{ const j=await r.json(); m=j.detail||j.title||""; }catch{}
+    throw new Error(m||("Error "+r.status));
+  }
+  const ct=r.headers.get("content-type")||"";
+  return ct.includes("json") ? r.json() : r.text();
+}
+
+/* ---------- toast + modal ---------- */
+let _toastT=null;
+function toast(msg, tipo){ const t=$("toast"); t.textContent=msg; t.className="toast show"+(tipo?" "+tipo:""); clearTimeout(_toastT); _toastT=setTimeout(()=>t.className="toast",2600); }
+let _onSave=null;
+function abrir(titulo, cuerpo, onSave, okTexto){
+  $("modalTitle").textContent=titulo; $("modalBody").innerHTML=cuerpo; _onSave=onSave;
+  $("modalOk").textContent=okTexto||"Guardar"; $("modalOk").style.display=onSave?"":"none";
+  $("modalBg").style.display="grid";
+}
+function cerrarModal(){ $("modalBg").style.display="none"; _onSave=null; }
+async function guardarModal(){
+  if(!_onSave) return cerrarModal();
+  const btn=$("modalOk"); btn.disabled=true;
+  try{ await _onSave(); cerrarModal(); }
+  catch(e){ const box=$("modalErr"); if(box) box.textContent=e.message; else toast(e.message,"err"); }
+  finally{ btn.disabled=false; }
+}
+$("modalBg").addEventListener("click",e=>{ if(e.target===$("modalBg")) cerrarModal(); });
+
+/* ---------- auth ---------- */
+async function entrar(){
+  const err=$("loginError"); err.textContent=""; const btn=$("btnEntrar"); btn.disabled=true;
+  try{
+    const login=await api("/auth/login",{method:"POST",body:JSON.stringify({email:val("email"),contrasena:$("pass").value})});
+    token=login.token; usuario=login.usuario;
+    const empresas=await api("/empresas");
+    if(!empresas.length){ err.textContent="Tu usuario aún no tiene ninguna empresa. Ejecuta el sembrado de datos de demo."; return; }
+    if(empresas.length===1){ await activarEmpresa(empresas[0]); }
+    else { mostrarSelectorEmpresa(empresas); }
+  }catch(e){ err.textContent=e.message||"No se pudo iniciar sesión."; }
+  finally{ btn.disabled=false; }
+}
+function mostrarSelectorEmpresa(empresas){
+  $("login").style.display="none"; $("empresaSel").style.display="grid";
+  $("empresaLista").innerHTML=empresas.map(e=>`
+    <div style="display:flex;align-items:center;gap:12px;padding:13px;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;cursor:pointer" onclick='activarEmpresaPorId("${e.id}")'>
+      <span class="avatar mini">${esc(iniciales(e.razonSocial))}</span>
+      <div style="flex:1"><b>${esc(e.razonSocial)}</b><br><small class="muted">${esc(e.nif||"")}</small></div>
+      <span class="muted">Entrar →</span>
+    </div>`).join("");
+  window._empresasCache=empresas;
+}
+async function activarEmpresaPorId(id){ const e=(window._empresasCache||[]).find(x=>x.id===id); if(e) await activarEmpresa(e); }
+async function activarEmpresa(emp){
+  const sel=await api("/empresas/"+emp.id+"/seleccionar",{method:"POST"});
+  token=sel.token; empresa=emp; arrancar();
+}
+function arrancar(){
+  $("login").style.display="none"; $("empresaSel").style.display="none"; $("app").style.display="grid";
+  const ini=iniciales(usuario?.nombre||"V");
+  $("avatar").textContent=ini; $("sideAvatar").textContent=ini;
+  $("sideNombre").textContent=usuario?.nombre||"Usuario";
+  $("sideEmpresa").textContent=empresa.razonSocial;
+  $("empresaChip").innerHTML=`🏥 <span class="cname">${esc(empresa.razonSocial)}</span>`;
+  $("nav").innerHTML=NAV.map(([k,l])=>`<a data-k="${k}" onclick="ir('${k}')">${ICON[k]}<span>${l}</span></a>`).join("");
+  ir("inicio");
+}
+
+/* ---------- router ---------- */
+function toggleMenu(){ const s=document.querySelector(".sidebar"),b=$("backdrop"); const o=s.classList.toggle("open"); b.classList.toggle("show",o); }
+function closeMenu(){ document.querySelector(".sidebar").classList.remove("open"); $("backdrop").classList.remove("show"); }
+function ir(k, params){
+  closeMenu(); vista=k; ctx=Object.assign({}, params||{});
+  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes")));
+  $("viewTitle").textContent=TITULOS[k]||k;
+  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,recordatorios:vRecordatorios,facturacion:vFacturacion}[k];
+  (fn||vInicio)();
+}
+const view = h => $("view").innerHTML=h;
+const cargando = () => view('<div class="loading">Cargando…</div>');
+async function conError(fn){ try{ await fn(); }catch(e){ view(`<div class="empty"><div class="big">⚠️</div><h3>No se pudo cargar</h3><p>${esc(e.message)}</p></div>`); } }
+const panel = (t,c,extra="") => `<div class="panel">${(t||extra)?`<div class="ph">${t?`<h4>${t}</h4>`:'<span></span>'}${extra}</div>`:""}${c}</div>`;
+const vacio = (emoji,titulo,texto,accion="") => `<div class="empty"><div class="big">${emoji}</div><h3>${titulo}</h3><p>${texto}</p>${accion?`<div style="margin-top:16px">${accion}</div>`:""}</div>`;
+
+/* ---------- INICIO / PANEL ---------- */
+async function vInicio(){ cargando(); await conError(async()=>{
+  const desdeMes=diaDesde(inicioMesISO()), hastaHoy=diaHasta(hoyISO());
+  const [kpi, mensual, agendaHoy, proximas, animales, rec] = await Promise.all([
+    api(`/citas/kpi?desde=${encodeURIComponent(desdeMes)}&hasta=${encodeURIComponent(hastaHoy)}`),
+    api(`/citas/kpi/confirmacion-mensual?meses=6`),
+    api(`/agenda?desde=${encodeURIComponent(diaDesde(hoyISO()))}&hasta=${encodeURIComponent(hastaHoy)}`),
+    api(`/vacunas/proximas?dias=7`),
+    api(`/animales`),
+    api(`/recordatorios?estado=Pendiente`)
+  ]);
+  const cachorros = animales.filter(a=>a.esCachorro).length;
+  const animalesPorId = {}; animales.forEach(a=>animalesPorId[a.id]=a);
+  const fecha=new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"});
+  const hora=new Date().getHours(); const saludo=hora<13?"Buenos días":hora<20?"Buenas tardes":"Buenas noches";
+  const nombre=(usuario?.nombre||"").split(" ")[0];
+  const confirmadasHoy=agendaHoy.filter(c=>c.estado==="Confirmada"||c.estado==="Atendida").length;
+
+  const kpis=`<div class="kpis">
+    <div class="kpi pos2"><div class="ico">${ICON.check}</div><div class="lbl">Citas confirmadas (mes)</div><div class="val">${kpi.porcentajeConfirmacion}%</div><div class="delta">${kpi.confirmadas+kpi.atendidas} de ${kpi.total} citas</div></div>
+    <div class="kpi vet"><div class="ico">${ICON.vacunas}</div><div class="lbl">Vacunas próximos 7 días</div><div class="val">${proximas.length}</div><div class="delta">dosis por avisar</div></div>
+    <div class="kpi warn2"><div class="ico">🍼</div><div class="lbl">Cachorros en seguimiento</div><div class="val">${cachorros}</div><div class="delta">plan de primovacunación</div></div>
+    <div class="kpi"><div class="ico">${ICON.recordatorios}</div><div class="lbl">Recordatorios pendientes</div><div class="val">${rec.length}</div><div class="delta">${rec.length?"listos para enviar":"todo al día"}</div></div>
+  </div>`;
+
+  const agHtml = agendaHoy.length ? agendaHoy.map(c=>{
+    const a=animalesPorId[c.animalId]; const color=c.estado==="Confirmada"||c.estado==="Atendida"?"var(--pos)":c.estado==="Cancelada"||c.estado==="NoPresentado"?"var(--neg)":"var(--warn)";
+    const hh=new Date(c.inicio).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+    return `<div class="ag"><span class="hr">${hh}</span><span class="dot" style="background:${color}"></span>
+      <div class="who"><b>${a?esc(a.nombre)+" · "+esc(a.raza||a.especie):"Animal"}</b><span>${esc(c.motivo||c.tipo||"")}${c.veterinario?" — "+esc(c.veterinario):""}</span></div>
+      ${pillEstadoCita(c.estado)}</div>`;
+  }).join("") : `<div class="empty"><div class="big">🗓️</div><h3>Sin citas hoy</h3><p>No hay nada en la agenda de hoy.</p></div>`;
+
+  const cit=mensual.map(m=>m.citadas), maxC=Math.max(1,...cit);
+  const barras = mensual.map(m=>{
+    const h=Math.round(20+ (m.citadas/maxC)*80);
+    const pctConf = m.citadas? Math.round(m.confirmadas/m.citadas*100):0;
+    return `<div class="bar"><span class="pct">${m.citadas?pctConf+"%":""}</span><div class="stack" style="height:${h}%"><div class="conf" style="height:${pctConf}%"></div></div><small>${MESES[m.mes-1]}</small></div>`;
+  }).join("");
+
+  view(`
+    <h3 class="sec">${saludo}, ${esc(nombre||"equipo")} 👋</h3>
+    <p class="subt">${fecha.charAt(0).toUpperCase()+fecha.slice(1)} · ${agendaHoy.length} cita${agendaHoy.length===1?"":"s"} hoy, ${confirmadasHoy} confirmada${confirmadasHoy===1?"":"s"}.</p>
+    ${kpis}
+    <div class="grid2">
+      ${panel("Agenda de hoy", agHtml, `<a onclick="ir('agenda')">Ver agenda →</a>`)}
+      ${panel("Confirmación de citas", `<div class="bars">${barras||'<div class="loading" style="padding:18px">Sin datos aún.</div>'}</div><div class="legend"><span><i style="background:#557129"></i>% confirmadas</span><span><i style="background:var(--accent-soft)"></i>volumen de citas</span></div>`, `<span class="sp">últimos 6 meses</span>`)}
+    </div>`);
+}); }
+function pillEstadoCita(e){
+  const m={Solicitada:["wait","Sin confirmar"],Confirmada:["ok","Confirmada"],Atendida:["vet","Atendida"],Cancelada:["neg","Cancelada"],NoPresentado:["neg","No presentado"]};
+  const [cls,txt]=m[e]||["b",e]; return `<span class="pill ${cls}">${txt}</span>`;
+}
+
+/* ---------- CLIENTES ---------- */
+async function vClientes(){ cargando(); await conError(async()=>{
+  const clientes=await api("/clientes");
+  window._clientes=clientes;
+  const filas = c => `<tr class="clickable" onclick="ir('cliente',{clienteId:'${c.id}'})">
+    <td><div style="display:flex;align-items:center;gap:10px"><span class="avatar mini">${esc(iniciales(c.nombre))}</span><b>${esc(c.nombre)}</b></div></td>
+    <td class="muted">${esc(c.nifFiscal||"—")}</td>
+    <td class="muted">${esc(c.email||"—")}</td>
+    <td class="muted">${esc([c.poblacion,c.provincia].filter(Boolean).join(", ")||"—")}</td>
+    <td class="num muted">Ver ficha →</td></tr>`;
+  const render = lista => {
+    const cuerpo = lista.length
+      ? `<table><thead><tr><th>Cliente</th><th>NIF</th><th>Correo</th><th>Población</th><th class="num"></th></tr></thead><tbody>${lista.map(filas).join("")}</tbody></table>`
+      : vacio("👤","Sin clientes","No hay clientes que coincidan.");
+    $("clientesBody").innerHTML=cuerpo;
+  };
+  view(`
+    <div class="toolbar">
+      <input id="buscaCliente" class="grow" placeholder="Buscar por nombre, NIF o correo…" oninput="filtrarClientes()"/>
+      <button class="btn v" onclick="modalNuevoCliente()">${ICON.plus} Nuevo cliente</button>
+    </div>
+    ${panel(`Clientes`, `<div id="clientesBody"></div>`, `<span class="sp">${clientes.length} ficha${clientes.length===1?"":"s"}</span>`)}`);
+  window._renderClientes=render; render(clientes);
+}); }
+function filtrarClientes(){
+  const q=val("buscaCliente").toLowerCase();
+  const lista=(window._clientes||[]).filter(c=>!q || [c.nombre,c.nifFiscal,c.email].some(x=>(x||"").toLowerCase().includes(q)));
+  window._renderClientes(lista);
+}
+function modalNuevoCliente(){
+  abrir("Nuevo cliente", `
+    <label>Nombre *</label><input id="c_nombre" placeholder="Nombre y apellidos"/>
+    <div class="grid-2"><div><label>NIF / DNI</label><input id="c_nif"/></div><div><label>Correo</label><input id="c_email" type="email"/></div></div>
+    <label>Dirección</label><input id="c_calle" placeholder="Calle y número"/>
+    <div class="grid-2"><div><label>Población</label><input id="c_pob"/></div><div><label>Provincia</label><input id="c_prov"/></div></div>
+    <label>Código postal</label><input id="c_cp"/>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      if(!val("c_nombre")) throw new Error("El nombre es obligatorio.");
+      const c=await api("/clientes",{method:"POST",body:JSON.stringify({
+        nombre:val("c_nombre"), nifFiscal:val("c_nif")||null, email:val("c_email")||null,
+        calle:val("c_calle")||null, codigoPostal:val("c_cp")||null, poblacion:val("c_pob")||null, provincia:val("c_prov")||null
+      })});
+      toast("Cliente creado.","ok"); ir("cliente",{clienteId:c.id});
+    });
+}
+
+/* ---------- FICHA CLIENTE ---------- */
+async function vCliente(){ cargando(); await conError(async()=>{
+  const id=ctx.clienteId;
+  const [c, animales]=await Promise.all([api("/clientes/"+id), api(`/clientes/${id}/animales`)]);
+  const petCard = a => `<div class="pet" onclick="ir('animal',{animalId:'${a.id}',clienteId:'${id}'})">
+    <div class="av">${emojiEspecie(a.especie)}</div>
+    <h5>${esc(a.nombre)}</h5>
+    <div class="spx">${esc(a.raza||a.especie)} · ${a.sexo==="Macho"?"Macho":a.sexo==="Hembra"?"Hembra":"—"} · ${edadTexto(a)}</div>
+    <div class="tags">${a.esCachorro?'<span class="pill cach">🍼 Cachorro</span>':""}${a.esterilizado?'<span class="pill b">Esterilizado</span>':""}${a.microchip?`<span class="pill b">Chip ${esc(String(a.microchip).slice(-4))}</span>`:""}</div>
+  </div>`;
+  const petsHtml = animales.length ? `<div class="pets">${animales.map(petCard).join("")}</div>`
+    : vacio("🐾","Sin animales","Este cliente aún no tiene animales.", `<button class="btn v" onclick="modalNuevoAnimal('${id}')">${ICON.plus} Añadir animal</button>`);
+  view(`
+    <div style="margin-bottom:12px"><a onclick="ir('clientes')" class="muted">← Clientes</a></div>
+    <div class="clienthead">
+      <div class="big">${esc(iniciales(c.nombre))}</div>
+      <div style="flex:1"><h3>${esc(c.nombre)}</h3>
+        <div class="meta">${c.email?`<span>✉️ ${esc(c.email)}</span>`:""}${c.nifFiscal?`<span>🪪 ${esc(c.nifFiscal)}</span>`:""}${[c.calle,c.poblacion].filter(Boolean).length?`<span>📍 ${esc([c.calle,c.poblacion].filter(Boolean).join(", "))}</span>`:""}</div>
+      </div>
+      <button class="btn v" onclick="modalNuevoAnimal('${id}')">${ICON.plus} Añadir animal</button>
+    </div>
+    ${panel(`Animales de ${esc(c.nombre.split(" ")[0])}`, petsHtml, `<span class="sp">${animales.length} ficha${animales.length===1?"":"s"}</span>`)}`);
+}); }
+function modalNuevoAnimal(clienteId){
+  abrir("Nuevo animal", `
+    <label>Nombre *</label><input id="a_nombre"/>
+    <div class="grid-2">
+      <div><label>Especie</label><select id="a_especie">${ESPECIES.map(([v,e])=>`<option value="${v}">${e} ${v}</option>`).join("")}</select></div>
+      <div><label>Sexo</label><select id="a_sexo"><option value="Desconocido">—</option><option value="Macho">Macho</option><option value="Hembra">Hembra</option></select></div>
+    </div>
+    <div class="grid-2"><div><label>Raza</label><input id="a_raza"/></div><div><label>Fecha de nacimiento</label><input id="a_fnac" type="date"/></div></div>
+    <div class="grid-2"><div><label>Microchip</label><input id="a_chip"/></div><div><label>Peso (kg)</label><input id="a_peso" inputmode="decimal"/></div></div>
+    <label><input type="checkbox" id="a_ester" style="width:auto;margin-right:8px"/>Esterilizado</label>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      if(!val("a_nombre")) throw new Error("El nombre es obligatorio.");
+      const a=await api("/animales",{method:"POST",body:JSON.stringify({
+        clienteId, nombre:val("a_nombre"), especie:val("a_especie"), sexo:val("a_sexo"),
+        raza:val("a_raza")||null, fechaNacimiento:val("a_fnac")||null, microchip:val("a_chip")||null,
+        esterilizado:$("a_ester").checked, pesoKg:num("a_peso")
+      })});
+      toast("Animal creado.","ok"); ir("animal",{animalId:a.id,clienteId});
+    });
+}
+
+/* ---------- FICHA ANIMAL + HISTORIAL ---------- */
+async function vAnimal(){ cargando(); await conError(async()=>{
+  const id=ctx.animalId;
+  const [a, consultas, vacunas, cirugias, actos]=await Promise.all([
+    api("/animales/"+id),
+    api(`/animales/${id}/consultas`), api(`/animales/${id}/vacunas`),
+    api(`/animales/${id}/cirugias`), api(`/animales/${id}/actos`)
+  ]);
+  ctx.clienteId = ctx.clienteId || a.clienteId;
+  let cliente=null; try{ cliente=await api("/clientes/"+a.clienteId); }catch{}
+  window._pautasCache=null;
+
+  const eventos=[];
+  consultas.forEach(c=>eventos.push({fecha:c.fecha,tipo:"Consulta",cls:"part",color:"var(--accent)",titulo:c.motivo?`Consulta — ${c.motivo}`:"Consulta",
+    txt:[c.diagnostico?`<b>Diagnóstico:</b> ${esc(c.diagnostico)}`:"",c.tratamiento?`<b>Tratamiento:</b> ${esc(c.tratamiento)}`:"",c.veterinario?`<b>Vet.:</b> ${esc(c.veterinario)}`:""].filter(Boolean).join(" ")}));
+  vacunas.forEach(v=>eventos.push({fecha:v.fechaAplicacion,tipo:"Vacuna",cls:"vet",color:"var(--vet)",titulo:`Vacuna — ${v.nombre}`,
+    txt:[v.lote?`<b>Lote:</b> ${esc(v.lote)}`:"",v.proximaDosis?`<b>Próxima dosis:</b> ${fdate(v.proximaDosis)}`:""].filter(Boolean).join(" · ")}));
+  cirugias.forEach(s=>eventos.push({fecha:s.fecha,tipo:"Cirugía",cls:"info",color:"#8a5a1e",titulo:`Cirugía — ${s.nombre}`,
+    txt:[s.descripcion?esc(s.descripcion):"",s.cirujano?`<b>Cirujano:</b> ${esc(s.cirujano)}`:"",s.proximaRevision?`<b>Revisión:</b> ${fdate(s.proximaRevision)}`:""].filter(Boolean).join(" · ")}));
+  actos.forEach(x=>eventos.push({fecha:x.fecha,tipo:"Acto",cls:"cach",color:"var(--honey-ink)",titulo:`Acto — ${x.concepto}`,
+    txt:`<b>Importe:</b> ${eur(x.importe)} · ${esc(x.estado)}`}));
+  eventos.sort((p,q)=>String(q.fecha).localeCompare(String(p.fecha)));
+
+  const tl = eventos.length ? `<div class="tl">${eventos.map(e=>`
+    <div class="it"><div class="date">${fdateCorta(e.fecha)}</div>
+      <div class="rail"><span class="d" style="background:${e.color}"></span></div>
+      <div class="card"><div class="h"><b>${esc(e.titulo)}</b><span class="pill ${e.cls}">${e.tipo}</span></div>${e.txt?`<div class="txt">${e.txt}</div>`:""}</div></div>`).join("")}</div>`
+    : vacio("📋","Historial vacío","Aún no hay consultas, vacunas ni cirugías registradas.");
+
+  const vacTabla = vacunas.length ? `<table><tbody>${vacunas.slice().sort((x,y)=>String(y.fechaAplicacion).localeCompare(String(x.fechaAplicacion))).slice(0,6).map(v=>`
+    <tr><td>${esc(v.nombre)}</td><td class="num">${v.proximaDosis?`<span class="pill wait">${fdate(v.proximaDosis)}</span>`:`<span class="pill ok">${fdate(v.fechaAplicacion).slice(-4)}</span>`}</td></tr>`).join("")}</tbody></table>`
+    : `<div class="loading" style="padding:14px 18px">Sin vacunas registradas.</div>`;
+
+  view(`
+    <div style="margin-bottom:12px"><a onclick="ir('cliente',{clienteId:'${a.clienteId}'})" class="muted">← ${cliente?esc(cliente.nombre):"Cliente"}</a></div>
+    <div class="clienthead">
+      <div class="big" style="background:var(--grad-honey);color:var(--ink);font-size:26px">${emojiEspecie(a.especie)}</div>
+      <div style="flex:1"><h3>${esc(a.nombre)} ${a.esCachorro?'<span class="pill cach" style="vertical-align:middle">🍼 Cachorro</span>':""}</h3>
+        <div class="meta"><span>${esc(a.raza||a.especie)} · ${a.sexo==="Macho"?"Macho":a.sexo==="Hembra"?"Hembra":"—"}</span><span>${edadTexto(a)}${a.fechaNacimiento?` (${fdate(a.fechaNacimiento)})`:""}</span>${a.pesoKg?`<span>${a.pesoKg} kg</span>`:""}${a.microchip?`<span>Chip ${esc(a.microchip)}</span>`:""}${cliente?`<span>Propietario: ${esc(cliente.nombre)}</span>`:""}</div>
+      </div>
+    </div>
+    <div class="toolbar">
+      <button class="btn" onclick="modalConsulta('${a.id}')">${ICON.plus} Nueva consulta</button>
+      <button class="btn v" onclick="modalVacunar('${a.id}','${a.especie}')">${ICON.vacunas} Vacunar</button>
+      <button class="btn line" onclick="modalCirugia('${a.id}')">Nueva cirugía</button>
+      <button class="btn line" onclick="modalActo('${a.id}')">Registrar acto</button>
+    </div>
+    <div class="grid2">
+      ${panel("Historial", tl, `<span class="sp">Consultas · vacunas · cirugías · actos</span>`)}
+      ${panel("Vacunas", vacTabla)}
+    </div>`);
+}); }
+
+function modalConsulta(animalId){
+  abrir("Nueva consulta", `
+    <div class="grid-2"><div><label>Fecha *</label><input id="k_fecha" type="date" value="${hoyISO()}"/></div><div><label>Peso (kg)</label><input id="k_peso" inputmode="decimal"/></div></div>
+    <label>Motivo</label><input id="k_motivo"/>
+    <label>Diagnóstico</label><textarea id="k_diag"></textarea>
+    <label>Tratamiento</label><textarea id="k_trat"></textarea>
+    <label>Veterinario/a</label><input id="k_vet" value="${esc(usuario?.nombre||"")}"/>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      if(!val("k_fecha")) throw new Error("La fecha es obligatoria.");
+      await api(`/animales/${animalId}/consultas`,{method:"POST",body:JSON.stringify({
+        animalId, fecha:val("k_fecha"), motivo:val("k_motivo")||null, diagnostico:val("k_diag")||null,
+        tratamiento:val("k_trat")||null, pesoKg:num("k_peso"), veterinario:val("k_vet")||null
+      })});
+      toast("Consulta registrada.","ok"); vAnimal();
+    });
+}
+async function modalVacunar(animalId, especie){
+  let pautas=[]; try{ pautas=await api(`/vacunas/pautas?especie=${encodeURIComponent(especie)}`); }catch{}
+  const opts=`<option value="">— Sin pauta (nombre manual) —</option>`+pautas.map(p=>`<option value="${p.id}" data-n="${esc(p.nombre)}" data-m="${p.periodicidadRefuerzoMeses||""}">${esc(p.nombre)}</option>`).join("");
+  abrir("Registrar vacunación", `
+    <label>Pauta (${especie})</label><select id="v_pauta" onchange="_vacPautaChange()">${opts}</select>
+    <label>Nombre de la vacuna *</label><input id="v_nombre" placeholder="p. ej. Polivalente (DHPPi/L)"/>
+    <div class="grid-2"><div><label>Fecha *</label><input id="v_fecha" type="date" value="${hoyISO()}"/></div><div><label>Próxima dosis</label><input id="v_prox" type="date"/></div></div>
+    <div class="grid-2"><div><label>Lote</label><input id="v_lote"/></div><div><label>Veterinario/a</label><input id="v_vet" value="${esc(usuario?.nombre||"")}"/></div></div>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      if(!val("v_fecha")) throw new Error("La fecha es obligatoria.");
+      const pautaId=val("v_pauta")||null;
+      if(!pautaId && !val("v_nombre")) throw new Error("Indica una pauta o un nombre de vacuna.");
+      await api(`/animales/${animalId}/vacunas`,{method:"POST",body:JSON.stringify({
+        animalId, fechaAplicacion:val("v_fecha"), pautaVacunalId:pautaId, nombre:val("v_nombre")||null,
+        lote:val("v_lote")||null, proximaDosis:val("v_prox")||null, veterinario:val("v_vet")||null
+      })});
+      toast("Vacunación registrada.","ok"); vAnimal();
+    });
+}
+function _vacPautaChange(){ const s=$("v_pauta"); const o=s.options[s.selectedIndex]; if(o&&o.dataset.n) $("v_nombre").value=o.dataset.n; }
+function modalCirugia(animalId){
+  abrir("Nueva cirugía", `
+    <label>Nombre *</label><input id="s_nombre" placeholder="p. ej. Esterilización (OVH)"/>
+    <div class="grid-2"><div><label>Fecha *</label><input id="s_fecha" type="date" value="${hoyISO()}"/></div><div><label>Próxima revisión</label><input id="s_rev" type="date"/></div></div>
+    <label>Descripción</label><textarea id="s_desc"></textarea>
+    <div class="grid-2"><div><label>Cirujano/a</label><input id="s_cir" value="${esc(usuario?.nombre||"")}"/></div><div><label>Anestesia</label><input id="s_anes"/></div></div>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      if(!val("s_nombre")) throw new Error("El nombre es obligatorio.");
+      if(!val("s_fecha")) throw new Error("La fecha es obligatoria.");
+      await api(`/animales/${animalId}/cirugias`,{method:"POST",body:JSON.stringify({
+        animalId, fecha:val("s_fecha"), nombre:val("s_nombre"), descripcion:val("s_desc")||null,
+        cirujano:val("s_cir")||null, anestesia:val("s_anes")||null, proximaRevision:val("s_rev")||null
+      })});
+      toast("Cirugía registrada.","ok"); vAnimal();
+    });
+}
+function modalActo(animalId){
+  abrir("Registrar acto clínico", `
+    <label>Concepto *</label><input id="x_concepto" placeholder="p. ej. Consulta general"/>
+    <div class="grid-2"><div><label>Importe (base, €) *</label><input id="x_importe" inputmode="decimal"/></div><div><label>IVA (%)</label><input id="x_iva" inputmode="decimal" placeholder="21"/></div></div>
+    <label>Fecha</label><input id="x_fecha" type="date" value="${hoyISO()}"/>
+    <p class="muted" style="font-size:12px">El acto queda pendiente de facturar; podrás facturarlo o cobrarlo con ticket desde Facturación.</p>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      if(!val("x_concepto")) throw new Error("El concepto es obligatorio.");
+      if(num("x_importe")==null) throw new Error("Indica el importe.");
+      await api(`/animales/${animalId}/actos`,{method:"POST",body:JSON.stringify({
+        animalId, concepto:val("x_concepto"), importe:num("x_importe"),
+        porcentajeIva:num("x_iva"), fecha:val("x_fecha")||null
+      })});
+      toast("Acto registrado.","ok"); vAnimal();
+    });
+}
+
+/* ---------- VACUNAS ---------- */
+async function vVacunas(){ cargando(); await conError(async()=>{
+  const especie=ctx.especie||"Perro";
+  const pautas=await api(`/vacunas/pautas?especie=${encodeURIComponent(especie)}`);
+  const tabs=ESPECIES.map(([v,e])=>`<span class="sp ${v===especie?"on":""}" onclick="ir('vacunas',{especie:'${v}'})"><span class="e">${e}</span> ${v}</span>`).join("");
+  const caracterPill = c => c==="Legal"?'<span class="pill neg">Legal</span>':c==="Recomendada"?'<span class="pill vet">Recomendada</span>':'<span class="pill b">Opcional</span>';
+  const cuerpo = pautas.length
+    ? `<table><thead><tr><th>Vacuna</th><th>Carácter</th><th class="num">Inicio</th><th class="num">Refuerzo</th></tr></thead><tbody>${pautas.map(p=>`
+        <tr><td><b>${esc(p.nombre)}</b></td><td>${caracterPill(p.caracter)}</td>
+        <td class="num muted">${p.edadInicioSemanas!=null?p.edadInicioSemanas+" sem":"—"}</td>
+        <td class="num muted">${p.periodicidadRefuerzoMeses!=null?"cada "+p.periodicidadRefuerzoMeses+" m":"—"}</td></tr>`).join("")}</tbody></table>`
+    : vacio("💉","Sin pautas","No hay pautas para "+especie+" todavía.", `<button class="btn v" onclick="modalNuevaPauta('${especie}')">${ICON.plus} Nueva pauta</button>`);
+  view(`
+    <h3 class="sec">Calendario vacunal</h3>
+    <p class="subt">Define una vez las pautas por especie. Al vacunar, el programa copia el nombre y calcula la próxima dosis.</p>
+    <div class="species-tabs">${tabs}</div>
+    ${panel(`Pautas · ${especie}`, cuerpo, `<button class="btn v small" onclick="modalNuevaPauta('${especie}')">${ICON.plus} Nueva pauta</button>`)}`);
+}); }
+function modalNuevaPauta(especie){
+  abrir("Nueva pauta vacunal", `
+    <label>Especie</label><select id="p_especie">${ESPECIES.map(([v,e])=>`<option value="${v}" ${v===especie?"selected":""}>${e} ${v}</option>`).join("")}</select>
+    <label>Nombre *</label><input id="p_nombre" placeholder="p. ej. Rabia"/>
+    <label>Carácter</label><select id="p_caracter"><option value="Recomendada">Recomendada</option><option value="Legal">Legal (obligatoria)</option><option value="Opcional">Opcional</option></select>
+    <div class="grid-2"><div><label>Edad de inicio (semanas)</label><input id="p_inicio" inputmode="numeric"/></div><div><label>Refuerzo (meses)</label><input id="p_refuerzo" inputmode="numeric"/></div></div>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      if(!val("p_nombre")) throw new Error("El nombre es obligatorio.");
+      await api(`/vacunas/pautas`,{method:"POST",body:JSON.stringify({
+        especie:val("p_especie"), nombre:val("p_nombre"), caracter:val("p_caracter"),
+        edadInicioSemanas:num("p_inicio"), periodicidadRefuerzoMeses:num("p_refuerzo")
+      })});
+      toast("Pauta creada.","ok"); ir("vacunas",{especie:val("p_especie")});
+    });
+}
+
+/* ---------- RECORDATORIOS ---------- */
+async function vRecordatorios(){ cargando(); await conError(async()=>{
+  const [rec, animales]=await Promise.all([api(`/recordatorios?estado=Pendiente`), api(`/animales`)]);
+  const porId={}; animales.forEach(a=>porId[a.id]=a);
+  const icoTipo=t=>t==="Vacuna"?["vac","💉"]:t==="Revision"||t==="Cirugia"?["rev","🩺"]:["tra","🔔"];
+  const filas = rec.length ? rec.map(r=>{
+    const a=porId[r.animalId]; const [cls,em]=icoTipo(r.tipo);
+    return `<div class="rem"><div class="ic ${cls}">${em}</div>
+      <div class="info"><b>${esc(r.titulo)}</b><p>${a?esc(a.nombre)+" · "+esc(a.raza||a.especie)+" — ":""}${fdate(r.fechaObjetivo)}${r.notas?" · "+esc(r.notas):""}</p></div>
+      <div class="act"><button class="btn tiny v" onclick="enviarRecordatorio('${r.id}')">Enviar</button></div></div>`;
+  }).join("") : vacio("🔔","Nada pendiente","No hay recordatorios pendientes. Genera desde los vencimientos.");
+  view(`
+    <div class="toolbar">
+      <button class="btn line" onclick="generarRecordatorios()">Generar (30 días)</button>
+      <button class="btn v" onclick="enviarPendientes()" ${rec.length?"":"disabled"}>Enviar pendientes</button>
+    </div>
+    ${panel("Recordatorios pendientes", filas, `<span class="sp">${rec.length} pendiente${rec.length===1?"":"s"}</span>`)}`);
+}); }
+async function generarRecordatorios(){
+  try{ await api(`/recordatorios/generar?dias=30`,{method:"POST"}); toast("Recordatorios generados.","ok"); vRecordatorios(); }
+  catch(e){ toast(e.message,"err"); }
+}
+async function enviarRecordatorio(id){
+  try{ await api(`/recordatorios/${id}/enviar`,{method:"POST"}); toast("Recordatorio enviado.","ok"); vRecordatorios(); }
+  catch(e){ toast(e.message,"err"); }
+}
+async function enviarPendientes(){
+  try{ const r=await api(`/recordatorios/enviar-pendientes?dias=30`,{method:"POST"});
+    const n=r&&r.enviados!=null?r.enviados:0; const f=r&&r.fallidos?r.fallidos.length:0;
+    toast(`Enviados ${n}${f?`, ${f} con error`:""}.`, f?"err":"ok"); vRecordatorios();
+  }catch(e){ toast(e.message,"err"); }
+}
+
+/* ---------- AGENDA ---------- */
+async function vAgenda(){ cargando(); await conError(async()=>{
+  const dia=ctx.dia||hoyISO();
+  const [citas, animales]=await Promise.all([
+    api(`/agenda?desde=${encodeURIComponent(diaDesde(dia))}&hasta=${encodeURIComponent(diaHasta(dia))}`),
+    api(`/animales`)
+  ]);
+  window._animalesCache=animales;
+  const porId={}; animales.forEach(a=>porId[a.id]=a);
+  const filas = citas.length ? citas.map(c=>{
+    const a=porId[c.animalId]; const color=c.estado==="Confirmada"||c.estado==="Atendida"?"var(--pos)":c.estado==="Cancelada"||c.estado==="NoPresentado"?"var(--neg)":"var(--warn)";
+    const hh=new Date(c.inicio).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+    let acc="";
+    if(c.estado==="Solicitada") acc+=`<button class="btn tiny v" onclick="accionCita('${c.id}','confirmar')">Confirmar</button>`;
+    if(c.estado==="Solicitada"||c.estado==="Confirmada") acc+=`<button class="btn tiny line" onclick="accionCita('${c.id}','atender')">Atender</button>`;
+    if(c.estado!=="Cancelada"&&c.estado!=="Atendida") acc+=`<button class="btn tiny line" onclick="accionCita('${c.id}','cancelar')">Cancelar</button>`;
+    return `<div class="ag"><span class="hr">${hh}</span><span class="dot" style="background:${color}"></span>
+      <div class="who"><b>${a?esc(a.nombre)+" · "+esc(a.raza||a.especie):"Animal"}</b><span>${esc(c.motivo||c.tipo||"")}${c.veterinario?" — "+esc(c.veterinario):""} · ${c.duracionMinutos} min</span></div>
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${pillEstadoCita(c.estado)}${acc}</div></div>`;
+  }).join("") : vacio("🗓️","Sin citas","No hay citas ese día.", `<button class="btn v" onclick="modalNuevaCita()">${ICON.plus} Nueva cita</button>`);
+  view(`
+    <div class="toolbar">
+      <label style="margin:0 6px 0 0">Día</label>
+      <input id="agDia" type="date" value="${dia}" onchange="ir('agenda',{dia:this.value})"/>
+      <div class="grow"></div>
+      <button class="btn v" onclick="modalNuevaCita()">${ICON.plus} Nueva cita</button>
+    </div>
+    ${panel(`Agenda · ${fdate(dia)}`, filas, `<span class="sp">${citas.length} cita${citas.length===1?"":"s"}</span>`)}`);
+}); }
+async function accionCita(id, accion){
+  try{
+    if(accion==="confirmar") await api(`/citas/${id}/confirmar`,{method:"POST"});
+    else if(accion==="atender") await api(`/citas/${id}/atender`,{method:"POST"});
+    else if(accion==="cancelar") await api(`/citas/${id}`,{method:"DELETE"});
+    toast("Cita actualizada.","ok"); vAgenda();
+  }catch(e){ toast(e.message,"err"); }
+}
+async function modalNuevaCita(){
+  let animales=window._animalesCache; if(!animales){ animales=await api("/animales"); }
+  const opts=animales.map(a=>`<option value="${a.id}">${esc(a.nombre)} · ${esc(a.raza||a.especie)}</option>`).join("");
+  if(!opts){ toast("Crea antes un animal.","err"); return; }
+  abrir("Nueva cita", `
+    <label>Animal *</label><select id="t_animal">${opts}</select>
+    <div class="grid-2"><div><label>Día *</label><input id="t_dia" type="date" value="${ctx.dia||hoyISO()}"/></div><div><label>Hora *</label><input id="t_hora" type="time" value="09:30"/></div></div>
+    <div class="grid-2">
+      <div><label>Duración (min)</label><input id="t_dur" inputmode="numeric" value="30"/></div>
+      <div><label>Tipo</label><select id="t_tipo"><option value="Consulta">Consulta</option><option value="Vacuna">Vacuna</option><option value="Cirugia">Cirugía</option><option value="Revision">Revisión</option><option value="Otro">Otro</option></select></div>
+    </div>
+    <label>Motivo</label><input id="t_motivo"/>
+    <label>Veterinario/a</label><input id="t_vet" value="${esc(usuario?.nombre||"")}"/>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      if(!val("t_dia")||!val("t_hora")) throw new Error("Indica día y hora.");
+      const inicio=`${val("t_dia")}T${val("t_hora")}:00${tz()}`;
+      await api(`/citas`,{method:"POST",body:JSON.stringify({
+        animalId:val("t_animal"), inicio, duracionMinutos:num("t_dur")||30, tipo:val("t_tipo"),
+        motivo:val("t_motivo")||null, veterinario:val("t_vet")||null
+      })});
+      toast("Cita creada.","ok"); ir("agenda",{dia:val("t_dia")});
+    });
+}
+
+/* ---------- FACTURACIÓN ---------- */
+let _actosSel=new Set();
+async function vFacturacion(){ cargando(); _actosSel=new Set(); await conError(async()=>{
+  const [actos, animales, clientes]=await Promise.all([api(`/actos?estado=Pendiente`), api(`/animales`), api(`/clientes`)]);
+  window._actosCache=actos;
+  const aById={}; animales.forEach(a=>aById[a.id]=a);
+  const cById={}; clientes.forEach(c=>cById[c.id]=c);
+  window._actosMeta={aById,cById};
+  const cuerpo = actos.length ? `
+    <table><thead><tr><th style="width:36px"></th><th>Fecha</th><th>Concepto</th><th>Animal</th><th>Cliente</th><th class="num">Base</th><th class="num">IVA</th><th class="num"></th></tr></thead>
+    <tbody>${actos.map(x=>{const a=aById[x.animalId],c=cById[x.clienteId];return `
+      <tr id="row-${x.id}"><td><span class="check" id="chk-${x.id}" onclick="toggleActo('${x.id}')"></span></td>
+        <td class="muted">${fdate(x.fecha)}</td><td><b>${esc(x.concepto)}</b></td>
+        <td>${a?esc(a.nombre):"—"}</td><td class="muted">${c?esc(c.nombre):"—"}</td>
+        <td class="num">${eur(x.importe)}</td><td class="num muted">${x.porcentajeIva}%</td>
+        <td class="num"><button class="btn tiny line" onclick="cobrarTicket('${x.id}')">Ticket</button></td></tr>`;}).join("")}</tbody></table>
+    <div class="barfoot"><div class="tot">Seleccionados <b id="selCount">0</b> · <span id="selTot">${eur(0)}</span></div>
+      <button class="btn v" id="btnFacturar" onclick="facturarSeleccion()" disabled>Facturar seleccionados</button></div>`
+    : vacio("🧾","Nada por facturar","No hay actos clínicos pendientes.");
+  view(`
+    <h3 class="sec">Actos pendientes</h3>
+    <p class="subt">Selecciona actos de un mismo cliente y emite una factura, o cobra un acto suelto con ticket.</p>
+    ${panel("Pendientes de facturar", cuerpo, `<span class="sp">${actos.length} acto${actos.length===1?"":"s"}</span>`)}`);
+}); }
+function toggleActo(id){
+  const chk=$("chk-"+id); if(_actosSel.has(id)){ _actosSel.delete(id); chk.classList.remove("on"); } else { _actosSel.add(id); chk.classList.add("on"); }
+  const actos=(window._actosCache||[]).filter(a=>_actosSel.has(a.id));
+  const total=actos.reduce((s,a)=>s+a.importe*(1+(a.porcentajeIva||0)/100),0);
+  $("selCount").textContent=_actosSel.size; $("selTot").textContent=eur(total);
+  // Solo se puede facturar si todos son del mismo cliente.
+  const clientes=new Set(actos.map(a=>a.clienteId));
+  const btn=$("btnFacturar"); btn.disabled=_actosSel.size===0 || clientes.size>1;
+  btn.textContent = clientes.size>1 ? "Selecciona un solo cliente" : "Facturar seleccionados";
+}
+async function facturarSeleccion(){
+  const ids=[..._actosSel]; if(!ids.length) return;
+  try{ const f=await api(`/actos/facturar`,{method:"POST",body:JSON.stringify({actoIds:ids})});
+    toast(f&&f.numeroCompleto?`Factura ${f.numeroCompleto} emitida.`:"Factura emitida.","ok"); vFacturacion();
+  }catch(e){ toast(e.message,"err"); }
+}
+async function cobrarTicket(id){
+  try{ await api(`/actos/${id}/ticket`,{method:"POST"}); toast("Cobrado con ticket.","ok"); vFacturacion(); }
+  catch(e){ toast(e.message,"err"); }
+}
+</script>
+</body>
+</html>
