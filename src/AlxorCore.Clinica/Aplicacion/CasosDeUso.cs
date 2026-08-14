@@ -1339,3 +1339,342 @@ public sealed class ListarRecordatorios
         return _consulta.ListarAsync(empresaId, estado, desde: null, hasta: hasta, ct);
     }
 }
+
+/// <summary>Datos de una cita para crear (una entrada de la agenda).</summary>
+public sealed record DatosCita(
+    Guid AnimalId,
+    DateTimeOffset Inicio,
+    int? DuracionMinutos = null,
+    TipoCita? Tipo = null,
+    string? Motivo = null,
+    string? Veterinario = null,
+    string? Notas = null);
+
+/// <summary>Datos de una cita al actualizar (el animal no cambia; se toma de la cita existente). No altera el estado.</summary>
+public sealed record DatosActualizarCita(
+    DateTimeOffset Inicio,
+    int? DuracionMinutos = null,
+    TipoCita? Tipo = null,
+    string? Motivo = null,
+    string? Veterinario = null,
+    string? Notas = null);
+
+/// <summary>Datos para reprogramar una cita (nuevo inicio y, opcionalmente, nueva duración).</summary>
+public sealed record DatosReprogramarCita(DateTimeOffset Inicio, int? DuracionMinutos = null);
+
+/// <summary>
+/// Caso de uso: crear una cita para un animal de la empresa activa. Verifica que el animal existe en
+/// la empresa (a través de <see cref="IConsultaAnimales"/>).
+/// </summary>
+public sealed class CrearCita
+{
+    private readonly IRepositorioCitas _citas;
+    private readonly IConsultaAnimales _animales;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public CrearCita(IRepositorioCitas citas, IConsultaAnimales animales, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _citas = citas;
+        _animales = animales;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<CitaDto>> EjecutarAsync(Guid empresaId, DatosCita datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        // El filtro multiempresa de EF Core garantiza que solo se encuentra el animal si pertenece a la empresa activa.
+        var animal = await _animales.ObtenerAsync(datos.AnimalId, ct).ConfigureAwait(false);
+        if (animal is null)
+        {
+            return Resultado.Fallo<CitaDto>(Error.Validacion("cita.animal_no_encontrado", "El animal no existe en esta empresa."));
+        }
+
+        var cita = Cita.Crear(
+            empresaId, datos.AnimalId, datos.Inicio, _reloj,
+            datos.DuracionMinutos ?? Cita.DuracionPorDefectoMinutos, datos.Tipo ?? TipoCita.Consulta,
+            datos.Motivo, datos.Veterinario, datos.Notas);
+        if (cita.EsFallo)
+        {
+            return Resultado.Fallo<CitaDto>(cita.Error);
+        }
+
+        _citas.Agregar(cita.Valor);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(CitaDto.Desde(cita.Valor));
+    }
+}
+
+/// <summary>Caso de uso: actualizar los datos de una cita existente (el animal y el estado no cambian).</summary>
+public sealed class ActualizarCita
+{
+    private readonly IRepositorioCitas _citas;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public ActualizarCita(IRepositorioCitas citas, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _citas = citas;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<CitaDto>> EjecutarAsync(Guid citaId, DatosActualizarCita datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        var cita = await _citas.ObtenerPorIdAsync(citaId, ct).ConfigureAwait(false);
+        if (cita is null)
+        {
+            return Resultado.Fallo<CitaDto>(Error.NoEncontrado("cita.no_encontrada", "La cita no existe."));
+        }
+
+        var actualizada = cita.Actualizar(
+            datos.Inicio, datos.DuracionMinutos ?? cita.DuracionMinutos, datos.Tipo ?? cita.Tipo, _reloj,
+            datos.Motivo, datos.Veterinario, datos.Notas);
+        if (actualizada.EsFallo)
+        {
+            return Resultado.Fallo<CitaDto>(actualizada.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(CitaDto.Desde(cita));
+    }
+}
+
+/// <summary>Caso de uso: confirmar una cita (transición Solicitada → Confirmada).</summary>
+public sealed class ConfirmarCita
+{
+    private readonly IRepositorioCitas _citas;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public ConfirmarCita(IRepositorioCitas citas, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _citas = citas;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<CitaDto>> EjecutarAsync(Guid citaId, CancellationToken ct = default)
+    {
+        var cita = await _citas.ObtenerPorIdAsync(citaId, ct).ConfigureAwait(false);
+        if (cita is null)
+        {
+            return Resultado.Fallo<CitaDto>(Error.NoEncontrado("cita.no_encontrada", "La cita no existe."));
+        }
+
+        var confirmada = cita.Confirmar(_reloj);
+        if (confirmada.EsFallo)
+        {
+            return Resultado.Fallo<CitaDto>(confirmada.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(CitaDto.Desde(cita));
+    }
+}
+
+/// <summary>Caso de uso: reprogramar una cita a un nuevo inicio (y, opcionalmente, nueva duración).</summary>
+public sealed class ReprogramarCita
+{
+    private readonly IRepositorioCitas _citas;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public ReprogramarCita(IRepositorioCitas citas, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _citas = citas;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<CitaDto>> EjecutarAsync(Guid citaId, DatosReprogramarCita datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        var cita = await _citas.ObtenerPorIdAsync(citaId, ct).ConfigureAwait(false);
+        if (cita is null)
+        {
+            return Resultado.Fallo<CitaDto>(Error.NoEncontrado("cita.no_encontrada", "La cita no existe."));
+        }
+
+        var reprogramada = cita.Reprogramar(datos.Inicio, datos.DuracionMinutos, _reloj);
+        if (reprogramada.EsFallo)
+        {
+            return Resultado.Fallo<CitaDto>(reprogramada.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(CitaDto.Desde(cita));
+    }
+}
+
+/// <summary>Caso de uso: marcar una cita como atendida.</summary>
+public sealed class AtenderCita
+{
+    private readonly IRepositorioCitas _citas;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public AtenderCita(IRepositorioCitas citas, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _citas = citas;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<CitaDto>> EjecutarAsync(Guid citaId, CancellationToken ct = default)
+    {
+        var cita = await _citas.ObtenerPorIdAsync(citaId, ct).ConfigureAwait(false);
+        if (cita is null)
+        {
+            return Resultado.Fallo<CitaDto>(Error.NoEncontrado("cita.no_encontrada", "La cita no existe."));
+        }
+
+        var atendida = cita.Atender(_reloj);
+        if (atendida.EsFallo)
+        {
+            return Resultado.Fallo<CitaDto>(atendida.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(CitaDto.Desde(cita));
+    }
+}
+
+/// <summary>Caso de uso: marcar una cita como no presentado.</summary>
+public sealed class MarcarNoPresentado
+{
+    private readonly IRepositorioCitas _citas;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public MarcarNoPresentado(IRepositorioCitas citas, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _citas = citas;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<CitaDto>> EjecutarAsync(Guid citaId, CancellationToken ct = default)
+    {
+        var cita = await _citas.ObtenerPorIdAsync(citaId, ct).ConfigureAwait(false);
+        if (cita is null)
+        {
+            return Resultado.Fallo<CitaDto>(Error.NoEncontrado("cita.no_encontrada", "La cita no existe."));
+        }
+
+        var marcada = cita.MarcarNoPresentado(_reloj);
+        if (marcada.EsFallo)
+        {
+            return Resultado.Fallo<CitaDto>(marcada.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(CitaDto.Desde(cita));
+    }
+}
+
+/// <summary>Caso de uso: cancelar una cita.</summary>
+public sealed class CancelarCita
+{
+    private readonly IRepositorioCitas _citas;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public CancelarCita(IRepositorioCitas citas, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _citas = citas;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado> EjecutarAsync(Guid citaId, CancellationToken ct = default)
+    {
+        var cita = await _citas.ObtenerPorIdAsync(citaId, ct).ConfigureAwait(false);
+        if (cita is null)
+        {
+            return Resultado.Fallo(Error.NoEncontrado("cita.no_encontrada", "La cita no existe."));
+        }
+
+        var cancelada = cita.Cancelar(_reloj);
+        if (cancelada.EsFallo)
+        {
+            return Resultado.Fallo(cancelada.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok();
+    }
+}
+
+/// <summary>Caso de uso: obtener una cita por su identificador.</summary>
+public sealed class ObtenerCita
+{
+    private readonly IConsultaCitas _consulta;
+
+    public ObtenerCita(IConsultaCitas consulta) => _consulta = consulta;
+
+    public async Task<Resultado<CitaDto>> EjecutarAsync(Guid citaId, CancellationToken ct = default)
+    {
+        var cita = await _consulta.ObtenerAsync(citaId, ct).ConfigureAwait(false);
+        return cita is null
+            ? Resultado.Fallo<CitaDto>(Error.NoEncontrado("cita.no_encontrada", "La cita no existe."))
+            : Resultado.Ok(cita);
+    }
+}
+
+/// <summary>Caso de uso: listar las citas de un animal (excluye las canceladas), de la más reciente a la más antigua.</summary>
+public sealed class ListarCitasDeAnimal
+{
+    private readonly IConsultaCitas _consulta;
+
+    public ListarCitasDeAnimal(IConsultaCitas consulta) => _consulta = consulta;
+
+    public Task<IReadOnlyList<CitaDto>> EjecutarAsync(Guid animalId, bool incluirCanceladas = false, CancellationToken ct = default) =>
+        _consulta.ListarPorAnimalAsync(animalId, incluirCanceladas, ct);
+}
+
+/// <summary>Caso de uso: la agenda de la empresa en un rango, con filtros por estado y veterinario.</summary>
+public sealed class ListarAgenda
+{
+    private readonly IConsultaCitas _consulta;
+
+    public ListarAgenda(IConsultaCitas consulta) => _consulta = consulta;
+
+    public Task<IReadOnlyList<CitaDto>> EjecutarAsync(Guid empresaId, DateTimeOffset desde, DateTimeOffset hasta, EstadoCita? estado = null, string? veterinario = null, CancellationToken ct = default) =>
+        _consulta.ListarAgendaAsync(empresaId, desde, hasta, estado, veterinario, ct);
+}
+
+/// <summary>Caso de uso: KPI de confirmación de citas de una ventana (resumen).</summary>
+public sealed class ResumenCitas
+{
+    private readonly IConsultaCitas _consulta;
+
+    public ResumenCitas(IConsultaCitas consulta) => _consulta = consulta;
+
+    public Task<ResumenCitasDto> EjecutarAsync(Guid empresaId, DateTimeOffset desde, DateTimeOffset hasta, CancellationToken ct = default) =>
+        _consulta.ResumenAsync(empresaId, desde, hasta, ct);
+}
+
+/// <summary>Caso de uso: serie mensual de confirmación de citas (para el gráfico del panel).</summary>
+public sealed class ConfirmacionMensual
+{
+    private readonly IConsultaCitas _consulta;
+    private readonly IReloj _reloj;
+
+    public ConfirmacionMensual(IConsultaCitas consulta, IReloj reloj)
+    {
+        _consulta = consulta;
+        _reloj = reloj;
+    }
+
+    public Task<IReadOnlyList<PuntoConfirmacionMensualDto>> EjecutarAsync(Guid empresaId, int meses = 6, CancellationToken ct = default)
+    {
+        var hoy = DateOnly.FromDateTime(_reloj.AhoraUtc.UtcDateTime);
+        return _consulta.ConfirmacionMensualAsync(empresaId, meses < 1 ? 1 : meses, hoy, ct);
+    }
+}

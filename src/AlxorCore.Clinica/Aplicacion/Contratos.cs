@@ -247,5 +247,68 @@ public interface IConsultaRecordatorios
     Task<bool> ExisteConReferenciaAsync(Guid empresaId, string referenciaTipo, Guid referenciaId, CancellationToken ct = default);
 }
 
+/// <summary>Vista de una cita (entrada de la agenda).</summary>
+public sealed record CitaDto(
+    Guid Id,
+    Guid AnimalId,
+    DateTimeOffset Inicio,
+    int DuracionMinutos,
+    TipoCita Tipo,
+    string? Motivo,
+    string? Veterinario,
+    EstadoCita Estado,
+    string? Notas)
+{
+    public static CitaDto Desde(Cita c)
+    {
+        ArgumentNullException.ThrowIfNull(c);
+        return new CitaDto(
+            c.Id, c.AnimalId, c.Inicio, c.DuracionMinutos, c.Tipo, c.Motivo, c.Veterinario, c.Estado, c.Notas);
+    }
+}
+
+/// <summary>
+/// Resumen de citas de una ventana temporal. <see cref="PorcentajeConfirmacion"/> es el KPI de
+/// confirmación: (confirmadas + atendidas) / total × 100, redondeado (0 si no hay citas). Las citas
+/// atendidas cuentan como confirmadas: acudieron.
+/// </summary>
+public sealed record ResumenCitasDto(
+    int Total,
+    int Solicitadas,
+    int Confirmadas,
+    int Atendidas,
+    int Canceladas,
+    int NoPresentado,
+    int PorcentajeConfirmacion);
+
+/// <summary>Punto de la serie mensual de confirmación (para el gráfico del panel).</summary>
+public sealed record PuntoConfirmacionMensualDto(int Anio, int Mes, int Citadas, int Confirmadas);
+
+/// <summary>Repositorio de citas (escritura).</summary>
+public interface IRepositorioCitas
+{
+    Task<Cita?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default);
+
+    void Agregar(Cita cita);
+}
+
+/// <summary>Consultas de lectura de la agenda y de los KPI de citas.</summary>
+public interface IConsultaCitas
+{
+    Task<CitaDto?> ObtenerAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Lista las citas de un animal, ordenadas por inicio descendente. Excluye las canceladas salvo que se pida lo contrario.</summary>
+    Task<IReadOnlyList<CitaDto>> ListarPorAnimalAsync(Guid animalId, bool incluirCanceladas = false, CancellationToken ct = default);
+
+    /// <summary>La agenda: citas de la empresa cuyo inicio cae en [desde, hasta], ordenadas por inicio ascendente, con filtros opcionales por estado y veterinario.</summary>
+    Task<IReadOnlyList<CitaDto>> ListarAgendaAsync(Guid empresaId, DateTimeOffset desde, DateTimeOffset hasta, EstadoCita? estado = null, string? veterinario = null, CancellationToken ct = default);
+
+    /// <summary>Resumen de citas (KPI de confirmación) de la ventana [desde, hasta].</summary>
+    Task<ResumenCitasDto> ResumenAsync(Guid empresaId, DateTimeOffset desde, DateTimeOffset hasta, CancellationToken ct = default);
+
+    /// <summary>Serie de confirmación de los últimos <paramref name="meses"/> meses (para el gráfico del panel), ordenada del más antiguo al más reciente.</summary>
+    Task<IReadOnlyList<PuntoConfirmacionMensualDto>> ConfirmacionMensualAsync(Guid empresaId, int meses, DateOnly hoy, CancellationToken ct = default);
+}
+
 /// <summary>Unidad de trabajo del módulo Clínica.</summary>
 public interface IUnidadDeTrabajoClinica : IUnidadDeTrabajo;

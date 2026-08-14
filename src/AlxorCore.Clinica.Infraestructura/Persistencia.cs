@@ -33,6 +33,8 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<Recordatorio> Recordatorios => Set<Recordatorio>();
 
+    public DbSet<Cita> Citas => Set<Cita>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Esquema);
@@ -493,6 +495,147 @@ internal sealed class RepositorioRecordatorios : IRepositorioRecordatorios, ICon
         _contexto.Recordatorios.AnyAsync(
             r => r.EmpresaId == empresaId && r.ReferenciaTipo == referenciaTipo && r.ReferenciaId == referenciaId,
             ct);
+}
+
+internal sealed class ConfiguracionCita : IEntityTypeConfiguration<Cita>
+{
+    public void Configure(EntityTypeBuilder<Cita> builder)
+    {
+        builder.ToTable("cita");
+        builder.HasKey(c => c.Id);
+        builder.Property(c => c.Id).HasColumnName("id");
+        builder.Property(c => c.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(c => c.AnimalId).HasColumnName("animal_id").IsRequired();
+        builder.Property(c => c.Inicio).HasColumnName("inicio").IsRequired();
+        builder.Property(c => c.DuracionMinutos).HasColumnName("duracion_minutos").IsRequired();
+        builder.Property(c => c.Tipo).HasColumnName("tipo").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(c => c.Motivo).HasColumnName("motivo").HasMaxLength(Cita.LongitudMaximaMotivo);
+        builder.Property(c => c.Veterinario).HasColumnName("veterinario").HasMaxLength(Cita.LongitudMaximaVeterinario);
+        builder.Property(c => c.Estado).HasColumnName("estado").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(c => c.Notas).HasColumnName("notas").HasMaxLength(Cita.LongitudMaximaNotas);
+        builder.Property(c => c.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(c => c.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        builder.HasIndex(c => new { c.EmpresaId, c.AnimalId }).HasDatabaseName("ix_cita_empresa_animal");
+        builder.HasIndex(c => new { c.EmpresaId, c.Inicio }).HasDatabaseName("ix_cita_empresa_inicio");
+        // Índice de apoyo para la agenda y los KPI (filtran por estado dentro de una ventana de inicio).
+        builder.HasIndex(c => new { c.EmpresaId, c.Estado, c.Inicio }).HasDatabaseName("ix_cita_empresa_estado_inicio");
+        builder.Ignore(c => c.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioCitas : IRepositorioCitas, IConsultaCitas
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioCitas(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<Cita?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.Citas.SingleOrDefaultAsync(c => c.Id == id, ct);
+
+    public void Agregar(Cita cita) => _contexto.Citas.Add(cita);
+
+    public async Task<CitaDto?> ObtenerAsync(Guid id, CancellationToken ct = default)
+    {
+        var cita = await _contexto.Citas.SingleOrDefaultAsync(c => c.Id == id, ct).ConfigureAwait(false);
+        return cita is null ? null : CitaDto.Desde(cita);
+    }
+
+    public async Task<IReadOnlyList<CitaDto>> ListarPorAnimalAsync(Guid animalId, bool incluirCanceladas = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.Citas.Where(c => c.AnimalId == animalId);
+        if (!incluirCanceladas)
+        {
+            consulta = consulta.Where(c => c.Estado != EstadoCita.Cancelada);
+        }
+
+        var citas = await consulta
+            .OrderByDescending(c => c.Inicio)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return citas.Select(CitaDto.Desde).ToList();
+    }
+
+    public async Task<IReadOnlyList<CitaDto>> ListarAgendaAsync(Guid empresaId, DateTimeOffset desde, DateTimeOffset hasta, EstadoCita? estado = null, string? veterinario = null, CancellationToken ct = default)
+    {
+        var consulta = _contexto.Citas
+            .Where(c => c.EmpresaId == empresaId && c.Inicio >= desde && c.Inicio <= hasta);
+
+        if (estado is { } e)
+        {
+            consulta = consulta.Where(c => c.Estado == e);
+        }
+
+        if (!string.IsNullOrWhiteSpace(veterinario))
+        {
+            var vet = veterinario.Trim();
+            consulta = consulta.Where(c => c.Veterinario == vet);
+        }
+
+        var citas = await consulta
+            .OrderBy(c => c.Inicio)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return citas.Select(CitaDto.Desde).ToList();
+    }
+
+    public async Task<ResumenCitasDto> ResumenAsync(Guid empresaId, DateTimeOffset desde, DateTimeOffset hasta, CancellationToken ct = default)
+    {
+        // Un único recorrido en BD que cuenta por estado; el porcentaje se compone en memoria.
+        var conteos = await _contexto.Citas
+            .Where(c => c.EmpresaId == empresaId && c.Inicio >= desde && c.Inicio <= hasta)
+            .GroupBy(c => c.Estado)
+            .Select(g => new { Estado = g.Key, Cantidad = g.Count() })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        int Contar(EstadoCita estado) => conteos.SingleOrDefault(x => x.Estado == estado)?.Cantidad ?? 0;
+
+        var solicitadas = Contar(EstadoCita.Solicitada);
+        var confirmadas = Contar(EstadoCita.Confirmada);
+        var atendidas = Contar(EstadoCita.Atendida);
+        var canceladas = Contar(EstadoCita.Cancelada);
+        var noPresentado = Contar(EstadoCita.NoPresentado);
+        var total = solicitadas + confirmadas + atendidas + canceladas + noPresentado;
+
+        // KPI de confirmación: las atendidas cuentan como confirmadas (acudieron).
+        var porcentaje = total == 0
+            ? 0
+            : (int)Math.Round((confirmadas + atendidas) * 100.0 / total, MidpointRounding.AwayFromZero);
+
+        return new ResumenCitasDto(total, solicitadas, confirmadas, atendidas, canceladas, noPresentado, porcentaje);
+    }
+
+    public async Task<IReadOnlyList<PuntoConfirmacionMensualDto>> ConfirmacionMensualAsync(Guid empresaId, int meses, DateOnly hoy, CancellationToken ct = default)
+    {
+        // Ventana: los últimos «meses» meses naturales incluido el actual. Se agrupa en memoria por
+        // año/mes del inicio (en UTC) para que la serie sea determinista con independencia del huso.
+        var primerMes = new DateOnly(hoy.Year, hoy.Month, 1).AddMonths(-(meses - 1));
+        var inicioVentana = new DateTimeOffset(primerMes.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+
+        var citas = await _contexto.Citas
+            .Where(c => c.EmpresaId == empresaId && c.Inicio >= inicioVentana)
+            .Select(c => new { c.Inicio, c.Estado })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var porMes = citas
+            .GroupBy(c => (c.Inicio.UtcDateTime.Year, c.Inicio.UtcDateTime.Month))
+            .ToDictionary(
+                g => g.Key,
+                g => (Citadas: g.Count(), Confirmadas: g.Count(c => c.Estado is EstadoCita.Confirmada or EstadoCita.Atendida)));
+
+        var serie = new List<PuntoConfirmacionMensualDto>(meses);
+        for (var i = 0; i < meses; i++)
+        {
+            var mes = primerMes.AddMonths(i);
+            var clave = (mes.Year, mes.Month);
+            var valores = porMes.TryGetValue(clave, out var v) ? v : (Citadas: 0, Confirmadas: 0);
+            serie.Add(new PuntoConfirmacionMensualDto(mes.Year, mes.Month, valores.Citadas, valores.Confirmadas));
+        }
+
+        return serie;
+    }
 }
 
 /// <summary>Factoría en tiempo de diseño para migraciones.</summary>

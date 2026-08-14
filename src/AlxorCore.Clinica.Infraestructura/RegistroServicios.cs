@@ -97,6 +97,23 @@ public static class RegistroServicios
         servicios.AddScoped<ObtenerRecordatorio>();
         servicios.AddScoped<ListarRecordatorios>();
 
+        servicios.AddScoped<RepositorioCitas>();
+        servicios.AddScoped<IRepositorioCitas>(sp => sp.GetRequiredService<RepositorioCitas>());
+        servicios.AddScoped<IConsultaCitas>(sp => sp.GetRequiredService<RepositorioCitas>());
+
+        servicios.AddScoped<CrearCita>();
+        servicios.AddScoped<ActualizarCita>();
+        servicios.AddScoped<ConfirmarCita>();
+        servicios.AddScoped<ReprogramarCita>();
+        servicios.AddScoped<AtenderCita>();
+        servicios.AddScoped<MarcarNoPresentado>();
+        servicios.AddScoped<CancelarCita>();
+        servicios.AddScoped<ObtenerCita>();
+        servicios.AddScoped<ListarCitasDeAnimal>();
+        servicios.AddScoped<ListarAgenda>();
+        servicios.AddScoped<ResumenCitas>();
+        servicios.AddScoped<ConfirmacionMensual>();
+
         return servicios;
     }
 }

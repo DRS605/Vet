@@ -175,6 +175,57 @@ public static class EndpointsClinica
             .WithSummary("Cancela un recordatorio.")
             .RequierePermiso(Permisos.RecordatorioGestionar);
 
+        rutas.MapGet("/agenda", ListarAgendaAsync)
+            .WithTags("Citas")
+            .WithSummary("Agenda: citas de la empresa en un rango, con filtros por estado y veterinario.")
+            .RequierePermiso(Permisos.CitaLeer);
+
+        var citas = rutas.MapGroup("/citas").WithTags("Citas");
+
+        citas.MapPost("", CrearCitaAsync)
+            .WithSummary("Crea una cita (entrada de la agenda).")
+            .RequierePermiso(Permisos.CitaGestionar);
+
+        citas.MapGet("/kpi", ResumenCitasAsync)
+            .WithSummary("KPI de confirmación de citas en un rango (resumen).")
+            .RequierePermiso(Permisos.CitaLeer);
+
+        citas.MapGet("/kpi/confirmacion-mensual", ConfirmacionMensualAsync)
+            .WithSummary("Serie mensual de confirmación de citas (para el gráfico del panel).")
+            .RequierePermiso(Permisos.CitaLeer);
+
+        citas.MapGet("/{id:guid}", ObtenerCitaAsync)
+            .WithSummary("Obtiene una cita.")
+            .RequierePermiso(Permisos.CitaLeer);
+
+        citas.MapPut("/{id:guid}", ActualizarCitaAsync)
+            .WithSummary("Actualiza los datos de una cita (no altera el estado).")
+            .RequierePermiso(Permisos.CitaGestionar);
+
+        citas.MapPost("/{id:guid}/confirmar", ConfirmarCitaAsync)
+            .WithSummary("Confirma una cita.")
+            .RequierePermiso(Permisos.CitaGestionar);
+
+        citas.MapPost("/{id:guid}/atender", AtenderCitaAsync)
+            .WithSummary("Marca una cita como atendida.")
+            .RequierePermiso(Permisos.CitaGestionar);
+
+        citas.MapPost("/{id:guid}/no-presentado", MarcarNoPresentadoAsync)
+            .WithSummary("Marca una cita como no presentado.")
+            .RequierePermiso(Permisos.CitaGestionar);
+
+        citas.MapPost("/{id:guid}/reprogramar", ReprogramarCitaAsync)
+            .WithSummary("Reprograma una cita a un nuevo inicio (y, opcionalmente, nueva duración).")
+            .RequierePermiso(Permisos.CitaGestionar);
+
+        citas.MapDelete("/{id:guid}", CancelarCitaAsync)
+            .WithSummary("Cancela una cita.")
+            .RequierePermiso(Permisos.CitaGestionar);
+
+        animales.MapGet("/{animalId:guid}/citas", ListarCitasAsync)
+            .WithSummary("Lista las citas de un animal.")
+            .RequierePermiso(Permisos.CitaLeer);
+
         return rutas;
     }
 
@@ -390,4 +441,76 @@ public static class EndpointsClinica
 
     private static async Task<IResult> CancelarRecordatorioAsync(Guid id, CancelarRecordatorio caso, CancellationToken ct) =>
         (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> ListarAgendaAsync(
+        DateTimeOffset desde,
+        DateTimeOffset hasta,
+        EstadoCita? estado,
+        string? veterinario,
+        IContextoEmpresa contexto,
+        ListarAgenda caso,
+        CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, desde, hasta, estado, veterinario, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> CrearCitaAsync(DatosCita datos, IContextoEmpresa contexto, CrearCita caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, datos, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/citas/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> ResumenCitasAsync(DateTimeOffset desde, DateTimeOffset hasta, IContextoEmpresa contexto, ResumenCitas caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, desde, hasta, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> ConfirmacionMensualAsync(int? meses, IContextoEmpresa contexto, ConfirmacionMensual caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, meses ?? 6, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> ObtenerCitaAsync(Guid id, ObtenerCita caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> ActualizarCitaAsync(Guid id, DatosActualizarCita datos, ActualizarCita caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> ConfirmarCitaAsync(Guid id, ConfirmarCita caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> AtenderCitaAsync(Guid id, AtenderCita caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> MarcarNoPresentadoAsync(Guid id, MarcarNoPresentado caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> ReprogramarCitaAsync(Guid id, DatosReprogramarCita datos, ReprogramarCita caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> CancelarCitaAsync(Guid id, CancelarCita caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> ListarCitasAsync(Guid animalId, bool? incluirCanceladas, ListarCitasDeAnimal caso, CancellationToken ct) =>
+        Results.Ok(await caso.EjecutarAsync(animalId, incluirCanceladas ?? false, ct).ConfigureAwait(false));
 }

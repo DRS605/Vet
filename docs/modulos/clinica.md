@@ -25,21 +25,24 @@ AlxorCore.Clinica/                   # puro, sin frameworks
                   PautaVacunal, CaracterVacuna, PautaVacunalCreada (evento);
                   Vacunacion, VacunacionRegistrada (evento);
                   Cirugia, CirugiaRegistrada (evento);
-                  Recordatorio, TipoRecordatorio, EstadoRecordatorio, RecordatorioCreado (evento)
+                  Recordatorio, TipoRecordatorio, EstadoRecordatorio, RecordatorioCreado (evento);
+                  Cita, TipoCita, EstadoCita, CitaCreada (evento)
   Aplicacion/     DatosAnimal, AnimalDto, DatosConsulta, ConsultaDto, DatosPautaVacunal,
                   PautaVacunalDto, DatosVacunacion, VacunacionDto, DatosCirugia, CirugiaDto,
-                  DatosRecordatorio, RecordatorioDto, casos de uso, contratos
+                  DatosRecordatorio, RecordatorioDto, DatosCita, DatosActualizarCita,
+                  DatosReprogramarCita, CitaDto, ResumenCitasDto, PuntoConfirmacionMensualDto,
+                  casos de uso, contratos
                   (IRepositorioAnimales, IConsultaAnimales, IRepositorioConsultas,
                   IConsultaConsultas, IRepositorioPautasVacunales, IConsultaPautasVacunales,
                   IRepositorioVacunaciones, IConsultaVacunaciones, IRepositorioCirugias,
                   IConsultaCirugias, IRepositorioRecordatorios, IConsultaRecordatorios,
-                  IUnidadDeTrabajoClinica)
+                  IRepositorioCitas, IConsultaCitas, IUnidadDeTrabajoClinica)
 AlxorCore.Clinica.Infraestructura/   # adaptadores
   Persistencia.cs ClinicaDbContext, ConfiguracionAnimal/Consulta/PautaVacunal/Vacunacion/Cirugia/
-                  Recordatorio, RepositorioAnimales/Consultas/PautasVacunales/Vacunaciones/
-                  Cirugias/Recordatorios, DbContextFactory
+                  Recordatorio/Cita, RepositorioAnimales/Consultas/PautasVacunales/Vacunaciones/
+                  Cirugias/Recordatorios/Citas, DbContextFactory
   Persistencia/Migraciones/          MigracionInicialClinica, AgregarConsultas, AgregarVacunas,
-                  AgregarCirugias, AgregarRecordatorios
+                  AgregarCirugias, AgregarRecordatorios, AgregarCitas
   RegistroServicios.AgregarModuloClinica(...)
 ```
 
@@ -384,6 +387,88 @@ Los roles **Propietario** y **Usuario** gestionan recordatorios; **Solo lectura*
 La migración `AgregarRecordatorios` crea la tabla `recordatorio` (con sus índices, incluido el único
 parcial de deduplicación) y activa la RLS por empresa.
 
+## Agregado `Cita` (agenda)
+
+`Cita` es la **séptima raíz de agregado** del producto veterinario: una **entrada de la agenda** de la
+clínica para un animal. A diferencia del resto del historial clínico, la cita necesita **hora**
+(`Inicio` es `DateTimeOffset`) y una **máquina de estados**. Cuelga del animal (solo guarda su
+`AnimalId`, sin FK entre esquemas). Sobre ella se calculan los **KPI de confirmación** de la agenda.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `AnimalId` | `Guid` | Animal citado. Obligatorio. Índice `(empresa_id, animal_id)`. |
+| `Inicio` | `DateTimeOffset` | Fecha y hora de la cita. Obligatoria (`timestamptz`). |
+| `DuracionMinutos` | `int` | Por defecto 30; debe ser mayor que cero. |
+| `Tipo` | `TipoCita` | `Consulta`, `Vacuna`, `Cirugia`, `Revision`, `Otro` (string en BD). |
+| `Motivo` | `string?` | Máx. 200. |
+| `Veterinario` | `string?` | Texto libre (aún no hay entidad Profesional; soporta el «multiveterinario»). Máx. 120. |
+| `Estado` | `EstadoCita` | Máquina de estados (string en BD). Empieza en `Solicitada`. |
+| `Notas` | `string?` | Máx. 1000. |
+| `CreadoEn` / `ActualizadoEn` | `DateTimeOffset` | |
+
+Al crear una cita se emite el evento de dominio `CitaCreada` y queda `Solicitada`. Validaciones
+`cita.*`: `animal_obligatorio`, `duracion_invalida` (≤ 0), `tipo_invalido`, `motivo_largo`,
+`veterinario_largo`, `notas_largas` (las cadenas se normalizan).
+
+### Máquina de estados
+
+```
+Solicitada ──Confirmar──▶ Confirmada ──Atender──▶ Atendida (final)
+     │                        │
+     ├──Atender────────────▶ Atendida (final)
+     ├──MarcarNoPresentado─▶ NoPresentado (final)
+     └──Cancelar───────────▶ Cancelada (final)
+                              (Confirmada también → NoPresentado / Cancelada)
+```
+
+Las transiciones se aplican con `Confirmar`, `Atender`, `MarcarNoPresentado`, `Cancelar` y
+`Reprogramar` (todas reciben un `IReloj`). Los estados `Atendida`, `Cancelada` y `NoPresentado` son
+**finales**: no admiten más transiciones. `Reprogramar` (nuevo inicio y duración opcional) solo es
+válido desde `Solicitada` o `Confirmada`. Cualquier transición no permitida devuelve
+`Error` con código `cita.transicion_invalida` (mismo patrón que `Recordatorio`). `Actualizar` cambia
+los datos (inicio, duración, tipo, motivo, veterinario, notas) **sin** alterar el estado.
+
+### Agenda y KPIs
+
+- **Agenda** — `ListarAgenda(empresaId, desde, hasta, estado?, veterinario?)`: las citas cuyo `Inicio`
+  cae en `[desde, hasta]`, **ordenadas por inicio ascendente**, con filtros opcionales por estado y
+  por veterinario.
+- **Resumen (KPI de confirmación)** — `ResumenCitas(empresaId, desde, hasta)` → `ResumenCitasDto`
+  `{ total, solicitadas, confirmadas, atendidas, canceladas, noPresentado, porcentajeConfirmacion }`.
+  El porcentaje es `(confirmadas + atendidas) / total × 100` redondeado (0 si no hay citas): las
+  **atendidas cuentan como confirmadas** (acudieron). Se calcula con un único `GROUP BY estado` en BD
+  y la razón se compone en memoria.
+- **Serie mensual** — `ConfirmacionMensual(empresaId, meses)` → lista de
+  `PuntoConfirmacionMensualDto { anio, mes, citadas, confirmadas }` de los últimos N meses naturales
+  (incluido el actual), para el gráfico del panel. Se agrupa por año/mes del inicio **en UTC** y se
+  **rellenan los meses sin citas con ceros**, de forma determinista.
+
+### API de citas
+
+Todas las rutas requieren empresa activa. Lectura → `cita.leer`; alta/edición/transiciones →
+`cita.gestionar`.
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| `GET` | `/agenda?desde=&hasta=&estado=&veterinario=` | `cita.leer` | La agenda por rango (orden por inicio asc). |
+| `POST` | `/citas` | `cita.gestionar` | Crea una cita. **201**. |
+| `GET` | `/animales/{animalId}/citas?incluirCanceladas=` | `cita.leer` | Citas de un animal. |
+| `GET` | `/citas/{id}` | `cita.leer` | Obtiene una cita. |
+| `PUT` | `/citas/{id}` | `cita.gestionar` | Actualiza los datos (no el estado). |
+| `POST` | `/citas/{id}/confirmar` | `cita.gestionar` | Confirma la cita. |
+| `POST` | `/citas/{id}/atender` | `cita.gestionar` | Marca atendida. |
+| `POST` | `/citas/{id}/no-presentado` | `cita.gestionar` | Marca no presentado. |
+| `POST` | `/citas/{id}/reprogramar` | `cita.gestionar` | Reprograma (body: nuevo inicio y duración opcional). |
+| `DELETE` | `/citas/{id}` | `cita.gestionar` | Cancela la cita (**204**). |
+| `GET` | `/citas/kpi?desde=&hasta=` | `cita.leer` | KPI de confirmación (`ResumenCitasDto`). |
+| `GET` | `/citas/kpi/confirmacion-mensual?meses=6` | `cita.leer` | Serie mensual de confirmación. |
+
+Los roles **Propietario** y **Usuario** gestionan citas; **Solo lectura** solo las consulta.
+
+La migración `AgregarCitas` crea la tabla `cita` (`inicio` como `timestamptz`, enums como texto) con
+los índices `(empresa_id, animal_id)`, `(empresa_id, inicio)` y `(empresa_id, estado, inicio)` para la
+agenda y los KPI, y activa la RLS por empresa.
+
 ## Tests
 
 - **Unitarios** (`AlxorCore.Clinica.PruebasUnitarias`):
@@ -405,6 +490,12 @@ parcial de deduplicación) y activa la RLS por empresa.
   - `Recordatorio`: creación válida (emite `RecordatorioCreado`, queda `Pendiente`), animal
     obligatorio, título vacío/largo, notas largas, tipo inválido; `MarcarEnviado` (fija estado +
     fecha y falla si no está `Pendiente`), `MarcarCompletado`, `Cancelar` y `Actualizar`.
+  - `Cita`: creación válida (emite `CitaCreada`, queda `Solicitada`), duración/tipo por defecto,
+    normalización, animal obligatorio, duración ≤ 0, tipo inválido, longitudes de
+    motivo/veterinario/notas; transiciones **válidas** (`Confirmar`, `Atender`, `MarcarNoPresentado`,
+    `Cancelar`, `Reprogramar` con y sin nueva duración) y varias **inválidas** (atender/confirmar/
+    cancelar desde un estado final → `cita.transicion_invalida`, reprogramar una atendida → error),
+    y `Actualizar` sin alterar el estado.
   - xUnit + FluentAssertions con un `IReloj` fijo.
 - **Integración** (`AlxorCore.IntegrationTests`), contra un **PostgreSQL real**:
   - `Animal`: alta/obtención/edición por API, alta con cliente inexistente (400), listado por
@@ -426,3 +517,9 @@ parcial de deduplicación) y activa la RLS por empresa.
     `enviar-pendientes` (envía los que tienen email y cuenta los fallidos) y **aislamiento
     multiempresa**. Reutiliza el mismo doble de correo (`CorreoFalso`, sustituye a `IServicioCorreo`)
     del harness `FabricaApiPruebas`.
+  - `Cita`: creación (queda `Solicitada`) y con animal inexistente (400); `GET /agenda` por rango
+    **ordenado por inicio** y **filtrado por estado**; `POST /citas/{id}/confirmar` cambia el estado;
+    `GET /citas/kpi` calcula el **porcentaje de confirmación** con un conjunto conocido (4 citas, 2
+    confirmadas/atendidas → 50 %); `GET /citas/kpi/confirmacion-mensual` devuelve la serie de los
+    últimos meses (rellenando ceros); y **aislamiento multiempresa** (una empresa no ve la agenda de
+    otra ni cita animales ajenos).
