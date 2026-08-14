@@ -31,6 +31,8 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<Cirugia> Cirugias => Set<Cirugia>();
 
+    public DbSet<Recordatorio> Recordatorios => Set<Recordatorio>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Esquema);
@@ -396,6 +398,101 @@ internal sealed class RepositorioCirugias : IRepositorioCirugias, IConsultaCirug
             .ConfigureAwait(false);
         return cirugias.Select(CirugiaDto.Desde).ToList();
     }
+}
+
+internal sealed class ConfiguracionRecordatorio : IEntityTypeConfiguration<Recordatorio>
+{
+    public void Configure(EntityTypeBuilder<Recordatorio> builder)
+    {
+        builder.ToTable("recordatorio");
+        builder.HasKey(r => r.Id);
+        builder.Property(r => r.Id).HasColumnName("id");
+        builder.Property(r => r.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(r => r.AnimalId).HasColumnName("animal_id").IsRequired();
+        builder.Property(r => r.Tipo).HasColumnName("tipo").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(r => r.Titulo).HasColumnName("titulo").HasMaxLength(Recordatorio.LongitudMaximaTitulo).IsRequired();
+        builder.Property(r => r.FechaObjetivo).HasColumnName("fecha_objetivo").IsRequired();
+        builder.Property(r => r.Notas).HasColumnName("notas").HasMaxLength(Recordatorio.LongitudMaximaNotas);
+        builder.Property(r => r.ReferenciaTipo).HasColumnName("referencia_tipo").HasMaxLength(Recordatorio.LongitudMaximaReferenciaTipo);
+        builder.Property(r => r.ReferenciaId).HasColumnName("referencia_id");
+        builder.Property(r => r.Estado).HasColumnName("estado").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(r => r.FechaEnvio).HasColumnName("fecha_envio");
+        builder.Property(r => r.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(r => r.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        builder.HasIndex(r => new { r.EmpresaId, r.AnimalId }).HasDatabaseName("ix_recordatorio_empresa_animal");
+        builder.HasIndex(r => new { r.EmpresaId, r.Estado, r.FechaObjetivo }).HasDatabaseName("ix_recordatorio_empresa_estado_fecha");
+
+        // Deduplicación por origen: un mismo vencimiento (referencia) no genera dos recordatorios en la
+        // misma empresa. Índice único parcial: solo aplica a los recordatorios con referencia (los
+        // manuales, sin referencia, quedan fuera).
+        builder.HasIndex(r => new { r.EmpresaId, r.ReferenciaTipo, r.ReferenciaId })
+            .HasDatabaseName("ix_recordatorio_referencia")
+            .IsUnique()
+            .HasFilter("referencia_id IS NOT NULL");
+
+        builder.Ignore(r => r.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioRecordatorios : IRepositorioRecordatorios, IConsultaRecordatorios
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioRecordatorios(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<Recordatorio?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.Recordatorios.SingleOrDefaultAsync(r => r.Id == id, ct);
+
+    public void Agregar(Recordatorio recordatorio) => _contexto.Recordatorios.Add(recordatorio);
+
+    public async Task<RecordatorioDto?> ObtenerAsync(Guid id, CancellationToken ct = default)
+    {
+        var recordatorio = await _contexto.Recordatorios.SingleOrDefaultAsync(r => r.Id == id, ct).ConfigureAwait(false);
+        return recordatorio is null ? null : RecordatorioDto.Desde(recordatorio);
+    }
+
+    public async Task<IReadOnlyList<RecordatorioDto>> ListarAsync(Guid empresaId, EstadoRecordatorio? estado = null, DateOnly? desde = null, DateOnly? hasta = null, CancellationToken ct = default)
+    {
+        var consulta = _contexto.Recordatorios.Where(r => r.EmpresaId == empresaId);
+        if (estado is { } e)
+        {
+            consulta = consulta.Where(r => r.Estado == e);
+        }
+
+        if (desde is { } d)
+        {
+            consulta = consulta.Where(r => r.FechaObjetivo >= d);
+        }
+
+        if (hasta is { } h)
+        {
+            consulta = consulta.Where(r => r.FechaObjetivo <= h);
+        }
+
+        var recordatorios = await consulta
+            .OrderBy(r => r.FechaObjetivo)
+            .ThenBy(r => r.Titulo)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return recordatorios.Select(RecordatorioDto.Desde).ToList();
+    }
+
+    public async Task<IReadOnlyList<RecordatorioDto>> ListarPendientesAsync(Guid empresaId, DateOnly hasta, CancellationToken ct = default)
+    {
+        var recordatorios = await _contexto.Recordatorios
+            .Where(r => r.EmpresaId == empresaId && r.Estado == EstadoRecordatorio.Pendiente && r.FechaObjetivo <= hasta)
+            .OrderBy(r => r.FechaObjetivo)
+            .ThenBy(r => r.Titulo)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return recordatorios.Select(RecordatorioDto.Desde).ToList();
+    }
+
+    public Task<bool> ExisteConReferenciaAsync(Guid empresaId, string referenciaTipo, Guid referenciaId, CancellationToken ct = default) =>
+        _contexto.Recordatorios.AnyAsync(
+            r => r.EmpresaId == empresaId && r.ReferenciaTipo == referenciaTipo && r.ReferenciaId == referenciaId,
+            ct);
 }
 
 /// <summary>Factoría en tiempo de diseño para migraciones.</summary>

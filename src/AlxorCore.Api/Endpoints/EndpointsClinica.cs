@@ -4,6 +4,7 @@ using AlxorCore.Clinica.Dominio;
 using AlxorCore.Nucleo.Autorizacion;
 using AlxorCore.Nucleo.Multiempresa;
 using AlxorCore.Nucleo.Resultados;
+using AlxorCore.Nucleo.Tiempo;
 
 namespace AlxorCore.Api.Endpoints;
 
@@ -135,6 +136,44 @@ public static class EndpointsClinica
         animales.MapPost("/{animalId:guid}/cirugias", RegistrarCirugiaAsync)
             .WithSummary("Registra una cirugía de un animal.")
             .RequierePermiso(Permisos.CirugiaGestionar);
+
+        var recordatorios = rutas.MapGroup("/recordatorios").WithTags("Recordatorios");
+
+        recordatorios.MapGet("", ListarRecordatoriosAsync)
+            .WithSummary("Lista los recordatorios de la empresa, con filtros opcionales por estado y ventana de días.")
+            .RequierePermiso(Permisos.RecordatorioLeer);
+
+        recordatorios.MapPost("", CrearRecordatorioAsync)
+            .WithSummary("Crea un recordatorio manual para un animal.")
+            .RequierePermiso(Permisos.RecordatorioGestionar);
+
+        recordatorios.MapPost("/generar", GenerarRecordatoriosAsync)
+            .WithSummary("Genera recordatorios a partir de los vencimientos (vacunas y revisiones) de la ventana indicada.")
+            .RequierePermiso(Permisos.RecordatorioGestionar);
+
+        recordatorios.MapPost("/enviar-pendientes", EnviarPendientesAsync)
+            .WithSummary("Envía por correo todos los recordatorios pendientes hasta la ventana indicada.")
+            .RequierePermiso(Permisos.RecordatorioGestionar);
+
+        recordatorios.MapGet("/{id:guid}", ObtenerRecordatorioAsync)
+            .WithSummary("Obtiene un recordatorio.")
+            .RequierePermiso(Permisos.RecordatorioLeer);
+
+        recordatorios.MapPut("/{id:guid}", ActualizarRecordatorioAsync)
+            .WithSummary("Actualiza el asunto, la fecha objetivo y las notas de un recordatorio.")
+            .RequierePermiso(Permisos.RecordatorioGestionar);
+
+        recordatorios.MapPost("/{id:guid}/enviar", EnviarRecordatorioAsync)
+            .WithSummary("Envía por correo un recordatorio al propietario del animal.")
+            .RequierePermiso(Permisos.RecordatorioGestionar);
+
+        recordatorios.MapPost("/{id:guid}/completar", CompletarRecordatorioAsync)
+            .WithSummary("Marca un recordatorio como completado (atendido).")
+            .RequierePermiso(Permisos.RecordatorioGestionar);
+
+        recordatorios.MapDelete("/{id:guid}", CancelarRecordatorioAsync)
+            .WithSummary("Cancela un recordatorio.")
+            .RequierePermiso(Permisos.RecordatorioGestionar);
 
         return rutas;
     }
@@ -293,4 +332,62 @@ public static class EndpointsClinica
 
         return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, dias ?? 30, ct).ConfigureAwait(false));
     }
+
+    private static async Task<IResult> ListarRecordatoriosAsync(EstadoRecordatorio? estado, int? dias, IContextoEmpresa contexto, ListarRecordatorios caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, estado, dias, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> CrearRecordatorioAsync(DatosRecordatorio datos, IContextoEmpresa contexto, CrearRecordatorio caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, datos, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/recordatorios/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> GenerarRecordatoriosAsync(int? dias, IContextoEmpresa contexto, GenerarRecordatorios caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return (await caso.EjecutarAsync(contexto.EmpresaId.Value, dias ?? 30, ct).ConfigureAwait(false)).AOk();
+    }
+
+    private static async Task<IResult> EnviarPendientesAsync(int? dias, IContextoEmpresa contexto, EnviarRecordatoriosPendientes caso, IReloj reloj, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var hoy = DateOnly.FromDateTime(reloj.AhoraUtc.UtcDateTime);
+        var hasta = hoy.AddDays(dias is { } d && d >= 0 ? d : 30);
+        return (await caso.EjecutarAsync(contexto.EmpresaId.Value, hasta, ct).ConfigureAwait(false)).AOk();
+    }
+
+    private static async Task<IResult> ObtenerRecordatorioAsync(Guid id, ObtenerRecordatorio caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> ActualizarRecordatorioAsync(Guid id, DatosActualizarRecordatorio datos, ActualizarRecordatorio caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> EnviarRecordatorioAsync(Guid id, EnviarRecordatorio caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> CompletarRecordatorioAsync(Guid id, CompletarRecordatorio caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> CancelarRecordatorioAsync(Guid id, CancelarRecordatorio caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
 }

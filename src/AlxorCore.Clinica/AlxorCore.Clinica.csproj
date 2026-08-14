@@ -8,11 +8,13 @@
   <!--
     Clínica es el primer módulo del producto veterinario. El animal pertenece a un cliente
     (Terceros): referencia su capa de Aplicación (contrato IConsultaClientes) para validar que el
-    propietario existe, nunca su infraestructura.
+    propietario existe, nunca su infraestructura. Para enviar recordatorios por correo reutiliza el
+    puerto de correo del módulo Documentos (IServicioCorreo/MensajeCorreo), igual que Facturación.
   -->
   <ItemGroup>
     <ProjectReference Include="..\AlxorCore.Nucleo\AlxorCore.Nucleo.csproj" />
     <ProjectReference Include="..\AlxorCore.Terceros\AlxorCore.Terceros.csproj" />
+    <ProjectReference Include="..\AlxorCore.Documentos\AlxorCore.Documentos.csproj" />
   </ItemGroup>
 
 </Project>

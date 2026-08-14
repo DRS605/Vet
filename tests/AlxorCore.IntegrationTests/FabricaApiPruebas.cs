@@ -1,10 +1,13 @@
+using AlxorCore.Documentos.Aplicacion;
 using AlxorCore.Identidad.Infraestructura.Persistencia;
 using AlxorCore.Organizacion.Infraestructura.Persistencia;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Npgsql;
 using Xunit;
 
@@ -32,6 +35,12 @@ public sealed class FabricaApiPruebas : WebApplicationFactory<Program>, IAsyncLi
         Environment.SetEnvironmentVariable("ConnectionStrings__AlxorCore", CadenaConexion);
     }
 
+    /// <summary>
+    /// Doble de correo compartido por la fábrica: sustituye al enviador real para que las pruebas
+    /// comprueben los mensajes (facturas, recordatorios…) sin salir a la red.
+    /// </summary>
+    public CorreoFalso Correo { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -47,6 +56,14 @@ public sealed class FabricaApiPruebas : WebApplicationFactory<Program>, IAsyncLi
                 // El proceso automático se prueba de forma determinista con /procesar; se apaga aquí.
                 ["FacturacionRecurrente:Activo"] = "false",
             });
+        });
+
+        // Reutiliza el mismo puerto de correo del módulo Documentos, pero con un doble que captura los
+        // mensajes en lugar de enviarlos.
+        builder.ConfigureTestServices(servicios =>
+        {
+            servicios.RemoveAll<IServicioCorreo>();
+            servicios.AddSingleton<IServicioCorreo>(Correo);
         });
     }
 
@@ -76,7 +93,7 @@ public sealed class FabricaApiPruebas : WebApplicationFactory<Program>, IAsyncLi
         await auditoria.Database.MigrateAsync().ConfigureAwait(false);
 
         await identidad.Database.ExecuteSqlRawAsync(
-            "TRUNCATE identidad.usuario, organizacion.empresa, organizacion.membresia, organizacion.serie_numeracion, terceros.cliente, terceros.proveedor, clinica.animal, clinica.consulta, clinica.pauta_vacunal, clinica.vacunacion, clinica.cirugia, catalogo.producto, catalogo.movimiento_stock, facturacion.factura, facturacion.linea_factura, facturacion.factura_recurrente, facturacion.linea_recurrente, facturacion.presupuesto, facturacion.linea_presupuesto, gastos.gasto, tesoreria.movimiento, auditoria.registro_auditoria")
+            "TRUNCATE identidad.usuario, organizacion.empresa, organizacion.membresia, organizacion.serie_numeracion, terceros.cliente, terceros.proveedor, clinica.animal, clinica.consulta, clinica.pauta_vacunal, clinica.vacunacion, clinica.cirugia, clinica.recordatorio, catalogo.producto, catalogo.movimiento_stock, facturacion.factura, facturacion.linea_factura, facturacion.factura_recurrente, facturacion.linea_recurrente, facturacion.presupuesto, facturacion.linea_presupuesto, gastos.gasto, tesoreria.movimiento, auditoria.registro_auditoria")
             .ConfigureAwait(false);
     }
 

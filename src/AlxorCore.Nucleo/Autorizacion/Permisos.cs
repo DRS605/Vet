@@ -34,6 +34,8 @@ public static class Permisos
     public const string VacunaGestionar = "vacuna.gestionar";
     public const string CirugiaLeer = "cirugia.leer";
     public const string CirugiaGestionar = "cirugia.gestionar";
+    public const string RecordatorioLeer = "recordatorio.leer";
+    public const string RecordatorioGestionar = "recordatorio.gestionar";
 
     // Informes y datos
     public const string InformeLeer = "informe.leer";
@@ -54,6 +56,7 @@ public static class Permisos
         ConsultaLeer, ConsultaGestionar,
         VacunaLeer, VacunaGestionar,
         CirugiaLeer, CirugiaGestionar,
+        RecordatorioLeer, RecordatorioGestionar,
         InformeLeer, DatosExportar,
         EmpresaAjustes, UsuarioGestionar,
     };

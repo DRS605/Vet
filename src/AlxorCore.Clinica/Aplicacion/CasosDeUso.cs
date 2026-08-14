@@ -1,4 +1,5 @@
 using AlxorCore.Clinica.Dominio;
+using AlxorCore.Documentos.Aplicacion;
 using AlxorCore.Nucleo.Resultados;
 using AlxorCore.Nucleo.Tiempo;
 using AlxorCore.Terceros.Aplicacion;
@@ -867,5 +868,474 @@ public sealed class AnularCirugia
         cirugia.Anular(_reloj);
         await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
         return Resultado.Ok();
+    }
+}
+
+/// <summary>Datos de un recordatorio para crear (manual o desde un vencimiento).</summary>
+public sealed record DatosRecordatorio(
+    Guid AnimalId,
+    TipoRecordatorio Tipo,
+    string Titulo,
+    DateOnly FechaObjetivo,
+    string? Notas = null,
+    string? ReferenciaTipo = null,
+    Guid? ReferenciaId = null);
+
+/// <summary>Datos de un recordatorio al actualizar (el animal, el tipo y la referencia no cambian).</summary>
+public sealed record DatosActualizarRecordatorio(
+    string Titulo,
+    DateOnly FechaObjetivo,
+    string? Notas = null);
+
+/// <summary>Fallo del envío de un recordatorio dentro de un envío por lotes.</summary>
+public sealed record FalloEnvioRecordatorio(Guid RecordatorioId, string Codigo, string Mensaje);
+
+/// <summary>Resumen del envío de recordatorios pendientes.</summary>
+public sealed record ResumenEnvioRecordatorios(int Enviados, IReadOnlyList<FalloEnvioRecordatorio> Fallidos);
+
+/// <summary>
+/// Caso de uso: crear un recordatorio manual para un animal de la empresa activa. Verifica que el
+/// animal existe en la empresa (a través de <see cref="IConsultaAnimales"/>).
+/// </summary>
+public sealed class CrearRecordatorio
+{
+    private readonly IRepositorioRecordatorios _recordatorios;
+    private readonly IConsultaAnimales _animales;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public CrearRecordatorio(IRepositorioRecordatorios recordatorios, IConsultaAnimales animales, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _recordatorios = recordatorios;
+        _animales = animales;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<RecordatorioDto>> EjecutarAsync(Guid empresaId, DatosRecordatorio datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        // El filtro multiempresa de EF Core garantiza que solo se encuentra el animal si pertenece a la empresa activa.
+        var animal = await _animales.ObtenerAsync(datos.AnimalId, ct).ConfigureAwait(false);
+        if (animal is null)
+        {
+            return Resultado.Fallo<RecordatorioDto>(Error.Validacion("recordatorio.animal_no_encontrado", "El animal no existe en esta empresa."));
+        }
+
+        var recordatorio = Recordatorio.Crear(
+            empresaId, datos.AnimalId, datos.Tipo, datos.Titulo, datos.FechaObjetivo, _reloj,
+            datos.Notas, datos.ReferenciaTipo, datos.ReferenciaId);
+        if (recordatorio.EsFallo)
+        {
+            return Resultado.Fallo<RecordatorioDto>(recordatorio.Error);
+        }
+
+        _recordatorios.Agregar(recordatorio.Valor);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(RecordatorioDto.Desde(recordatorio.Valor));
+    }
+}
+
+/// <summary>
+/// Caso de uso: generar recordatorios reuniendo lo que vence en una ventana de días —vacunas
+/// (<see cref="IConsultaVacunaciones.ListarProximasAsync"/>) y revisiones de cirugía
+/// (<see cref="IConsultaCirugias.ListarProximasRevisionesAsync"/>)—. Por cada vencimiento que aún
+/// no tenga un recordatorio (deduplicado por <c>ReferenciaTipo</c> + <c>ReferenciaId</c>) crea uno
+/// pendiente. Guarda todos en una única unidad de trabajo y devuelve el número creado.
+/// </summary>
+public sealed class GenerarRecordatorios
+{
+    /// <summary>Referencia de origen de un recordatorio nacido de una vacunación.</summary>
+    public const string ReferenciaVacunacion = "vacunacion";
+
+    /// <summary>Referencia de origen de un recordatorio nacido de una revisión de cirugía.</summary>
+    public const string ReferenciaCirugia = "cirugia";
+
+    private readonly IRepositorioRecordatorios _recordatorios;
+    private readonly IConsultaRecordatorios _consultaRecordatorios;
+    private readonly IConsultaVacunaciones _vacunaciones;
+    private readonly IConsultaCirugias _cirugias;
+    private readonly IConsultaAnimales _animales;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public GenerarRecordatorios(
+        IRepositorioRecordatorios recordatorios,
+        IConsultaRecordatorios consultaRecordatorios,
+        IConsultaVacunaciones vacunaciones,
+        IConsultaCirugias cirugias,
+        IConsultaAnimales animales,
+        IUnidadDeTrabajoClinica unidadDeTrabajo,
+        IReloj reloj)
+    {
+        _recordatorios = recordatorios;
+        _consultaRecordatorios = consultaRecordatorios;
+        _vacunaciones = vacunaciones;
+        _cirugias = cirugias;
+        _animales = animales;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<int>> EjecutarAsync(Guid empresaId, int ventanaDias = 30, CancellationToken ct = default)
+    {
+        var hoy = DateOnly.FromDateTime(_reloj.AhoraUtc.UtcDateTime);
+        var hasta = hoy.AddDays(ventanaDias < 0 ? 0 : ventanaDias);
+
+        var nombresAnimales = new Dictionary<Guid, string>();
+        var creados = 0;
+
+        var vacunas = await _vacunaciones.ListarProximasAsync(empresaId, hoy, hasta, incluirAnuladas: false, ct).ConfigureAwait(false);
+        foreach (var vacuna in vacunas)
+        {
+            if (vacuna.ProximaDosis is not { } fecha)
+            {
+                continue;
+            }
+
+            if (await _consultaRecordatorios.ExisteConReferenciaAsync(empresaId, ReferenciaVacunacion, vacuna.Id, ct).ConfigureAwait(false))
+            {
+                continue;
+            }
+
+            var nombre = await ResolverNombreAnimalAsync(vacuna.AnimalId, nombresAnimales, ct).ConfigureAwait(false);
+            var titulo = $"{vacuna.Nombre} de {nombre}";
+            var recordatorio = Recordatorio.Crear(
+                empresaId, vacuna.AnimalId, TipoRecordatorio.Vacuna, titulo, fecha, _reloj,
+                referenciaTipo: ReferenciaVacunacion, referenciaId: vacuna.Id);
+            if (recordatorio.EsCorrecto)
+            {
+                _recordatorios.Agregar(recordatorio.Valor);
+                creados++;
+            }
+        }
+
+        var revisiones = await _cirugias.ListarProximasRevisionesAsync(empresaId, hoy, hasta, incluirAnuladas: false, ct).ConfigureAwait(false);
+        foreach (var cirugia in revisiones)
+        {
+            if (cirugia.ProximaRevision is not { } fecha)
+            {
+                continue;
+            }
+
+            if (await _consultaRecordatorios.ExisteConReferenciaAsync(empresaId, ReferenciaCirugia, cirugia.Id, ct).ConfigureAwait(false))
+            {
+                continue;
+            }
+
+            var nombre = await ResolverNombreAnimalAsync(cirugia.AnimalId, nombresAnimales, ct).ConfigureAwait(false);
+            var titulo = $"Revisión de {cirugia.Nombre} de {nombre}";
+            var recordatorio = Recordatorio.Crear(
+                empresaId, cirugia.AnimalId, TipoRecordatorio.Revision, titulo, fecha, _reloj,
+                referenciaTipo: ReferenciaCirugia, referenciaId: cirugia.Id);
+            if (recordatorio.EsCorrecto)
+            {
+                _recordatorios.Agregar(recordatorio.Valor);
+                creados++;
+            }
+        }
+
+        if (creados > 0)
+        {
+            await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        }
+
+        return Resultado.Ok(creados);
+    }
+
+    private async Task<string> ResolverNombreAnimalAsync(Guid animalId, Dictionary<Guid, string> cache, CancellationToken ct)
+    {
+        if (cache.TryGetValue(animalId, out var nombre))
+        {
+            return nombre;
+        }
+
+        var animal = await _animales.ObtenerAsync(animalId, ct).ConfigureAwait(false);
+        nombre = animal?.Nombre ?? "su mascota";
+        cache[animalId] = nombre;
+        return nombre;
+    }
+}
+
+/// <summary>
+/// Caso de uso: enviar un recordatorio por correo al propietario del animal. Resuelve
+/// animal → clienteId → email (vía <see cref="IConsultaAnimales"/> + <see cref="IConsultaClientes"/>),
+/// compone un mensaje en español y lo envía por el puerto de correo del módulo Documentos
+/// (<see cref="IServicioCorreo"/>), el mismo que usa Facturación. Después marca el recordatorio como
+/// enviado. Si el cliente no tiene email, devuelve <c>recordatorio.sin_email</c>.
+/// </summary>
+public sealed class EnviarRecordatorio
+{
+    private readonly IRepositorioRecordatorios _recordatorios;
+    private readonly IConsultaAnimales _animales;
+    private readonly IConsultaClientes _clientes;
+    private readonly IServicioCorreo _correo;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public EnviarRecordatorio(
+        IRepositorioRecordatorios recordatorios,
+        IConsultaAnimales animales,
+        IConsultaClientes clientes,
+        IServicioCorreo correo,
+        IUnidadDeTrabajoClinica unidadDeTrabajo,
+        IReloj reloj)
+    {
+        _recordatorios = recordatorios;
+        _animales = animales;
+        _clientes = clientes;
+        _correo = correo;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado> EjecutarAsync(Guid recordatorioId, CancellationToken ct = default)
+    {
+        var recordatorio = await _recordatorios.ObtenerPorIdAsync(recordatorioId, ct).ConfigureAwait(false);
+        if (recordatorio is null)
+        {
+            return Resultado.Fallo(Error.NoEncontrado("recordatorio.no_encontrado", "El recordatorio no existe."));
+        }
+
+        var animal = await _animales.ObtenerAsync(recordatorio.AnimalId, ct).ConfigureAwait(false);
+        if (animal is null)
+        {
+            return Resultado.Fallo(Error.Validacion("recordatorio.animal_no_encontrado", "El animal del recordatorio no existe en esta empresa."));
+        }
+
+        var cliente = await _clientes.ObtenerAsync(animal.ClienteId, ct).ConfigureAwait(false);
+        if (cliente is null || string.IsNullOrWhiteSpace(cliente.Email))
+        {
+            return Resultado.Fallo(Error.Validacion("recordatorio.sin_email", "El propietario del animal no tiene un correo electrónico configurado."));
+        }
+
+        // Se marca antes de enviar para no reenviar un recordatorio que no esté pendiente.
+        var marcado = recordatorio.MarcarEnviado(_reloj);
+        if (marcado.EsFallo)
+        {
+            return Resultado.Fallo(marcado.Error);
+        }
+
+        var mensaje = new MensajeCorreo(
+            cliente.Email.Trim(),
+            recordatorio.Titulo,
+            ComponerCuerpo(recordatorio, animal.Nombre),
+            Array.Empty<byte>(),
+            string.Empty);
+
+        await _correo.EnviarAsync(mensaje, ct).ConfigureAwait(false);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok();
+    }
+
+    private static string ComponerCuerpo(Recordatorio recordatorio, string nombreAnimal)
+    {
+        var motivo = recordatorio.Tipo switch
+        {
+            TipoRecordatorio.Vacuna => "una vacuna",
+            TipoRecordatorio.Revision => "una revisión",
+            TipoRecordatorio.Tratamiento => "un tratamiento",
+            TipoRecordatorio.Cirugia => "un seguimiento",
+            _ => "una cita",
+        };
+
+        var cuerpo =
+            $"Hola,\n\n" +
+            $"Le recordamos que su mascota {nombreAnimal} tiene {motivo} pendiente: {recordatorio.Titulo}.\n" +
+            $"Fecha prevista: {recordatorio.FechaObjetivo:dd/MM/yyyy}.\n\n";
+
+        if (!string.IsNullOrWhiteSpace(recordatorio.Notas))
+        {
+            cuerpo += $"{recordatorio.Notas}\n\n";
+        }
+
+        cuerpo += "Por favor, póngase en contacto con nosotros para concertar la cita. Un cordial saludo.";
+        return cuerpo;
+    }
+}
+
+/// <summary>
+/// Caso de uso: enviar todos los recordatorios pendientes con fecha objetivo hasta la indicada.
+/// Envía cada uno reutilizando <see cref="EnviarRecordatorio"/>; si alguno falla (por ejemplo, por
+/// falta de email) no aborta el lote: lo salta y lo anota. Devuelve un resumen (enviados y fallidos).
+/// </summary>
+public sealed class EnviarRecordatoriosPendientes
+{
+    private readonly IConsultaRecordatorios _consulta;
+    private readonly EnviarRecordatorio _enviar;
+    private readonly IReloj _reloj;
+
+    public EnviarRecordatoriosPendientes(IConsultaRecordatorios consulta, EnviarRecordatorio enviar, IReloj reloj)
+    {
+        _consulta = consulta;
+        _enviar = enviar;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<ResumenEnvioRecordatorios>> EjecutarAsync(Guid empresaId, DateOnly? hasta = null, CancellationToken ct = default)
+    {
+        var limite = hasta ?? DateOnly.FromDateTime(_reloj.AhoraUtc.UtcDateTime).AddDays(30);
+        var pendientes = await _consulta.ListarPendientesAsync(empresaId, limite, ct).ConfigureAwait(false);
+
+        var enviados = 0;
+        var fallidos = new List<FalloEnvioRecordatorio>();
+
+        foreach (var pendiente in pendientes)
+        {
+            var resultado = await _enviar.EjecutarAsync(pendiente.Id, ct).ConfigureAwait(false);
+            if (resultado.EsCorrecto)
+            {
+                enviados++;
+            }
+            else
+            {
+                fallidos.Add(new FalloEnvioRecordatorio(pendiente.Id, resultado.Error.Codigo, resultado.Error.Mensaje));
+            }
+        }
+
+        return Resultado.Ok(new ResumenEnvioRecordatorios(enviados, fallidos));
+    }
+}
+
+/// <summary>Caso de uso: actualizar el asunto, la fecha objetivo y las notas de un recordatorio.</summary>
+public sealed class ActualizarRecordatorio
+{
+    private readonly IRepositorioRecordatorios _recordatorios;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public ActualizarRecordatorio(IRepositorioRecordatorios recordatorios, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _recordatorios = recordatorios;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<RecordatorioDto>> EjecutarAsync(Guid recordatorioId, DatosActualizarRecordatorio datos, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(datos);
+
+        var recordatorio = await _recordatorios.ObtenerPorIdAsync(recordatorioId, ct).ConfigureAwait(false);
+        if (recordatorio is null)
+        {
+            return Resultado.Fallo<RecordatorioDto>(Error.NoEncontrado("recordatorio.no_encontrado", "El recordatorio no existe."));
+        }
+
+        var actualizado = recordatorio.Actualizar(datos.Titulo, datos.FechaObjetivo, datos.Notas, _reloj);
+        if (actualizado.EsFallo)
+        {
+            return Resultado.Fallo<RecordatorioDto>(actualizado.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(RecordatorioDto.Desde(recordatorio));
+    }
+}
+
+/// <summary>Caso de uso: marcar un recordatorio como completado (atendido).</summary>
+public sealed class CompletarRecordatorio
+{
+    private readonly IRepositorioRecordatorios _recordatorios;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public CompletarRecordatorio(IRepositorioRecordatorios recordatorios, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _recordatorios = recordatorios;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado> EjecutarAsync(Guid recordatorioId, CancellationToken ct = default)
+    {
+        var recordatorio = await _recordatorios.ObtenerPorIdAsync(recordatorioId, ct).ConfigureAwait(false);
+        if (recordatorio is null)
+        {
+            return Resultado.Fallo(Error.NoEncontrado("recordatorio.no_encontrado", "El recordatorio no existe."));
+        }
+
+        var completado = recordatorio.MarcarCompletado(_reloj);
+        if (completado.EsFallo)
+        {
+            return Resultado.Fallo(completado.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok();
+    }
+}
+
+/// <summary>Caso de uso: cancelar un recordatorio (deja de proceder).</summary>
+public sealed class CancelarRecordatorio
+{
+    private readonly IRepositorioRecordatorios _recordatorios;
+    private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public CancelarRecordatorio(IRepositorioRecordatorios recordatorios, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    {
+        _recordatorios = recordatorios;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado> EjecutarAsync(Guid recordatorioId, CancellationToken ct = default)
+    {
+        var recordatorio = await _recordatorios.ObtenerPorIdAsync(recordatorioId, ct).ConfigureAwait(false);
+        if (recordatorio is null)
+        {
+            return Resultado.Fallo(Error.NoEncontrado("recordatorio.no_encontrado", "El recordatorio no existe."));
+        }
+
+        var cancelado = recordatorio.Cancelar(_reloj);
+        if (cancelado.EsFallo)
+        {
+            return Resultado.Fallo(cancelado.Error);
+        }
+
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok();
+    }
+}
+
+/// <summary>Caso de uso: obtener un recordatorio por su identificador.</summary>
+public sealed class ObtenerRecordatorio
+{
+    private readonly IConsultaRecordatorios _consulta;
+
+    public ObtenerRecordatorio(IConsultaRecordatorios consulta) => _consulta = consulta;
+
+    public async Task<Resultado<RecordatorioDto>> EjecutarAsync(Guid recordatorioId, CancellationToken ct = default)
+    {
+        var recordatorio = await _consulta.ObtenerAsync(recordatorioId, ct).ConfigureAwait(false);
+        return recordatorio is null
+            ? Resultado.Fallo<RecordatorioDto>(Error.NoEncontrado("recordatorio.no_encontrado", "El recordatorio no existe."))
+            : Resultado.Ok(recordatorio);
+    }
+}
+
+/// <summary>Caso de uso: listar los recordatorios de la empresa, con filtros por estado y por ventana de días.</summary>
+public sealed class ListarRecordatorios
+{
+    private readonly IConsultaRecordatorios _consulta;
+    private readonly IReloj _reloj;
+
+    public ListarRecordatorios(IConsultaRecordatorios consulta, IReloj reloj)
+    {
+        _consulta = consulta;
+        _reloj = reloj;
+    }
+
+    public Task<IReadOnlyList<RecordatorioDto>> EjecutarAsync(Guid empresaId, EstadoRecordatorio? estado = null, int? dias = null, CancellationToken ct = default)
+    {
+        DateOnly? hasta = null;
+        if (dias is { } d)
+        {
+            var hoy = DateOnly.FromDateTime(_reloj.AhoraUtc.UtcDateTime);
+            hasta = hoy.AddDays(d < 0 ? 0 : d);
+        }
+
+        return _consulta.ListarAsync(empresaId, estado, desde: null, hasta: hasta, ct);
     }
 }

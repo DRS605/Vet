@@ -80,6 +80,23 @@ public static class RegistroServicios
         servicios.AddScoped<ListarProximasRevisiones>();
         servicios.AddScoped<AnularCirugia>();
 
+        servicios.AddScoped<RepositorioRecordatorios>();
+        servicios.AddScoped<IRepositorioRecordatorios>(sp => sp.GetRequiredService<RepositorioRecordatorios>());
+        servicios.AddScoped<IConsultaRecordatorios>(sp => sp.GetRequiredService<RepositorioRecordatorios>());
+
+        // Los recordatorios se envían por correo reutilizando el puerto IServicioCorreo del módulo
+        // Documentos (registrado por AgregarModuloDocumentos en la composición de la API), igual que
+        // Facturación resuelve ahí su envío de facturas por email.
+        servicios.AddScoped<CrearRecordatorio>();
+        servicios.AddScoped<GenerarRecordatorios>();
+        servicios.AddScoped<EnviarRecordatorio>();
+        servicios.AddScoped<EnviarRecordatoriosPendientes>();
+        servicios.AddScoped<ActualizarRecordatorio>();
+        servicios.AddScoped<CompletarRecordatorio>();
+        servicios.AddScoped<CancelarRecordatorio>();
+        servicios.AddScoped<ObtenerRecordatorio>();
+        servicios.AddScoped<ListarRecordatorios>();
+
         return servicios;
     }
 }

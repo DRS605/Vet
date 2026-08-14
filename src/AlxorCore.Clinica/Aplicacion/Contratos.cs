@@ -202,5 +202,50 @@ public interface IConsultaCirugias
     Task<IReadOnlyList<CirugiaDto>> ListarProximasRevisionesAsync(Guid empresaId, DateOnly desde, DateOnly hasta, bool incluirAnuladas = false, CancellationToken ct = default);
 }
 
+/// <summary>Vista de un recordatorio (aviso asociado a un animal).</summary>
+public sealed record RecordatorioDto(
+    Guid Id,
+    Guid AnimalId,
+    TipoRecordatorio Tipo,
+    string Titulo,
+    DateOnly FechaObjetivo,
+    string? Notas,
+    string? ReferenciaTipo,
+    Guid? ReferenciaId,
+    EstadoRecordatorio Estado,
+    DateTimeOffset? FechaEnvio)
+{
+    public static RecordatorioDto Desde(Recordatorio r)
+    {
+        ArgumentNullException.ThrowIfNull(r);
+        return new RecordatorioDto(
+            r.Id, r.AnimalId, r.Tipo, r.Titulo, r.FechaObjetivo, r.Notas,
+            r.ReferenciaTipo, r.ReferenciaId, r.Estado, r.FechaEnvio);
+    }
+}
+
+/// <summary>Repositorio de recordatorios (escritura).</summary>
+public interface IRepositorioRecordatorios
+{
+    Task<Recordatorio?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default);
+
+    void Agregar(Recordatorio recordatorio);
+}
+
+/// <summary>Consultas de lectura de recordatorios.</summary>
+public interface IConsultaRecordatorios
+{
+    Task<RecordatorioDto?> ObtenerAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Lista los recordatorios de la empresa, con filtros opcionales por estado y ventana [desde, hasta] de fecha objetivo.</summary>
+    Task<IReadOnlyList<RecordatorioDto>> ListarAsync(Guid empresaId, EstadoRecordatorio? estado = null, DateOnly? desde = null, DateOnly? hasta = null, CancellationToken ct = default);
+
+    /// <summary>Lista los recordatorios pendientes con fecha objetivo hasta la indicada, ordenados por fecha objetivo ascendente.</summary>
+    Task<IReadOnlyList<RecordatorioDto>> ListarPendientesAsync(Guid empresaId, DateOnly hasta, CancellationToken ct = default);
+
+    /// <summary>¿Existe ya un recordatorio con ese origen (tipo + id de referencia) en la empresa? Base de la deduplicación.</summary>
+    Task<bool> ExisteConReferenciaAsync(Guid empresaId, string referenciaTipo, Guid referenciaId, CancellationToken ct = default);
+}
+
 /// <summary>Unidad de trabajo del módulo Clínica.</summary>
 public interface IUnidadDeTrabajoClinica : IUnidadDeTrabajo;

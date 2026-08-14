@@ -23,21 +23,29 @@ AlxorCore.Clinica/                   # puro, sin frameworks
   Dominio/        Animal, EspecieAnimal, SexoAnimal, AnimalCreado (evento);
                   Consulta, ConsultaRegistrada (evento);
                   PautaVacunal, CaracterVacuna, PautaVacunalCreada (evento);
-                  Vacunacion, VacunacionRegistrada (evento)
+                  Vacunacion, VacunacionRegistrada (evento);
+                  Cirugia, CirugiaRegistrada (evento);
+                  Recordatorio, TipoRecordatorio, EstadoRecordatorio, RecordatorioCreado (evento)
   Aplicacion/     DatosAnimal, AnimalDto, DatosConsulta, ConsultaDto, DatosPautaVacunal,
-                  PautaVacunalDto, DatosVacunacion, VacunacionDto, casos de uso, contratos
+                  PautaVacunalDto, DatosVacunacion, VacunacionDto, DatosCirugia, CirugiaDto,
+                  DatosRecordatorio, RecordatorioDto, casos de uso, contratos
                   (IRepositorioAnimales, IConsultaAnimales, IRepositorioConsultas,
                   IConsultaConsultas, IRepositorioPautasVacunales, IConsultaPautasVacunales,
-                  IRepositorioVacunaciones, IConsultaVacunaciones, IUnidadDeTrabajoClinica)
+                  IRepositorioVacunaciones, IConsultaVacunaciones, IRepositorioCirugias,
+                  IConsultaCirugias, IRepositorioRecordatorios, IConsultaRecordatorios,
+                  IUnidadDeTrabajoClinica)
 AlxorCore.Clinica.Infraestructura/   # adaptadores
-  Persistencia.cs ClinicaDbContext, ConfiguracionAnimal/Consulta/PautaVacunal/Vacunacion,
-                  RepositorioAnimales/Consultas/PautasVacunales/Vacunaciones, DbContextFactory
-  Persistencia/Migraciones/          MigracionInicialClinica, AgregarConsultas, AgregarVacunas
+  Persistencia.cs ClinicaDbContext, ConfiguracionAnimal/Consulta/PautaVacunal/Vacunacion/Cirugia/
+                  Recordatorio, RepositorioAnimales/Consultas/PautasVacunales/Vacunaciones/
+                  Cirugias/Recordatorios, DbContextFactory
+  Persistencia/Migraciones/          MigracionInicialClinica, AgregarConsultas, AgregarVacunas,
+                  AgregarCirugias, AgregarRecordatorios
   RegistroServicios.AgregarModuloClinica(...)
 ```
 
-El dominio y la aplicación no dependen de EF Core ni de ASP.NET: solo de `AlxorCore.Nucleo` y del
-**contrato** `IConsultaClientes` del módulo Terceros (nunca de su infraestructura).
+El dominio y la aplicación no dependen de EF Core ni de ASP.NET: solo de `AlxorCore.Nucleo`, del
+**contrato** `IConsultaClientes` del módulo Terceros y, para el envío de recordatorios por correo,
+del **puerto** `IServicioCorreo` del módulo Documentos (nunca de sus infraestructuras).
 
 ## Agregado `Animal`
 
@@ -303,6 +311,79 @@ Todas las rutas requieren empresa activa. Lectura → `cirugia.leer`; alta/edici
 
 La migración `AgregarCirugias` crea la tabla `cirugia` (con sus índices) y activa la RLS por empresa.
 
+## Agregado `Recordatorio` (avisos al propietario)
+
+`Recordatorio` es la **sexta raíz de agregado** del producto veterinario: un **aviso** asociado a un
+animal sobre algo que vence o que hay que hacer (una vacuna, una revisión posquirúrgica, un
+tratamiento…). Cuelga del animal (solo guarda su `AnimalId`, sin FK entre esquemas). **No se envía
+por temporizador**: la clínica los **prepara** y decide cuándo enviarlos por correo, uno a uno o
+«enviar pendientes».
+
+Un recordatorio puede **nacer de un vencimiento** del historial (sus campos `ReferenciaTipo` +
+`ReferenciaId` guardan el origen y permiten **deduplicar**) o ser **manual** (sin referencia).
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `AnimalId` | `Guid` | Animal al que se refiere. Obligatorio. Índice `(empresa_id, animal_id)`. |
+| `Tipo` | `TipoRecordatorio` | `Vacuna`, `Revision`, `Tratamiento`, `Cirugia`, `Otro` (string en BD). |
+| `Titulo` | `string` | Asunto legible (p. ej. «Vacuna polivalente de Nala»). Obligatorio, máx. 200. |
+| `FechaObjetivo` | `DateOnly` | Cuándo vence o toca. Obligatoria. |
+| `Notas` | `string?` | Máx. 1000. |
+| `ReferenciaTipo` | `string?` | Origen para deduplicar (`vacunacion`, `cirugia`). Máx. 40. |
+| `ReferenciaId` | `Guid?` | Id del origen (p. ej. de la vacunación). |
+| `Estado` | `EstadoRecordatorio` | `Pendiente` → `Enviado` → `Completado` / `Cancelado` (string en BD). Empieza en `Pendiente`. |
+| `FechaEnvio` | `DateTimeOffset?` | Se fija al marcar enviado. |
+| `CreadoEn` / `ActualizadoEn` | `DateTimeOffset` | |
+
+Al crear un recordatorio se emite el evento de dominio `RecordatorioCreado`. Transiciones de estado
+(devuelven `Error` si no son válidas): `MarcarEnviado` (solo desde `Pendiente`, fija `FechaEnvio`),
+`MarcarCompletado` y `Cancelar` (desde `Pendiente` o `Enviado`). Índices: `(empresa_id, animal_id)`,
+`(empresa_id, estado, fecha_objetivo)` y un **único parcial** `(empresa_id, referencia_tipo,
+referencia_id)` con filtro `referencia_id IS NOT NULL` (barrera final de la deduplicación).
+
+### Generación desde vencimientos
+
+`POST /recordatorios/generar?dias=30` reúne lo que vence en la ventana: **vacunas** con próxima
+dosis (`IConsultaVacunaciones.ListarProximas`) y **revisiones de cirugía** próximas
+(`IConsultaCirugias.ListarProximasRevisiones`). Por cada vencimiento que **no tenga ya** un
+recordatorio (dedupe por `ReferenciaTipo` + `ReferenciaId`) crea uno **pendiente** con el `Titulo`
+compuesto a partir del nombre del animal (resuelto vía `IConsultaAnimales`) y `FechaObjetivo` igual a
+la fecha de vencimiento. Guarda todos en una unidad de trabajo y devuelve el **número creado** (una
+segunda llamada no duplica).
+
+### Envío por correo
+
+El envío **reutiliza el puerto `IServicioCorreo` del módulo Documentos** (el mismo `MensajeCorreo`
+que usa Facturación para enviar facturas). `EnviarRecordatorio` resuelve
+animal → `ClienteId` → email (vía `IConsultaAnimales` + `IConsultaClientes`); si el propietario no
+tiene correo devuelve `recordatorio.sin_email` (400). Si no, **compone un mensaje en español**
+(asunto = `Titulo`; cuerpo con el animal, el motivo y la fecha), lo envía por el puerto y marca el
+recordatorio como **enviado**. `EnviarRecordatoriosPendientes` recorre los pendientes hasta la fecha
+y envía cada uno; **no aborta el lote** si alguno falla (por ejemplo por falta de email): lo salta y
+lo cuenta, devolviendo un resumen `{ enviados, fallidos[] }`.
+
+### API de recordatorios
+
+Todas las rutas requieren empresa activa. Lectura → `recordatorio.leer`; alta/edición/generar/enviar/
+completar/cancelar → `recordatorio.gestionar`.
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| `GET` | `/recordatorios?estado=&dias=` | `recordatorio.leer` | Lista con filtros por estado y ventana de días. |
+| `POST` | `/recordatorios` | `recordatorio.gestionar` | Crea un recordatorio manual. **201**. |
+| `GET` | `/recordatorios/{id}` | `recordatorio.leer` | Obtiene un recordatorio. |
+| `PUT` | `/recordatorios/{id}` | `recordatorio.gestionar` | Actualiza asunto, fecha objetivo y notas. |
+| `POST` | `/recordatorios/generar?dias=30` | `recordatorio.gestionar` | Genera desde vencimientos; devuelve el nº creado. |
+| `POST` | `/recordatorios/{id}/enviar` | `recordatorio.gestionar` | Envía un recordatorio por correo (**204**). |
+| `POST` | `/recordatorios/enviar-pendientes?dias=30` | `recordatorio.gestionar` | Envía los pendientes; devuelve un resumen. |
+| `POST` | `/recordatorios/{id}/completar` | `recordatorio.gestionar` | Marca completado (**204**). |
+| `DELETE` | `/recordatorios/{id}` | `recordatorio.gestionar` | Cancela el recordatorio (**204**). |
+
+Los roles **Propietario** y **Usuario** gestionan recordatorios; **Solo lectura** solo los consulta.
+
+La migración `AgregarRecordatorios` crea la tabla `recordatorio` (con sus índices, incluido el único
+parcial de deduplicación) y activa la RLS por empresa.
+
 ## Tests
 
 - **Unitarios** (`AlxorCore.Clinica.PruebasUnitarias`):
@@ -321,6 +402,9 @@ La migración `AgregarCirugias` crea la tabla `cirugia` (con sus índices) y act
   - `Cirugia`: creación válida (emite `CirugiaRegistrada`), animal obligatorio, fecha futura, nombre
     vacío/largo, longitudes de descripción/cirujano/anestesia/complicaciones, próxima revisión
     anterior a la fecha, normalización, `Actualizar` y `Anular`.
+  - `Recordatorio`: creación válida (emite `RecordatorioCreado`, queda `Pendiente`), animal
+    obligatorio, título vacío/largo, notas largas, tipo inválido; `MarcarEnviado` (fija estado +
+    fecha y falla si no está `Pendiente`), `MarcarCompletado`, `Cancelar` y `Actualizar`.
   - xUnit + FluentAssertions con un `IReloj` fijo.
 - **Integración** (`AlxorCore.IntegrationTests`), contra un **PostgreSQL real**:
   - `Animal`: alta/obtención/edición por API, alta con cliente inexistente (400), listado por
@@ -335,3 +419,10 @@ La migración `AgregarCirugias` crea la tabla `cirugia` (con sus índices) y act
   - `Cirugia`: registro/obtención/edición por API, orden del historial, registro con animal
     inexistente (400), `GET /cirugias/proximas-revisiones` (ventana), anulación y **aislamiento
     multiempresa** (una empresa no ve ni registra cirugías de animales de otra).
+  - `Recordatorio`: creación manual (y con animal inexistente, 400), `POST /recordatorios/generar`
+    crea recordatorios desde una vacunación con próxima dosis y **no duplica** en una segunda llamada,
+    `POST /{id}/enviar` marca `Enviado` y el **doble de correo** del harness recibe el mensaje al email
+    del cliente, envío con cliente **sin email** → error controlado (400, sigue `Pendiente`),
+    `enviar-pendientes` (envía los que tienen email y cuenta los fallidos) y **aislamiento
+    multiempresa**. Reutiliza el mismo doble de correo (`CorreoFalso`, sustituye a `IServicioCorreo`)
+    del harness `FabricaApiPruebas`.

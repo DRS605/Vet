@@ -29,6 +29,7 @@ public sealed class Rol
             Permisos.ConsultaLeer, Permisos.ConsultaGestionar,
             Permisos.VacunaLeer, Permisos.VacunaGestionar,
             Permisos.CirugiaLeer, Permisos.CirugiaGestionar,
+            Permisos.RecordatorioLeer, Permisos.RecordatorioGestionar,
             Permisos.InformeLeer, Permisos.DatosExportar,
         });
 
@@ -38,7 +39,7 @@ public sealed class Rol
         "Solo lectura",
         new HashSet<string>(StringComparer.Ordinal)
         {
-            Permisos.FacturaLeer, Permisos.GastoLeer, Permisos.AnimalLeer, Permisos.ConsultaLeer, Permisos.VacunaLeer, Permisos.CirugiaLeer, Permisos.InformeLeer, Permisos.DatosExportar,
+            Permisos.FacturaLeer, Permisos.GastoLeer, Permisos.AnimalLeer, Permisos.ConsultaLeer, Permisos.VacunaLeer, Permisos.CirugiaLeer, Permisos.RecordatorioLeer, Permisos.InformeLeer, Permisos.DatosExportar,
         });
 
     private static readonly Dictionary<string, Rol> PorCodigo =
