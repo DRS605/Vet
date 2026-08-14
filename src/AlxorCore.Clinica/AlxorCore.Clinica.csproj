@@ -10,11 +10,16 @@
     (Terceros): referencia su capa de Aplicación (contrato IConsultaClientes) para validar que el
     propietario existe, nunca su infraestructura. Para enviar recordatorios por correo reutiliza el
     puerto de correo del módulo Documentos (IServicioCorreo/MensajeCorreo), igual que Facturación.
+    El puente de facturación de actos clínicos reutiliza el caso de uso EmitirFactura del módulo
+    Facturación (capa de Aplicación, nunca su infraestructura): así no se duplican la numeración
+    correlativa, el cálculo de IVA ni el registro VeriFactu. Es el mismo patrón con el que Facturación
+    referencia a Terceros/Catálogo/Organización.
   -->
   <ItemGroup>
     <ProjectReference Include="..\AlxorCore.Nucleo\AlxorCore.Nucleo.csproj" />
     <ProjectReference Include="..\AlxorCore.Terceros\AlxorCore.Terceros.csproj" />
     <ProjectReference Include="..\AlxorCore.Documentos\AlxorCore.Documentos.csproj" />
+    <ProjectReference Include="..\AlxorCore.Facturacion\AlxorCore.Facturacion.csproj" />
   </ItemGroup>
 
 </Project>

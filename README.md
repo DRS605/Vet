@@ -146,7 +146,7 @@ dotnet ef migrations add <Nombre> \
 | **Informes** (dashboard, libros de IVA, gestoría, beneficio) | ✅ Terminado |
 | **Auditoría** (registro de quién hizo qué y cuándo) | ✅ Terminado |
 | **Cuenta / RGPD** (exportación y borrado de datos, páginas legales) | ✅ Terminado |
-| **Clínica** (producto veterinario: animales/mascotas, historial de consultas, vacunas, cirugías y recordatorios por correo) | ✅ Terminado |
+| **Clínica** (producto veterinario: animales/mascotas, historial de consultas, vacunas, cirugías, recordatorios por correo, agenda de citas y facturación de actos clínicos —factura VeriFactu reutilizando Facturación o cobro con ticket—) | ✅ Terminado |
 
 **MVP completo**: los módulos están terminados (dominio · API · persistencia · tests · docs). El
 desarrollo ha avanzado **módulo a módulo**, cada uno entregado por completo antes del siguiente.

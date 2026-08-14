@@ -226,6 +226,40 @@ public static class EndpointsClinica
             .WithSummary("Lista las citas de un animal.")
             .RequierePermiso(Permisos.CitaLeer);
 
+        var actos = rutas.MapGroup("/actos").WithTags("Actos clínicos");
+
+        actos.MapGet("", ListarActosAsync)
+            .WithSummary("Lista los actos clínicos de la empresa por estado (por defecto, los pendientes de facturar).")
+            .RequierePermiso(Permisos.ActoLeer);
+
+        actos.MapPost("/facturar", FacturarActosAsync)
+            .WithSummary("Emite una factura VeriFactu a partir de varios actos del mismo cliente y los marca como facturados.")
+            .RequierePermiso(Permisos.FacturaEmitir);
+
+        actos.MapGet("/{id:guid}", ObtenerActoAsync)
+            .WithSummary("Obtiene un acto clínico.")
+            .RequierePermiso(Permisos.ActoLeer);
+
+        actos.MapPut("/{id:guid}", ActualizarActoAsync)
+            .WithSummary("Actualiza un acto clínico pendiente.")
+            .RequierePermiso(Permisos.ActoGestionar);
+
+        actos.MapPost("/{id:guid}/ticket", MarcarActoTicketAsync)
+            .WithSummary("Cobra un acto clínico con ticket (fuera de la factura VeriFactu).")
+            .RequierePermiso(Permisos.ActoGestionar);
+
+        actos.MapDelete("/{id:guid}", AnularActoAsync)
+            .WithSummary("Anula un acto clínico pendiente.")
+            .RequierePermiso(Permisos.ActoGestionar);
+
+        animales.MapGet("/{animalId:guid}/actos", ListarActosDeAnimalAsync)
+            .WithSummary("Lista los actos clínicos de un animal.")
+            .RequierePermiso(Permisos.ActoLeer);
+
+        animales.MapPost("/{animalId:guid}/actos", RegistrarActoAsync)
+            .WithSummary("Registra un acto clínico facturable de un animal.")
+            .RequierePermiso(Permisos.ActoGestionar);
+
         return rutas;
     }
 
@@ -513,4 +547,56 @@ public static class EndpointsClinica
 
     private static async Task<IResult> ListarCitasAsync(Guid animalId, bool? incluirCanceladas, ListarCitasDeAnimal caso, CancellationToken ct) =>
         Results.Ok(await caso.EjecutarAsync(animalId, incluirCanceladas ?? false, ct).ConfigureAwait(false));
+
+    private static async Task<IResult> ListarActosAsync(EstadoActo? estado, IContextoEmpresa contexto, ListarActosClinicos caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, estado, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> ListarActosDeAnimalAsync(Guid animalId, ListarActosDeAnimal caso, CancellationToken ct) =>
+        Results.Ok(await caso.EjecutarAsync(animalId, ct).ConfigureAwait(false));
+
+    private static async Task<IResult> RegistrarActoAsync(Guid animalId, DatosActoClinico datos, IContextoEmpresa contexto, RegistrarActoClinico caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        // La ruta es la fuente de verdad del animal atendido.
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, datos with { AnimalId = animalId }, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/actos/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> ObtenerActoAsync(Guid id, ObtenerActoClinico caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> ActualizarActoAsync(Guid id, DatosActoClinico datos, ActualizarActoClinico caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> MarcarActoTicketAsync(Guid id, MarcarActoTicket caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> AnularActoAsync(Guid id, AnularActoClinico caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> FacturarActosAsync(FacturarActosCuerpo cuerpo, IContextoEmpresa contexto, FacturarActos caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var actoIds = cuerpo?.ActoIds ?? new List<Guid>();
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, actoIds, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/facturas/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
 }
+
+/// <summary>Cuerpo para facturar varios actos clínicos: la lista de identificadores de acto.</summary>
+public sealed record FacturarActosCuerpo(IReadOnlyList<Guid> ActoIds);

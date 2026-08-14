@@ -469,6 +469,77 @@ La migración `AgregarCitas` crea la tabla `cita` (`inicio` como `timestamptz`, 
 los índices `(empresa_id, animal_id)`, `(empresa_id, inicio)` y `(empresa_id, estado, inicio)` para la
 agenda y los KPI, y activa la RLS por empresa.
 
+## Agregado `ActoClinico` (puente de facturación)
+
+Un **acto clínico** es la **línea facturable** del producto veterinario: registra que a un animal se
+le ha prestado un servicio con un `Concepto` (p. ej. «Consulta + vacuna polivalente») y un `Importe`
+**base** (sin IVA, en EUR). Cuelga del animal (solo su identificador) y guarda además el `ClienteId`
+del **propietario a facturar**, resuelto del animal al darlo de alta y almacenado como *snapshot*.
+
+**El acto ≠ la factura.** El acto se registra **siempre**; **facturar es un paso aparte y opcional**.
+Lo que no se factura se puede **cobrar con ticket** (fuera del flujo VeriFactu). Esta separación es la
+razón de ser del agregado: deja constancia del trabajo hecho aunque el cobro se resuelva de otra forma.
+
+### Máquina de estados
+
+`Pendiente` (inicial) → **`Ticket`** (cobrado con ticket, fija `CobradoTicketEn`), **`Facturado`**
+(incluido en una factura, fija `FacturaId`) o **`Anulado`**. Los estados distintos de `Pendiente` son
+**finales**: cualquier otra transición —o editar el acto— devuelve `acto.transicion_invalida`
+(`Error.Conflicto`). Validaciones (`acto.*`): animal/cliente obligatorio, `concepto_vacio`/`_largo`
+(máx. 200), `importe_negativo` (0 es válido), `iva_invalido` (solo 0/4/10/21; por defecto **21**).
+`ReferenciaTipo`/`ReferenciaId` (opcionales) enlazan con el origen (`consulta`/`vacunacion`/`cirugia`).
+Alta emite el evento `ActoClinicoRegistrado`.
+
+### Facturación VeriFactu reutilizando el módulo Facturación
+
+`FacturarActos(empresaId, actoIds)` emite **una única factura** a partir de varios actos:
+
+1. Carga los actos y valida que **todos existen**, están **`Pendiente`** y son del **mismo cliente**
+   (si no, devuelve un `Error` sin tocar nada: `acto.no_encontrado`, `acto.no_facturable` o
+   `acto.clientes_distintos`).
+2. Construye **una línea por acto** (concepto, cantidad 1, precio = `Importe`, IVA = `PorcentajeIva`
+   traducido a su código de catálogo `IVA21`/`IVA10`/…) e **invoca el caso de uso `EmitirFactura` del
+   módulo Facturación** (`EjecutarAsync(empresaId, EmitirFacturaComando(clienteId, lineas))`), que
+   aporta la **numeración correlativa**, el **cálculo de IVA/IRPF** y el **registro VeriFactu**. No se
+   reimplementa nada de eso aquí.
+3. Solo si la emisión va bien, marca cada acto `Facturado` con el `FacturaId` devuelto y persiste el
+   cambio en la unidad de trabajo de Clínica.
+
+**Decisión de integración.** Clínica referencia la **capa de Aplicación** de Facturación
+(`AlxorCore.Clinica` → `AlxorCore.Facturacion`, nunca su infraestructura), el mismo patrón con el que
+Facturación referencia a Terceros/Catálogo/Organización. El caso de uso `EmitirFactura` ya era
+reutilizable (lo usa el `POST /facturas`), así que se usa **tal cual**, sin extraer ni exponer nada
+nuevo. La factura es la **verdad fiscal**: se emite y confirma en la unidad de trabajo de Facturación
+**antes** de marcar los actos, de modo que un fallo de emisión no deja actos a medias (misma premisa
+que el resto del ERP, donde la factura ya emitida es irreversible y el efecto secundario se aplica a
+continuación). Como cada `DbContext` tiene su propia transacción, no hay una transacción distribuida:
+el orden «emitir → enlazar» es lo que garantiza la coherencia.
+
+### API de actos clínicos
+
+Todas las rutas requieren empresa activa. Lectura → `acto.leer`; registro/ticket/anulación →
+`acto.gestionar`; **facturar reutiliza el permiso de emitir factura** `factura.emitir` (el mismo que
+protege el `POST /facturas`).
+
+| Método | Ruta | Permiso | Descripción |
+|---|---|---|---|
+| `GET` | `/actos?estado=` | `acto.leer` | Actos de la empresa por estado (por defecto, `Pendiente`). |
+| `GET` | `/animales/{animalId}/actos` | `acto.leer` | Actos de un animal. |
+| `POST` | `/animales/{animalId}/actos` | `acto.gestionar` | Registra un acto facturable. **201**. |
+| `GET` | `/actos/{id}` | `acto.leer` | Obtiene un acto. |
+| `PUT` | `/actos/{id}` | `acto.gestionar` | Actualiza un acto **pendiente**. |
+| `POST` | `/actos/{id}/ticket` | `acto.gestionar` | Cobra el acto con ticket. |
+| `DELETE` | `/actos/{id}` | `acto.gestionar` | Anula un acto pendiente (**204**). |
+| `POST` | `/actos/facturar` | `factura.emitir` | Emite la factura VeriFactu de varios actos (body: `{ actoIds: [...] }`) y los marca facturados. **201** con la factura. |
+
+Los roles **Propietario** y **Usuario** gestionan actos (y pueden facturar, pues tienen
+`factura.emitir`); **Solo lectura** solo los consulta.
+
+La migración `AgregarActosClinicos` crea la tabla `acto_clinico` (`importe numeric(12,2)`,
+`porcentaje_iva numeric(5,2)`, estado como texto) con los índices
+`(empresa_id, cliente_id, estado)` —para localizar los pendientes de un cliente al facturar— y
+`(empresa_id, animal_id)`, y activa la RLS por empresa.
+
 ## Tests
 
 - **Unitarios** (`AlxorCore.Clinica.PruebasUnitarias`):
@@ -496,6 +567,12 @@ agenda y los KPI, y activa la RLS por empresa.
     `Cancelar`, `Reprogramar` con y sin nueva duración) y varias **inválidas** (atender/confirmar/
     cancelar desde un estado final → `cita.transicion_invalida`, reprogramar una atendida → error),
     y `Actualizar` sin alterar el estado.
+  - `ActoClinico`: creación válida (emite `ActoClinicoRegistrado`, queda `Pendiente`), IVA por defecto
+    21 y `CodigoIva`, normalización; rechazos de animal/cliente vacío, concepto vacío/largo, importe
+    negativo (0 válido) e IVA inválido (solo 0/4/10/21); `MarcarTicket` (fija estado + momento),
+    `MarcarFacturado` (fija estado + `FacturaId`, rechaza factura vacía), `Anular`, `Actualizar` solo en
+    `Pendiente`, y transiciones **inválidas** (facturar un ya facturado, ticket sobre un anulado,
+    facturar un cobrado con ticket, anular un ticket → `acto.transicion_invalida`).
   - xUnit + FluentAssertions con un `IReloj` fijo.
 - **Integración** (`AlxorCore.IntegrationTests`), contra un **PostgreSQL real**:
   - `Animal`: alta/obtención/edición por API, alta con cliente inexistente (400), listado por
@@ -523,3 +600,11 @@ agenda y los KPI, y activa la RLS por empresa.
     confirmadas/atendidas → 50 %); `GET /citas/kpi/confirmacion-mensual` devuelve la serie de los
     últimos meses (rellenando ceros); y **aislamiento multiempresa** (una empresa no ve la agenda de
     otra ni cita animales ajenos).
+  - `ActoClinico`: registro de un acto sobre un animal (queda `Pendiente` con el cliente del animal);
+    cobro con ticket (`POST /actos/{id}/ticket` → `Ticket`, sale de los pendientes); **facturar varios
+    actos del mismo cliente emite UNA factura real** de Facturación (comprueba numeración correlativa
+    `…/000001`, `Total` = suma con IVA —150 base + 26 IVA = 176—, que la factura es consultable en
+    `GET /facturas/{id}` y que los actos quedan `Facturado` con ese `FacturaId`); facturar actos de
+    **clientes distintos** → 400 sin tocar los actos; y **aislamiento multiempresa** (otra empresa no
+    ve los actos ni puede facturarlos → 404). Reutiliza el montaje de facturación de los tests
+    existentes (cliente + IVA + totales).

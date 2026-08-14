@@ -35,6 +35,8 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<Cita> Citas => Set<Cita>();
 
+    public DbSet<ActoClinico> ActosClinicos => Set<ActoClinico>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Esquema);
@@ -635,6 +637,97 @@ internal sealed class RepositorioCitas : IRepositorioCitas, IConsultaCitas
         }
 
         return serie;
+    }
+}
+
+internal sealed class ConfiguracionActoClinico : IEntityTypeConfiguration<ActoClinico>
+{
+    public void Configure(EntityTypeBuilder<ActoClinico> builder)
+    {
+        builder.ToTable("acto_clinico");
+        builder.HasKey(a => a.Id);
+        builder.Property(a => a.Id).HasColumnName("id");
+        builder.Property(a => a.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(a => a.AnimalId).HasColumnName("animal_id").IsRequired();
+        builder.Property(a => a.ClienteId).HasColumnName("cliente_id").IsRequired();
+        builder.Property(a => a.Fecha).HasColumnName("fecha").IsRequired();
+        builder.Property(a => a.Concepto).HasColumnName("concepto").HasMaxLength(ActoClinico.LongitudMaximaConcepto).IsRequired();
+        builder.Property(a => a.Importe).HasColumnName("importe").HasColumnType("numeric(12,2)").IsRequired();
+        builder.Property(a => a.PorcentajeIva).HasColumnName("porcentaje_iva").HasColumnType("numeric(5,2)").IsRequired();
+        builder.Property(a => a.ReferenciaTipo).HasColumnName("referencia_tipo").HasMaxLength(ActoClinico.LongitudMaximaReferenciaTipo);
+        builder.Property(a => a.ReferenciaId).HasColumnName("referencia_id");
+        builder.Property(a => a.Estado).HasColumnName("estado").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(a => a.FacturaId).HasColumnName("factura_id");
+        builder.Property(a => a.CobradoTicketEn).HasColumnName("cobrado_ticket_en");
+        builder.Property(a => a.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(a => a.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        // La facturación busca los pendientes de un cliente; la operativa, los actos de un animal.
+        builder.HasIndex(a => new { a.EmpresaId, a.ClienteId, a.Estado }).HasDatabaseName("ix_acto_clinico_empresa_cliente_estado");
+        builder.HasIndex(a => new { a.EmpresaId, a.AnimalId }).HasDatabaseName("ix_acto_clinico_empresa_animal");
+        builder.Ignore(a => a.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioActosClinicos : IRepositorioActosClinicos, IConsultaActosClinicos
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioActosClinicos(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<ActoClinico?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.ActosClinicos.SingleOrDefaultAsync(a => a.Id == id, ct);
+
+    public async Task<IReadOnlyList<ActoClinico>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(ids);
+        if (ids.Count == 0)
+        {
+            return Array.Empty<ActoClinico>();
+        }
+
+        return await _contexto.ActosClinicos.Where(a => ids.Contains(a.Id)).ToListAsync(ct).ConfigureAwait(false);
+    }
+
+    public void Agregar(ActoClinico acto) => _contexto.ActosClinicos.Add(acto);
+
+    public async Task<ActoClinicoDto?> ObtenerAsync(Guid id, CancellationToken ct = default)
+    {
+        var acto = await _contexto.ActosClinicos.SingleOrDefaultAsync(a => a.Id == id, ct).ConfigureAwait(false);
+        return acto is null ? null : ActoClinicoDto.Desde(acto);
+    }
+
+    public async Task<IReadOnlyList<ActoClinicoDto>> ListarPorAnimalAsync(Guid animalId, CancellationToken ct = default)
+    {
+        var actos = await _contexto.ActosClinicos
+            .Where(a => a.AnimalId == animalId)
+            .OrderByDescending(a => a.Fecha)
+            .ThenByDescending(a => a.CreadoEn)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return actos.Select(ActoClinicoDto.Desde).ToList();
+    }
+
+    public async Task<IReadOnlyList<ActoClinicoDto>> ListarPorEstadoAsync(Guid empresaId, EstadoActo estado, CancellationToken ct = default)
+    {
+        var actos = await _contexto.ActosClinicos
+            .Where(a => a.EmpresaId == empresaId && a.Estado == estado)
+            .OrderByDescending(a => a.Fecha)
+            .ThenByDescending(a => a.CreadoEn)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return actos.Select(ActoClinicoDto.Desde).ToList();
+    }
+
+    public async Task<IReadOnlyList<ActoClinicoDto>> ListarPendientesDeClienteAsync(Guid empresaId, Guid clienteId, CancellationToken ct = default)
+    {
+        var actos = await _contexto.ActosClinicos
+            .Where(a => a.EmpresaId == empresaId && a.ClienteId == clienteId && a.Estado == EstadoActo.Pendiente)
+            .OrderBy(a => a.Fecha)
+            .ThenBy(a => a.CreadoEn)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return actos.Select(ActoClinicoDto.Desde).ToList();
     }
 }
 

@@ -114,6 +114,22 @@ public static class RegistroServicios
         servicios.AddScoped<ResumenCitas>();
         servicios.AddScoped<ConfirmacionMensual>();
 
+        servicios.AddScoped<RepositorioActosClinicos>();
+        servicios.AddScoped<IRepositorioActosClinicos>(sp => sp.GetRequiredService<RepositorioActosClinicos>());
+        servicios.AddScoped<IConsultaActosClinicos>(sp => sp.GetRequiredService<RepositorioActosClinicos>());
+
+        // El puente de facturación reutiliza el caso de uso EmitirFactura del módulo Facturación, que
+        // la API compone en el mismo contenedor (AgregarModuloFacturacion). Así FacturarActos delega en
+        // él la numeración correlativa, el IVA y VeriFactu; aquí no se registra ni se duplica nada de eso.
+        servicios.AddScoped<RegistrarActoClinico>();
+        servicios.AddScoped<ActualizarActoClinico>();
+        servicios.AddScoped<MarcarActoTicket>();
+        servicios.AddScoped<AnularActoClinico>();
+        servicios.AddScoped<FacturarActos>();
+        servicios.AddScoped<ObtenerActoClinico>();
+        servicios.AddScoped<ListarActosClinicos>();
+        servicios.AddScoped<ListarActosDeAnimal>();
+
         return servicios;
     }
 }

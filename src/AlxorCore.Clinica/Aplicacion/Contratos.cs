@@ -310,5 +310,54 @@ public interface IConsultaCitas
     Task<IReadOnlyList<PuntoConfirmacionMensualDto>> ConfirmacionMensualAsync(Guid empresaId, int meses, DateOnly hoy, CancellationToken ct = default);
 }
 
+/// <summary>Vista de un acto clínico (línea facturable).</summary>
+public sealed record ActoClinicoDto(
+    Guid Id,
+    Guid AnimalId,
+    Guid ClienteId,
+    DateOnly Fecha,
+    string Concepto,
+    decimal Importe,
+    decimal PorcentajeIva,
+    string? ReferenciaTipo,
+    Guid? ReferenciaId,
+    EstadoActo Estado,
+    Guid? FacturaId,
+    DateTimeOffset? CobradoTicketEn)
+{
+    public static ActoClinicoDto Desde(ActoClinico a)
+    {
+        ArgumentNullException.ThrowIfNull(a);
+        return new ActoClinicoDto(
+            a.Id, a.AnimalId, a.ClienteId, a.Fecha, a.Concepto, a.Importe, a.PorcentajeIva,
+            a.ReferenciaTipo, a.ReferenciaId, a.Estado, a.FacturaId, a.CobradoTicketEn);
+    }
+}
+
+/// <summary>Repositorio de actos clínicos (escritura).</summary>
+public interface IRepositorioActosClinicos
+{
+    Task<ActoClinico?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Carga varios actos por su identificador (para facturar un lote de una vez).</summary>
+    Task<IReadOnlyList<ActoClinico>> ObtenerVariosAsync(IReadOnlyCollection<Guid> ids, CancellationToken ct = default);
+
+    void Agregar(ActoClinico acto);
+}
+
+/// <summary>Consultas de lectura de actos clínicos.</summary>
+public interface IConsultaActosClinicos
+{
+    Task<ActoClinicoDto?> ObtenerAsync(Guid id, CancellationToken ct = default);
+
+    Task<IReadOnlyList<ActoClinicoDto>> ListarPorAnimalAsync(Guid animalId, CancellationToken ct = default);
+
+    /// <summary>Lista los actos de la empresa en un estado (p. ej. los pendientes de facturar).</summary>
+    Task<IReadOnlyList<ActoClinicoDto>> ListarPorEstadoAsync(Guid empresaId, EstadoActo estado, CancellationToken ct = default);
+
+    /// <summary>Lista los actos pendientes de un cliente (candidatos a una misma factura).</summary>
+    Task<IReadOnlyList<ActoClinicoDto>> ListarPendientesDeClienteAsync(Guid empresaId, Guid clienteId, CancellationToken ct = default);
+}
+
 /// <summary>Unidad de trabajo del módulo Clínica.</summary>
 public interface IUnidadDeTrabajoClinica : IUnidadDeTrabajo;

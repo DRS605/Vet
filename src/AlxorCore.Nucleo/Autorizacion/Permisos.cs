@@ -38,6 +38,8 @@ public static class Permisos
     public const string RecordatorioGestionar = "recordatorio.gestionar";
     public const string CitaLeer = "cita.leer";
     public const string CitaGestionar = "cita.gestionar";
+    public const string ActoLeer = "acto.leer";
+    public const string ActoGestionar = "acto.gestionar";
 
     // Informes y datos
     public const string InformeLeer = "informe.leer";
@@ -60,6 +62,7 @@ public static class Permisos
         CirugiaLeer, CirugiaGestionar,
         RecordatorioLeer, RecordatorioGestionar,
         CitaLeer, CitaGestionar,
+        ActoLeer, ActoGestionar,
         InformeLeer, DatosExportar,
         EmpresaAjustes, UsuarioGestionar,
     };
