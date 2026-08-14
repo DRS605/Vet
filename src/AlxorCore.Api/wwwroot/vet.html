@@ -444,7 +444,8 @@ async function vInicio(){ cargando(); await conError(async()=>{
   const animalesPorId = {}; animales.forEach(a=>animalesPorId[a.id]=a);
   const fecha=new Date().toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"});
   const hora=new Date().getHours(); const saludo=hora<13?"Buenos días":hora<20?"Buenas tardes":"Buenas noches";
-  const nombre=(usuario?.nombre||"").split(" ")[0];
+  const partesNombre=(usuario?.nombre||"").trim().split(/\s+/);
+  const nombre=partesNombre[0] && /^(dr|dra|d|dn|dña|sr|sra|srta)\.?$/i.test(partesNombre[0]) ? (partesNombre[1]||partesNombre[0]) : (partesNombre[0]||"");
   const confirmadasHoy=agendaHoy.filter(c=>c.estado==="Confirmada"||c.estado==="Atendida").length;
 
   const kpis=`<div class="kpis">
