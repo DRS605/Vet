@@ -1,0 +1,166 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<style>
+  :root{
+    --ink:#2e1b0e; --muted:#7a5f49; --line:#e4d8c8; --cream:#fbf6ee; --cream2:#f4ead8;
+    --accent:#c67a12; --honey:#f5a800; --honey2:#ffcb3e; --honeysoft:#fff2d6;
+    --vet:#5e7f2e; --vetsoft:#eef4df; --neg:#c0492f;
+    --grad:linear-gradient(135deg,#6b4423,#2e1b0e);
+    --gradh:linear-gradient(135deg,#ffcb3e,#f0a500);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  @page{ size:A4 portrait; margin:0; }
+  html,body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif; color:var(--ink); font-size:11pt; line-height:1.5; }
+  .page{ width:210mm; min-height:297mm; padding:18mm 17mm 16mm; position:relative; page-break-after:always; background:#fff; display:flex; flex-direction:column; }
+  .page:last-child{ page-break-after:auto; }
+
+  .mark{ width:34px; height:34px; border-radius:10px; background:var(--grad); position:relative; flex:none; }
+  .mark::before{ content:""; position:absolute; inset:8px; border:2px solid #ffce55; border-radius:50%; }
+  .mark::after{ content:"🐾"; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:11px; }
+  .brand{ display:flex; align-items:center; gap:10px; }
+  .brand .w{ font-weight:800; font-size:18px; display:flex; align-items:center; gap:8px; }
+  .brand .tag{ font-size:9px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--ink); background:var(--gradh); padding:4px 9px; border-radius:999px; }
+  .rule{ height:1px; background:var(--line); margin:14px 0; }
+  .foot{ position:absolute; left:17mm; right:17mm; bottom:10mm; display:flex; justify-content:space-between; font-size:8.5pt; color:var(--muted); border-top:1px solid var(--line); padding-top:6px; }
+
+  h1{ font-size:26pt; letter-spacing:-.02em; line-height:1.1; margin-top:22px; }
+  h2{ font-size:14pt; letter-spacing:-.01em; margin:0 0 10px; display:flex; align-items:center; gap:9px; }
+  h2 .num{ width:22px; height:22px; border-radius:6px; background:var(--ink); color:#fff; font-size:11pt; display:grid; place-items:center; flex:none; }
+  .kick{ display:inline-block; font-size:9.5pt; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); margin-top:22px; }
+  p{ margin-bottom:9px; }
+  .lead{ font-size:11.5pt; color:#4a3a2c; }
+
+  .meta{ display:grid; grid-template-columns:auto 1fr; gap:5px 16px; margin-top:20px; font-size:10.5pt; background:var(--cream); border:1px solid var(--line); border-radius:12px; padding:16px 18px; }
+  .meta b{ color:var(--muted); font-weight:600; }
+
+  table{ width:100%; border-collapse:collapse; margin-top:6px; font-size:9.6pt; }
+  th{ text-align:left; background:var(--cream2); color:var(--ink); font-weight:700; padding:8px 9px; border-bottom:2px solid var(--line); font-size:8.6pt; text-transform:uppercase; letter-spacing:.03em; }
+  td{ padding:8px 9px; border-bottom:1px solid var(--line); vertical-align:top; }
+  tr:nth-child(even) td{ background:#fdfaf4; }
+  td.req{ font-weight:650; width:27%; }
+  td.how{ color:#4a3a2c; }
+  td.st{ width:74px; text-align:center; }
+  td.see{ width:23%; color:var(--muted); font-size:9pt; }
+  .ok{ display:inline-block; background:var(--vetsoft); color:var(--vet); font-weight:750; font-size:8.4pt; padding:3px 8px; border-radius:999px; white-space:nowrap; }
+  .chk{ width:15px; height:15px; border:1.6px solid var(--accent); border-radius:4px; display:inline-block; vertical-align:middle; }
+
+  .note{ background:var(--honeysoft); border:1px solid #f0dca8; border-radius:12px; padding:13px 15px; font-size:10pt; margin-top:14px; color:#6b4d1c; }
+  .note b{ color:var(--ink); }
+
+  .ev{ display:flex; flex-direction:column; gap:14px; margin-top:12px; }
+  .ev figure{ border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--cream); }
+  .ev img{ width:100%; display:block; }
+  .ev figcaption{ font-size:9pt; color:var(--muted); padding:8px 12px; background:#fff; border-top:1px solid var(--line); }
+
+  .cols2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:8px; }
+  .box{ border:1px solid var(--line); border-radius:12px; padding:15px 16px; }
+  .box h3{ font-size:11pt; margin-bottom:8px; }
+  .box ul{ margin-left:16px; font-size:10pt; color:#4a3a2c; }
+  .box li{ margin-bottom:5px; }
+  .box.f2{ background:var(--cream); }
+
+  /* conformidad */
+  .opt{ display:flex; align-items:center; gap:11px; padding:12px 14px; border:1px solid var(--line); border-radius:11px; margin-bottom:10px; font-size:11pt; }
+  .opt .sq{ width:18px; height:18px; border:2px solid var(--accent); border-radius:5px; flex:none; }
+  .opt b{ font-weight:700; }
+  .obs{ border:1px solid var(--line); border-radius:11px; height:26mm; margin-top:6px; background:repeating-linear-gradient(transparent,transparent 8mm,var(--line) 8mm,var(--line) calc(8mm + 1px)); }
+  .sign{ display:grid; grid-template-columns:1fr 1fr; gap:26px; margin-top:22px; }
+  .sign .field{ border-top:1px solid var(--ink); padding-top:6px; font-size:9.5pt; color:var(--muted); }
+  .sign .field .big{ height:20mm; }
+</style></head>
+<body>
+
+<!-- PÁGINA 1 -->
+<section class="page">
+  <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+  <span class="kick">Documento de validación del encargo</span>
+  <h1>Validación del software<br>de gestión veterinaria</h1>
+  <p class="lead" style="margin-top:14px">Este documento recoge, punto por punto, <b>lo que solicitaste</b> y <b>cómo se ha implementado</b>, para que puedas <b>revisarlo y dar tu conformidad</b>. Cada requisito indica dónde comprobarlo en la aplicación. Al final encontrarás el apartado de validación para firmar.</p>
+
+  <div class="meta">
+    <b>Producto</b><span>ALXOR Vet — gestión para clínica veterinaria</span>
+    <b>Cliente</b><span>Clínica Veterinaria Sol de Levante</span>
+    <b>Fase</b><span>Fase 1 — Gestión de clientes, clínica, avisos y facturación (sin control de gastos)</span>
+    <b>Estado</b><span>Entregado para validación · Aplicación funcionando con datos de demostración</span>
+    <b>Fecha</b><span>Agosto de 2026</span>
+  </div>
+
+  <div class="note" style="margin-top:22px"><b>Cómo validar.</b> Recorre la tabla de la página siguiente y marca cada requisito conforme. Puedes probarlo en vivo con la demo (usuario y contraseña facilitados aparte) o pedir una sesión guiada de 15 minutos. En la página de evidencias verás capturas reales de la aplicación.</div>
+
+  <div class="foot"><span>ALXOR Vet · Documento de validación</span><span>1</span></div>
+</section>
+
+<!-- PÁGINA 2 -->
+<section class="page">
+  <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+  <h2 style="margin-top:20px"><span class="num">1</span> Lo que pediste, punto por punto</h2>
+  <table>
+    <thead><tr><th>Solicitado</th><th>Cómo se ha implementado</th><th>Estado</th><th>Dónde verlo</th><th style="width:26px"></th></tr></thead>
+    <tbody>
+      <tr><td class="req">Sin control de gastos en primera fase</td><td class="how">La aplicación se centra en clientes, clínica, avisos y facturación. No incluye módulo de gastos.</td><td class="st"><span class="ok">✔ Cumplido</span></td><td class="see">Menú lateral</td><td><span class="chk"></span></td></tr>
+      <tr><td class="req">Clientes con varios animales</td><td class="how">Cada cliente tiene una ficha con todos sus animales; cada animal, su propia ficha e historial.</td><td class="st"><span class="ok">✔ Entregado</span></td><td class="see">Clientes → ficha</td><td><span class="chk"></span></td></tr>
+      <tr><td class="req">Consultas con fecha, diagnóstico y tratamiento</td><td class="how">Registro de consultas con esos campos, en el historial de cada animal, en línea de tiempo.</td><td class="st"><span class="ok">✔ Entregado</span></td><td class="see">Ficha de animal → Historial</td><td><span class="chk"></span></td></tr>
+      <tr><td class="req">Vacunas con campo maestro por especie</td><td class="how">Cuadro de pautas vacunales por especie; al vacunar, la próxima dosis y su aviso se calculan solos.</td><td class="st"><span class="ok">✔ Entregado</span></td><td class="see">Vacunas</td><td><span class="chk"></span></td></tr>
+      <tr><td class="req">Cirugías</td><td class="how">Registro de cirugías (procedimiento, cirujano, complicaciones y próxima revisión) en el historial.</td><td class="st"><span class="ok">✔ Entregado</span></td><td class="see">Ficha de animal → Historial</td><td><span class="chk"></span></td></tr>
+      <tr><td class="req">Recordatorios de tratamientos y revisiones</td><td class="how">Se generan avisos de lo que vence (vacunas, revisiones y tratamientos) y se gestionan en un panel.</td><td class="st"><span class="ok">✔ Entregado</span></td><td class="see">Recordatorios</td><td><span class="chk"></span></td></tr>
+      <tr><td class="req">Variable "cachorro"</td><td class="how">Se calcula sola por la edad y la especie del animal (no hay que marcarla a mano); guía el plan de vacunación.</td><td class="st"><span class="ok">✔ Entregado</span></td><td class="see">Ficha de animal (distintivo)</td><td><span class="chk"></span></td></tr>
+      <tr><td class="req">Recordatorios de vacuna + correos al cliente</td><td class="how">Los avisos de vacuna se envían por correo al dueño, de uno en uno o todos los pendientes a la vez.</td><td class="st"><span class="ok">✔ Entregado</span></td><td class="see">Recordatorios → Enviar</td><td><span class="chk"></span></td></tr>
+      <tr><td class="req">Facturar con VeriFactu sin facturar siempre</td><td class="how">Cada acto se registra siempre; facturar es aparte y opcional (factura VeriFactu correlativa) o se cobra con ticket.</td><td class="st"><span class="ok">✔ Entregado</span></td><td class="see">Facturación</td><td><span class="chk"></span></td></tr>
+      <tr><td class="req">KPIs de citas confirmadas</td><td class="how">Panel con el % de citas confirmadas del mes y su evolución mensual, calculado desde la agenda.</td><td class="st"><span class="ok">✔ Entregado</span></td><td class="see">Inicio (panel)</td><td><span class="chk"></span></td></tr>
+      <tr><td class="req">Programa intuitivo</td><td class="how">Interfaz limpia y moderna, pocos clics, mismo estilo que ALXOR, pensada para el día a día de la clínica.</td><td class="st"><span class="ok">✔ Entregado</span></td><td class="see">Toda la aplicación</td><td><span class="chk"></span></td></tr>
+    </tbody>
+  </table>
+  <div class="note"><b>Extra incluido sin coste añadido — el diferencial.</b> Además de lo solicitado, se ha construido la <b>Cartilla Viva</b>: la ficha de la mascota en el móvil del dueño, donde <b>confirma la cita de un toque</b> (lo que alimenta el KPI de citas confirmadas), consulta sus vacunas con <b>código QR</b> y sigue el <b>plan del cachorro</b>.</div>
+  <div class="foot"><span>ALXOR Vet · Documento de validación</span><span>2</span></div>
+</section>
+
+<!-- PÁGINA 3 EVIDENCIAS -->
+<section class="page">
+  <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+  <h2 style="margin-top:20px"><span class="num">2</span> Evidencias — la aplicación real</h2>
+  <p style="font-size:10pt;color:var(--muted)">Capturas de la aplicación funcionando con datos de demostración. No son maquetas.</p>
+  <div class="ev">
+    <figure><img src="captura-spa.png" alt="Panel"><figcaption>Panel de inicio: KPI de citas confirmadas, agenda del día y evolución mensual de confirmación.</figcaption></figure>
+    <figure><img src="captura-cartilla.png" alt="Cartilla Viva"><figcaption>Cartilla Viva (móvil del dueño): confirmar la cita de un toque, vacunas y código QR.</figcaption></figure>
+  </div>
+  <div class="foot"><span>ALXOR Vet · Documento de validación</span><span>3</span></div>
+</section>
+
+<!-- PÁGINA 4 ALCANCE + CONFORMIDAD -->
+<section class="page">
+  <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+  <h2 style="margin-top:20px"><span class="num">3</span> Alcance de esta fase</h2>
+  <div class="cols2">
+    <div class="box"><h3>✔ Incluido y entregado</h3><ul>
+      <li>Clientes y sus animales</li>
+      <li>Historial: consultas, vacunas, cirugías</li>
+      <li>Vacunas con cuadro maestro por especie</li>
+      <li>Recordatorios + correo al cliente</li>
+      <li>Agenda y KPI de citas confirmadas</li>
+      <li>Facturación VeriFactu o ticket</li>
+      <li>Cartilla Viva del dueño (con QR)</li>
+    </ul></div>
+    <div class="box f2"><h3>Fuera de esta fase (fase 2)</h3><ul>
+      <li>Control de gastos (excluido a petición)</li>
+      <li>Correo con proveedor real de envío (hoy en pruebas)</li>
+      <li>Envío 100 % automático programado de avisos</li>
+      <li>Avisos por WhatsApp / SMS</li>
+      <li>Puesta en producción en la nube</li>
+    </ul></div>
+  </div>
+
+  <h2 style="margin-top:26px"><span class="num">4</span> Validación y conformidad</h2>
+  <p style="font-size:10.5pt">Marca la opción que corresponda:</p>
+  <div class="opt"><span class="sq"></span><div><b>Conforme.</b> Lo entregado se ajusta a lo solicitado para esta fase.</div></div>
+  <div class="opt"><span class="sq"></span><div><b>Conforme con observaciones.</b> Aceptado con los ajustes indicados abajo.</div></div>
+  <div class="opt"><span class="sq"></span><div><b>No conforme.</b> Por los motivos indicados abajo.</div></div>
+  <p style="font-size:9.5pt;color:var(--muted);margin-top:6px">Observaciones:</p>
+  <div class="obs"></div>
+
+  <div class="sign">
+    <div class="field"><div class="big"></div>Firma del cliente</div>
+    <div class="field"><div class="big"></div>Nombre y fecha</div>
+  </div>
+  <div class="foot"><span>ALXOR Vet · Documento de validación</span><span>4</span></div>
+</section>
+
+</body></html>
