@@ -1,0 +1,246 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<style>
+  :root{
+    --ink:#2e1b0e; --muted:#7a5f49; --line:#ece1d4; --cream:#faf4ea; --cream2:#f3e7d4;
+    --accent:#c67a12; --honey:#f5a800; --honey2:#ffcb3e; --honeysoft:#fff0ce;
+    --vet:#5e7f2e; --vetsoft:#eef4df; --neg:#c0492f;
+    --grad:linear-gradient(135deg,#6b4423,#2e1b0e);
+    --gradh:linear-gradient(135deg,#ffcb3e,#f0a500);
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact;}
+  @page{ size:A4 landscape; margin:0; }
+  html,body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif; color:var(--ink); }
+  .slide{ width:297mm; height:210mm; padding:18mm 20mm; position:relative; overflow:hidden; page-break-after:always; background:var(--cream); display:flex; flex-direction:column; }
+  .slide:last-child{ page-break-after:auto; }
+
+  /* marca */
+  .mark{ width:40px; height:40px; border-radius:12px; background:var(--grad); position:relative; flex:none; }
+  .mark::before{ content:""; position:absolute; inset:9px; border:2.5px solid #ffce55; border-radius:50%; }
+  .mark::after{ content:"🐾"; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:13px; }
+  .brand{ display:flex; align-items:center; gap:11px; }
+  .brand .w{ font-weight:800; font-size:22px; display:flex; align-items:center; gap:9px; letter-spacing:-.01em; }
+  .brand .tag{ font-size:10px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--ink); background:var(--gradh); padding:5px 11px; border-radius:999px; }
+  .foot{ position:absolute; left:20mm; right:20mm; bottom:10mm; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--muted); border-top:1px solid var(--line); padding-top:8px; }
+  .kick{ display:inline-block; font-size:12px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); margin-bottom:12px; }
+
+  h1{ font-size:52px; line-height:1.04; letter-spacing:-.03em; }
+  h1 .hl{ background:var(--gradh); padding:0 10px; border-radius:8px; }
+  h2{ font-size:34px; letter-spacing:-.02em; line-height:1.1; }
+  p.lead{ font-size:18px; color:var(--muted); max-width:600px; line-height:1.5; margin-top:14px; }
+
+  /* PORTADA */
+  .cover{ background:var(--grad); color:#fff8ee; }
+  .cover .mark{ background:rgba(255,255,255,.14); } .cover .mark::before{ border-color:#ffce55; }
+  .cover .brand .w{ color:#fff; } .cover .brand .tag{ background:var(--gradh); }
+  .cover h1{ color:#fff; margin-top:auto; }
+  .cover .sub{ font-size:20px; color:#f0e2d0; margin-top:18px; max-width:640px; line-height:1.45; }
+  .cover .blob{ position:absolute; border-radius:50%; background:rgba(245,168,0,.16); }
+  .cover .b1{ width:520px; height:520px; right:-160px; top:-200px; }
+  .cover .b2{ width:320px; height:320px; left:-120px; bottom:-160px; background:rgba(255,255,255,.06); }
+  .cover .meta{ margin-top:26px; font-size:13px; color:#e8d8c4; letter-spacing:.02em; position:relative; }
+
+  .row{ display:flex; gap:20px; }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:26px; }
+  .grid3{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:24px; }
+
+  .card{ background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px 22px; box-shadow:0 6px 18px rgba(46,27,14,.06); }
+  .card .ic{ width:44px; height:44px; border-radius:12px; background:var(--honeysoft); display:grid; place-items:center; font-size:22px; margin-bottom:12px; }
+  .card b{ font-size:18px; display:block; margin-bottom:5px; }
+  .card span{ font-size:14px; color:var(--muted); line-height:1.45; }
+  .pain b .x{ color:var(--neg); margin-right:8px; }
+
+  /* diferencial */
+  .star{ background:linear-gradient(160deg,#fff8ea,#fdeecb); border:1px solid #f2dca4; border-radius:22px; padding:30px; margin-top:22px; flex:1; display:flex; gap:30px; align-items:center; }
+  .star .txt{ flex:1; }
+  .star .k{ display:inline-flex; align-items:center; gap:8px; background:var(--gradh); color:var(--ink); font-weight:800; font-size:12px; letter-spacing:.08em; text-transform:uppercase; padding:6px 13px; border-radius:999px; }
+  .star h2{ margin:16px 0 10px; }
+  .star ul{ list-style:none; margin-top:16px; display:flex; flex-direction:column; gap:12px; }
+  .star li{ display:flex; gap:12px; font-size:16px; align-items:flex-start; }
+  .star li .e{ font-size:22px; flex:none; }
+  .star li b{ color:var(--ink); }
+
+  /* phone */
+  .phone{ width:230px; height:430px; background:#241206; border-radius:34px; padding:9px; flex:none; box-shadow:0 24px 48px rgba(46,27,14,.30); }
+  .pscreen{ background:#f7f0e6; border-radius:26px; height:100%; overflow:hidden; position:relative; }
+  .phead{ background:var(--grad); color:#fff; padding:20px 16px 16px; }
+  .phead .pt{ font-size:9px; letter-spacing:.12em; text-transform:uppercase; opacity:.75; font-weight:700; }
+  .phead h6{ font-size:18px; margin-top:2px; } .phead .ps{ font-size:11px; opacity:.85; }
+  .pbody{ padding:13px; display:flex; flex-direction:column; gap:11px; }
+  .pc{ background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; }
+  .pc.hi{ background:linear-gradient(160deg,#fff6e2,#ffedc4); border-color:#f2d385; }
+  .pc .l{ font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-weight:700; }
+  .pc .when{ font-size:16px; font-weight:750; margin-top:4px; }
+  .pc .d{ font-size:11px; color:var(--muted); margin-top:2px; }
+  .pbtn{ margin-top:10px; text-align:center; background:var(--gradh); color:var(--ink); font-weight:750; font-size:12px; padding:9px; border-radius:10px; }
+  .vrow{ display:flex; justify-content:space-between; font-size:12px; padding:4px 0; }
+  .vrow .ck{ color:var(--vet); font-weight:800; }
+
+  /* producto real */
+  .shot{ margin-top:18px; flex:1; display:flex; align-items:center; justify-content:center; }
+  .shot img{ max-width:100%; max-height:100%; border-radius:12px; border:1px solid var(--line); box-shadow:0 18px 40px rgba(46,27,14,.20); }
+  .proofbadge{ display:inline-flex; align-items:center; gap:8px; background:var(--vetsoft); color:var(--vet); font-weight:750; font-size:14px; padding:7px 14px; border-radius:999px; }
+
+  /* verifactu */
+  .dates{ display:flex; gap:16px; margin-top:22px; }
+  .date{ flex:1; background:var(--honeysoft); border-radius:16px; padding:20px 22px; }
+  .date b{ font-size:30px; letter-spacing:-.02em; display:block; }
+  .date span{ font-size:14px; color:var(--muted); }
+  .checklist{ margin-top:20px; display:flex; flex-direction:column; gap:10px; }
+  .checklist div{ font-size:15px; padding-left:28px; position:relative; color:var(--ink); }
+  .checklist div::before{ content:"✓"; position:absolute; left:0; color:var(--vet); font-weight:800; }
+
+  /* planes */
+  .plan{ background:#fff; border:1px solid var(--line); border-radius:18px; padding:22px; display:flex; flex-direction:column; }
+  .plan.best{ border:2px solid var(--accent); box-shadow:0 14px 30px rgba(198,122,18,.16); position:relative; }
+  .plan .rib{ position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:var(--gradh); color:var(--ink); font-weight:800; font-size:10px; letter-spacing:.08em; text-transform:uppercase; padding:5px 12px; border-radius:999px; }
+  .plan .pn{ font-size:13px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--accent); }
+  .plan .pp{ font-size:34px; font-weight:800; letter-spacing:-.02em; margin:8px 0 4px; }
+  .plan .pp small{ font-size:15px; font-weight:600; color:var(--muted); }
+  .plan .pd{ font-size:13px; color:var(--muted); min-height:38px; margin-bottom:12px; }
+  .plan ul{ list-style:none; display:flex; flex-direction:column; gap:8px; }
+  .plan li{ font-size:13px; padding-left:22px; position:relative; }
+  .plan li::before{ content:"✓"; position:absolute; left:0; color:var(--vet); font-weight:800; }
+
+  /* cierre */
+  .close{ background:var(--grad); color:#fff8ee; align-items:center; justify-content:center; text-align:center; }
+  .close .mark{ background:rgba(255,255,255,.14); }
+  .close h1{ color:#fff; }
+  .close p{ font-size:19px; color:#f0e2d0; margin-top:16px; max-width:620px; }
+  .close .cta{ margin-top:26px; display:inline-block; background:var(--gradh); color:var(--ink); font-weight:800; font-size:17px; padding:15px 30px; border-radius:14px; }
+  .close .blob{ position:absolute; border-radius:50%; background:rgba(245,168,0,.14); }
+</style></head>
+<body>
+
+  <!-- 1 PORTADA -->
+  <section class="slide cover">
+    <div class="blob b1"></div><div class="blob b2"></div>
+    <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+    <h1>El software para tu<br><span class="hl">clínica veterinaria</span></h1>
+    <p class="sub">Fichas, historial, vacunas, cirugías, recordatorios y facturación VeriFactu. Y algo que ningún otro te da: la ficha de cada mascota en el móvil de su dueño.</p>
+    <div class="meta">Propuesta de producto · Clínica Veterinaria Sol de Levante · 2026</div>
+  </section>
+
+  <!-- 2 EL RETO -->
+  <section class="slide">
+    <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+    <div style="margin-top:24px">
+      <span class="kick">El reto de cada día</span>
+      <h2>Lo que hoy te quita tiempo y dinero</h2>
+    </div>
+    <div class="grid2">
+      <div class="card pain"><b><span class="x">✕</span>Huecos en la agenda</b><span>Citas que nadie confirma y acaban en ausencias.</span></div>
+      <div class="card pain"><b><span class="x">✕</span>Vacunas que se pasan</b><span>Recordar a mano quién toca cada mes es imposible.</span></div>
+      <div class="card pain"><b><span class="x">✕</span>Historial disperso</b><span>Consultas, cirugías y tratamientos en papeles y en la memoria.</span></div>
+      <div class="card pain"><b><span class="x">✕</span>Facturar te frena</b><span>No todo acto necesita factura, pero VeriFactu llega en 2027.</span></div>
+    </div>
+    <div class="foot"><span>ALXOR Vet · Propuesta de producto</span><span>2</span></div>
+  </section>
+
+  <!-- 3 DIFERENCIAL -->
+  <section class="slide">
+    <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+    <div style="margin-top:20px"><span class="kick">★ Lo que te hace diferente</span></div>
+    <div class="star">
+      <div class="txt">
+        <span class="k">Cartilla Viva</span>
+        <h2>La mascota, en el móvil de su dueño</h2>
+        <p class="lead">Casi todos los programas se quedan en la clínica. ALXOR Vet cruza la puerta: menos ausencias y más fidelidad, sin trabajo extra para tu equipo.</p>
+        <ul>
+          <li><span class="e">✅</span><div><b>Recordatorio → confirmación.</b> Cada toque en "Confirmar" sube tu KPI de citas confirmadas.</div></li>
+          <li><span class="e">🍼</span><div><b>El cachorro engancha.</b> Plan de crecimiento con hitos que el dueño quiere completar.</div></li>
+          <li><span class="e">🔖</span><div><b>Cartilla con QR.</b> Útil de verdad: viajes, residencias, peluquería.</div></li>
+        </ul>
+      </div>
+      <div class="phone"><div class="pscreen">
+        <div class="phead"><div class="pt">Cartilla Viva</div><h6>Nala</h6><div class="ps">Golden Retriever · 4 años</div></div>
+        <div class="pbody">
+          <div class="pc hi"><div class="l">Tu próxima cita</div><div class="when">Jue 21 ago · 09:30</div><div class="d">Revisión + vacuna polivalente</div><div class="pbtn">Confirmar ✓</div></div>
+          <div class="pc"><div class="l">Vacunas · al día</div>
+            <div class="vrow"><span>Polivalente</span><span class="ck">✓ 2026</span></div>
+            <div class="vrow"><span>Rabia</span><span class="ck">✓ 2026</span></div>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <div class="foot"><span>ALXOR Vet · Propuesta de producto</span><span>3</span></div>
+  </section>
+
+  <!-- 4 PRODUCTO REAL -->
+  <section class="slide">
+    <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+    <div class="row" style="margin-top:18px; align-items:center; justify-content:space-between">
+      <div><span class="kick">No es un prototipo</span><h2>La aplicación, funcionando de verdad</h2></div>
+      <span class="proofbadge">● Producto real, no maqueta</span>
+    </div>
+    <div class="shot"><img src="captura-spa.png" alt="Panel de ALXOR Vet"></div>
+    <div class="foot"><span>Panel de inicio: KPI de citas confirmadas, agenda del día y confirmación mensual</span><span>4</span></div>
+  </section>
+
+  <!-- 5 QUÉ INCLUYE -->
+  <section class="slide">
+    <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+    <div style="margin-top:22px"><span class="kick">Todo en un sitio</span><h2>Lo que incluye</h2></div>
+    <div class="grid3">
+      <div class="card"><div class="ic">👨‍👩‍👧</div><b>Clientes y animales</b><span>Un cliente, varias mascotas, cada una con su ficha e historial.</span></div>
+      <div class="card"><div class="ic">📋</div><b>Historial clínico</b><span>Consultas con fecha, diagnóstico y tratamiento; vacunas y cirugías.</span></div>
+      <div class="card"><div class="ic">💉</div><b>Vacunas por especie</b><span>Calendario maestro; la próxima dosis y su aviso se calculan solos.</span></div>
+      <div class="card"><div class="ic">🔔</div><b>Recordatorios</b><span>Vacunas, revisiones y tratamientos avisan por correo automáticamente.</span></div>
+      <div class="card"><div class="ic">📅</div><b>Agenda y KPIs</b><span>Citas del día y panel con % de confirmación y cachorros en seguimiento.</span></div>
+      <div class="card"><div class="ic">🧾</div><b>Facturación VeriFactu</b><span>Factura solo cuando toca; lo demás, ticket. El registro nunca se pierde.</span></div>
+    </div>
+    <div class="foot"><span>ALXOR Vet · Propuesta de producto</span><span>5</span></div>
+  </section>
+
+  <!-- 6 VERIFACTU -->
+  <section class="slide">
+    <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+    <div style="margin-top:22px"><span class="kick">🛡️ Cumplimiento</span><h2>Listo para VeriFactu, con margen</h2></div>
+    <p class="lead">Cada factura se genera con huella encadenada, firma, sello de tiempo, QR y la leyenda oficial, y se envía a la AEAT. Empezar ahora significa llegar cumpliendo, sin prisas de última hora.</p>
+    <div class="dates">
+      <div class="date"><b>1 ene 2027</b><span>Obligatorio para sociedades</span></div>
+      <div class="date"><b>1 jul 2027</b><span>Obligatorio para autónomos</span></div>
+    </div>
+    <div class="checklist">
+      <div><b>El acto clínico y la factura son cosas distintas</b> — no te obliga a facturar cada vacuna o consulta.</div>
+      <div>Factura simplificada / ticket para lo que no requiere factura completa.</div>
+      <div>Cuando la AEAT cambie el formato, se actualiza una vez y listo.</div>
+    </div>
+    <div class="foot"><span>Fechas según RD-ley 15/2025 (BOE 3 dic 2025), sujetas a posibles prórrogas</span><span>6</span></div>
+  </section>
+
+  <!-- 7 PLANES -->
+  <section class="slide">
+    <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+    <div style="margin-top:22px"><span class="kick">Planes</span><h2>Elige cómo empezar</h2></div>
+    <div class="grid3" style="margin-top:30px; align-items:stretch">
+      <div class="plan">
+        <div class="pn">Esencial</div><div class="pp">39 €<small> /mes</small></div>
+        <div class="pd">Deja el papel y cumple con Hacienda.</div>
+        <ul><li>Clientes y animales</li><li>Historial completo</li><li>Vacunas + recordatorios por correo</li><li>Agenda y KPIs</li><li>Facturación VeriFactu</li></ul>
+      </div>
+      <div class="plan best">
+        <span class="rib">★ El recomendado</span>
+        <div class="pn">Pro</div><div class="pp">69 €<small> /mes</small></div>
+        <div class="pd">El diferencial que te distingue del resto.</div>
+        <ul><li><b>Cartilla Viva</b> (app del dueño)</li><li>Confirmar cita de un toque</li><li>Plan de crecimiento del cachorro</li><li>Avisos por WhatsApp / SMS</li><li>Multiveterinario</li></ul>
+      </div>
+      <div class="plan">
+        <div class="pn">Clínica+</div><div class="pp">A medida</div>
+        <div class="pd">Varios centros y acompañamiento.</div>
+        <ul><li>Varias sedes y roles</li><li>Soporte prioritario y formación</li><li>Migración de tus datos</li><li>Informes para la gestoría</li></ul>
+      </div>
+    </div>
+    <div class="foot"><span>Precios orientativos (IVA no incluido) · sin permanencia · ajustables</span><span>7</span></div>
+  </section>
+
+  <!-- 8 CIERRE -->
+  <section class="slide close">
+    <div class="blob" style="width:520px;height:520px;right:-160px;top:-200px"></div>
+    <div class="blob" style="width:320px;height:320px;left:-120px;bottom:-160px;background:rgba(255,255,255,.06)"></div>
+    <span class="mark" style="position:relative"></span>
+    <h1 style="margin-top:22px">¿Lo vemos con una demo?</h1>
+    <p>Te enseño las pantallas reales y montamos tu clínica de ejemplo en 15 minutos. Sin compromiso.</p>
+    <div class="cta">Pedir demo →</div>
+  </section>
+
+</body></html>
