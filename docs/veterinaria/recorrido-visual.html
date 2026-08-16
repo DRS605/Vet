@@ -1,0 +1,136 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<style>
+  :root{
+    --ink:#2e1b0e; --muted:#7a5f49; --line:#e4d8c8; --cream:#faf4ea;
+    --accent:#c67a12; --honey:#f5a800; --honeysoft:#fff2d6; --vet:#5e7f2e;
+    --grad:linear-gradient(135deg,#6b4423,#2e1b0e); --gradh:linear-gradient(135deg,#ffcb3e,#f0a500);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  @page{ size:A4 landscape; margin:0; }
+  html,body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif; color:var(--ink); }
+  .slide{ width:297mm; height:210mm; padding:12mm 14mm; page-break-after:always; display:flex; flex-direction:column; background:var(--cream); }
+  .slide:last-child{ page-break-after:auto; }
+
+  .mark{ width:34px; height:34px; border-radius:10px; background:var(--grad); position:relative; flex:none; }
+  .mark::before{ content:""; position:absolute; inset:8px; border:2px solid #ffce55; border-radius:50%; }
+  .mark::after{ content:"🐾"; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:11px; }
+  .brand{ display:flex; align-items:center; gap:9px; }
+  .brand .w{ font-weight:800; font-size:17px; display:flex; align-items:center; gap:8px; }
+  .brand .tag{ font-size:9px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--ink); background:var(--gradh); padding:4px 9px; border-radius:999px; }
+
+  .head{ display:flex; align-items:center; justify-content:space-between; }
+  .step{ display:flex; align-items:center; gap:12px; }
+  .step .n{ width:34px; height:34px; border-radius:9px; background:var(--gradh); color:var(--ink); font-weight:800; font-size:15px; display:grid; place-items:center; flex:none; }
+  .step h2{ font-size:19px; letter-spacing:-.01em; }
+  .step .cubre{ font-size:9pt; color:var(--vet); font-weight:700; }
+
+  .stage{ flex:1; margin-top:10px; display:flex; align-items:center; justify-content:center; background:#fff; border:1px solid var(--line); border-radius:14px; padding:12px; box-shadow:0 8px 22px rgba(46,27,14,.08); overflow:hidden; }
+  .stage img{ max-width:100%; max-height:100%; object-fit:contain; border-radius:8px; }
+  .cap{ margin-top:9px; font-size:10.5pt; color:#4a3a2c; text-align:center; }
+  .cap b{ color:var(--ink); }
+  .pfoot{ position:relative; margin-top:6px; display:flex; justify-content:space-between; font-size:8.5pt; color:var(--muted); }
+
+  /* portada / cierre */
+  .cover{ background:var(--grad); color:#fff8ee; justify-content:center; position:relative; overflow:hidden; }
+  .cover .blob{ position:absolute; border-radius:50%; background:rgba(245,168,0,.16); }
+  .cover .kick{ font-size:11pt; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:#ffce55; }
+  .cover h1{ font-size:46pt; letter-spacing:-.03em; line-height:1.05; margin:14px 0 12px; }
+  .cover h1 .hl{ background:var(--gradh); color:#2e1b0e; padding:0 10px; border-radius:8px; }
+  .cover p{ font-size:15pt; color:#f0e2d0; max-width:640px; }
+  .cover .brand .w{ color:#fff; } .cover .mark{ background:rgba(255,255,255,.14); }
+  .cover .meta{ margin-top:22px; font-size:11pt; color:#e8d8c4; }
+</style></head>
+<body>
+
+<!-- PORTADA -->
+<section class="slide cover">
+  <div class="blob" style="width:520px;height:520px;right:-160px;top:-200px"></div>
+  <div class="blob" style="width:320px;height:320px;left:-120px;bottom:-160px;background:rgba(255,255,255,.06)"></div>
+  <div class="brand" style="position:relative"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+  <span class="kick" style="position:relative;margin-top:26px">Recorrido visual · La aplicación real</span>
+  <h1 style="position:relative">De la agenda al móvil<br>del <span class="hl">dueño</span></h1>
+  <p style="position:relative">Un paseo por las pantallas de ALXOR Vet funcionando con datos reales. Cada paso indica qué necesidad de tu clínica resuelve.</p>
+  <div class="meta" style="position:relative">Clínica Veterinaria Sol de Levante · Demostración · 2026</div>
+</section>
+
+<!-- 1 PANEL -->
+<section class="slide">
+  <div class="head"><div class="step"><span class="n">1</span><div><h2>Panel de inicio</h2><span class="cubre">✔ Cubre: KPI de citas confirmadas</span></div></div><div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div></div>
+  <div class="stage"><img src="demo/01-panel.png" alt="Panel"></div>
+  <div class="cap">De un vistazo: <b>% de citas confirmadas</b>, agenda del día y evolución mensual. Lo primero que ve cada mañana.</div>
+  <div class="pfoot"><span>ALXOR Vet · Recorrido visual</span><span>1</span></div>
+</section>
+
+<!-- 2 CLIENTES -->
+<section class="slide">
+  <div class="head"><div class="step"><span class="n">2</span><div><h2>Clientes</h2><span class="cubre">✔ Cubre: gestión de clientes (sin gastos)</span></div></div><div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div></div>
+  <div class="stage"><img src="demo/02-clientes.png" alt="Clientes"></div>
+  <div class="cap">Listado y búsqueda de clientes. Alta rápida. La primera fase se centra en clientes, sin control de gastos.</div>
+  <div class="pfoot"><span>ALXOR Vet · Recorrido visual</span><span>2</span></div>
+</section>
+
+<!-- 3 FICHA CLIENTE -->
+<section class="slide">
+  <div class="head"><div class="step"><span class="n">3</span><div><h2>Ficha de cliente</h2><span class="cubre">✔ Cubre: un cliente, varios animales</span></div></div><div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div></div>
+  <div class="stage"><img src="demo/03-ficha-cliente.png" alt="Ficha de cliente"></div>
+  <div class="cap">Cada cliente con <b>todas sus mascotas</b>, cada una con su ficha e historial propios.</div>
+  <div class="pfoot"><span>ALXOR Vet · Recorrido visual</span><span>3</span></div>
+</section>
+
+<!-- 4 HISTORIAL -->
+<section class="slide">
+  <div class="head"><div class="step"><span class="n">4</span><div><h2>Ficha de animal · Historial</h2><span class="cubre">✔ Cubre: consultas (fecha·diagnóstico·tratamiento), vacunas y cirugías</span></div></div><div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div></div>
+  <div class="stage"><img src="demo/04-ficha-animal-historial.png" alt="Historial del animal"></div>
+  <div class="cap">Historial unificado en línea de tiempo: <b>consultas con diagnóstico y tratamiento</b>, vacunas y cirugías. Con el distintivo de <b>cachorro</b> automático.</div>
+  <div class="pfoot"><span>ALXOR Vet · Recorrido visual</span><span>4</span></div>
+</section>
+
+<!-- 5 VACUNAS -->
+<section class="slide">
+  <div class="head"><div class="step"><span class="n">5</span><div><h2>Vacunas</h2><span class="cubre">✔ Cubre: cuadro maestro por especie</span></div></div><div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div></div>
+  <div class="stage"><img src="demo/05-vacunas.png" alt="Vacunas"></div>
+  <div class="cap">El <b>calendario vacunal por especie</b> se define una vez; al vacunar, la próxima dosis y su aviso se calculan solos.</div>
+  <div class="pfoot"><span>ALXOR Vet · Recorrido visual</span><span>5</span></div>
+</section>
+
+<!-- 6 RECORDATORIOS -->
+<section class="slide">
+  <div class="head"><div class="step"><span class="n">6</span><div><h2>Recordatorios</h2><span class="cubre">✔ Cubre: avisos de vacuna/revisión + correo al cliente</span></div></div><div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div></div>
+  <div class="stage"><img src="demo/06-recordatorios.png" alt="Recordatorios"></div>
+  <div class="cap">Genera los avisos de lo que vence y <b>envía el correo al dueño</b>, de uno en uno o todos los pendientes.</div>
+  <div class="pfoot"><span>ALXOR Vet · Recorrido visual</span><span>6</span></div>
+</section>
+
+<!-- 7 AGENDA -->
+<section class="slide">
+  <div class="head"><div class="step"><span class="n">7</span><div><h2>Agenda</h2><span class="cubre">✔ Cubre: citas y confirmación</span></div></div><div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div></div>
+  <div class="stage"><img src="demo/07-agenda.png" alt="Agenda"></div>
+  <div class="cap">Citas por día con estados (confirmar · atender · cancelar). Cada confirmación alimenta el <b>KPI del panel</b>.</div>
+  <div class="pfoot"><span>ALXOR Vet · Recorrido visual</span><span>7</span></div>
+</section>
+
+<!-- 8 FACTURACIÓN -->
+<section class="slide">
+  <div class="head"><div class="step"><span class="n">8</span><div><h2>Facturación</h2><span class="cubre">✔ Cubre: VeriFactu sin facturar siempre</span></div></div><div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div></div>
+  <div class="stage"><img src="demo/08-facturacion.png" alt="Facturación"></div>
+  <div class="cap">Cada acto se registra siempre; <b>facturar es aparte</b>: emites factura VeriFactu correlativa o lo cobras con ticket.</div>
+  <div class="pfoot"><span>ALXOR Vet · Recorrido visual</span><span>8</span></div>
+</section>
+
+<!-- 9 CARTILLA -->
+<section class="slide">
+  <div class="head"><div class="step"><span class="n">9</span><div><h2>Cartilla Viva · el diferencial</h2><span class="cubre">★ Extra: la mascota en el móvil del dueño</span></div></div><div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div></div>
+  <div class="stage"><img src="demo/09-cartilla.png" alt="Cartilla Viva"></div>
+  <div class="cap">El dueño abre su enlace (sin contraseña) y lleva la cartilla encima: vacunas y <b>código QR</b> real para viajes o peluquería.</div>
+  <div class="pfoot"><span>ALXOR Vet · Recorrido visual</span><span>9</span></div>
+</section>
+
+<!-- 10 CONFIRMAR -->
+<section class="slide">
+  <div class="head"><div class="step"><span class="n">10</span><div><h2>Confirmar de un toque</h2><span class="cubre">★ Extra: menos ausencias, más KPI</span></div></div><div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div></div>
+  <div class="stage"><img src="demo/10-cartilla-confirmada.png" alt="Cita confirmada"></div>
+  <div class="cap">Un toque en <b>Confirmar</b> y la cita queda confirmada — y ese dato sube directo a tu <b>KPI de citas confirmadas</b>.</div>
+  <div class="pfoot"><span>ALXOR Vet · Recorrido visual</span><span>10</span></div>
+</section>
+
+</body></html>
