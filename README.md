@@ -1,8 +1,37 @@
+# ALXOR Vet
+
+**Software de gestión para clínicas veterinarias**, en español y sin manual. Reúne en una sola
+herramienta la **agenda** con KPI de citas confirmadas, el **historial clínico** unificado (consultas,
+vacunas, cirugías y actos), el **cuadro vacunal** por especie con recordatorios por correo y la
+**facturación** de actos (factura VeriFactu o ticket). Su diferencial es la **Cartilla Viva**: el
+portal móvil del dueño de la mascota, **sin contraseña**, donde confirma su cita de un toque y lleva
+la cartilla siempre encima con un QR.
+
+ALXOR Vet corre sobre **ALXOR Core** (.NET 8 + PostgreSQL), la base modular que se documenta debajo.
+
+### Empezar por aquí
+
+- **[Guía de demostración](docs/veterinaria/GUIA-DEMO.md)** — cómo arrancar la app con datos de demo,
+  credenciales, y el **guion paso a paso** para enseñarla a un cliente.
+- Material comercial y de producto en [`docs/veterinaria/`](docs/veterinaria/):
+  [maquetas](docs/veterinaria/maquetas-alxor-vet.html) ·
+  [propuesta comercial](docs/veterinaria/propuesta-comercial.html) ·
+  [presentación (PDF)](docs/veterinaria/presentacion-alxor-vet.pdf) ·
+  [documento de validación (PDF)](docs/veterinaria/validacion-alxor-vet.pdf) ·
+  [capturas](docs/veterinaria/demo/).
+
+![ALXOR Vet — panel de la clínica](docs/veterinaria/captura-spa.png)
+
+Ver más abajo la sección **[ALXOR Vet (SPA veterinaria)](#alxor-vet-spa-veterinaria)** y la
+**[Cartilla Viva](#cartilla-viva-portal-del-dueño)** para el detalle funcional.
+
+---
+
 # ALXOR Core
 
 El **ERP más sencillo del mercado** para autónomos y pequeñas empresas españolas. El objetivo no
 es tener más funcionalidades que SAP, Odoo o Ekon, sino que **cualquier persona pueda emitir una
-factura en menos de cinco minutos sin leer un manual**.
+factura en menos de cinco minutos sin leer un manual**. Es la **base** sobre la que corre ALXOR Vet.
 
 > Documento de diseño técnico y funcional: [`docs/diseno-tecnico-funcional.md`](docs/diseno-tecnico-funcional.md)
 
