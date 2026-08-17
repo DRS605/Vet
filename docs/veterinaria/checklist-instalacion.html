@@ -1,0 +1,120 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8">
+<style>
+  :root{ --ink:#2e1b0e; --muted:#7a5f49; --line:#e4d8c8; --accent:#c67a12; --honey:#f5a800;
+    --honeysoft:#fff2d6; --vet:#5e7f2e; --neg:#c0492f; --grad:linear-gradient(135deg,#6b4423,#2e1b0e);
+    --gradh:linear-gradient(135deg,#ffcb3e,#f0a500); }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  @page{ size:A4 portrait; margin:0; }
+  html,body{ font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif; color:var(--ink); }
+  .page{ width:210mm; min-height:297mm; padding:9mm 12mm; display:flex; flex-direction:column; }
+  .top{ display:flex; align-items:center; justify-content:space-between; border-bottom:2px solid var(--line); padding-bottom:8px; }
+  .brand{ display:flex; align-items:center; gap:9px; }
+  .mark{ width:30px; height:30px; border-radius:9px; background:var(--grad); position:relative; flex:none; }
+  .mark::before{ content:""; position:absolute; inset:7px; border:2px solid #ffce55; border-radius:50%; }
+  .mark::after{ content:"🐾"; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); font-size:10px; }
+  .brand .w{ font-weight:800; font-size:16px; display:flex; align-items:center; gap:7px; }
+  .tag{ font-size:8px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:var(--ink); background:var(--gradh); padding:3px 8px; border-radius:999px; }
+  .top .t{ font-size:15px; font-weight:800; letter-spacing:-.01em; }
+  .top .t small{ display:block; font-weight:600; font-size:9px; color:var(--muted); letter-spacing:.04em; text-transform:uppercase; }
+
+  h2{ font-size:11.5px; margin:8px 0 4px; display:flex; align-items:center; gap:8px; letter-spacing:-.01em; }
+  h2 .n{ width:19px; height:19px; border-radius:5px; background:var(--ink); color:#fff; font-size:10px; display:grid; place-items:center; flex:none; }
+  ul{ list-style:none; }
+  li{ display:flex; gap:8px; align-items:flex-start; font-size:10px; line-height:1.38; padding:1.5px 0; }
+  .sq{ width:12px; height:12px; border:1.5px solid var(--accent); border-radius:3px; flex:none; margin-top:1.5px; }
+  b{ font-weight:700; } .mut{ color:var(--muted); }
+  code{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:9px; background:#f6efe2; border:1px solid var(--line); border-radius:4px; padding:1px 5px; color:#4a3320; white-space:nowrap; }
+  .cmd{ font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:9px; background:#2e1b0e; color:#ffe9b8; border-radius:6px; padding:6px 9px; margin:3px 0 1px; white-space:pre; overflow:hidden; line-height:1.45; }
+  .cols{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .box{ border:1px solid var(--line); border-radius:9px; padding:9px 11px; }
+  .box h3{ font-size:10.5px; margin-bottom:5px; color:var(--accent); text-transform:uppercase; letter-spacing:.05em; }
+  .fill{ font-size:10px; padding:4px 0; border-bottom:1px dashed var(--line); margin-bottom:3px; color:var(--muted); }
+  .warn{ background:var(--honeysoft); border:1px solid #f0dca8; border-radius:8px; padding:8px 10px; font-size:9.5px; color:#6b4d1c; margin-top:8px; line-height:1.45; }
+  .warn b{ color:var(--ink); }
+  .fail li{ font-size:9.5px; padding:2px 0; }
+  .fail .q{ color:var(--neg); font-weight:800; margin-right:5px; }
+  .foot{ margin-top:auto; border-top:1px solid var(--line); padding-top:6px; font-size:8px; color:var(--muted); display:flex; justify-content:space-between; }
+</style></head>
+<body>
+<section class="page">
+  <div class="top">
+    <div class="brand"><span class="mark"></span><span class="w">ALXOR <span class="tag">Vet</span></span></div>
+    <div class="t" style="text-align:right">Checklist de instalación<small>Fase 1 · PC de la clínica (Windows + Docker)</small></div>
+  </div>
+
+  <div class="cols" style="margin-top:11px">
+    <div class="box">
+      <h3>Antes de salir — llevar</h3>
+      <ul>
+        <li><span class="sq"></span><div><b>Docker Desktop</b> (instalable o ya instalado en el PC)</div></li>
+        <li><span class="sq"></span><div><b>Datos SMTP</b> del correo de la clínica: servidor, puerto (587), usuario, contraseña</div></li>
+        <li><span class="sq"></span><div><b>Nombre y NIF</b> de la clínica</div></li>
+        <li><span class="sq"></span><div><b>Email + contraseña</b> para el usuario administrador</div></li>
+        <li><span class="sq"></span><div>La carpeta del proyecto (repo <b>Vet</b>) y <b>Python 3</b> en el PC o en tu portátil</div></li>
+      </ul>
+    </div>
+    <div class="box">
+      <h3>Datos a apuntar (al terminar)</h3>
+      <div class="fill">IP del PC (ipconfig): _______________________</div>
+      <div class="fill">Acceso clínica: http://______:8080/vet.html</div>
+      <div class="fill">Admin — email: _______________________</div>
+      <div class="fill">Admin — contraseña: _________________</div>
+      <div class="fill">Fecha instalación: ____ / ____ / 2026</div>
+    </div>
+  </div>
+
+  <h2><span class="n">1</span> Preparar el equipo</h2>
+  <ul>
+    <li><span class="sq"></span><div>Instalar <b>Docker Desktop</b> y abrirlo (icono en verde “running”). En Ajustes → General, marca <b>“Start Docker Desktop when you log in”</b> para que arranque solo.</div></li>
+    <li><span class="sq"></span><div>Copiar la carpeta del proyecto al PC (p. ej. <code>C:\ALXORVet</code>). Abrir una terminal ahí (<b>PowerShell</b> o CMD).</div></li>
+  </ul>
+
+  <h2><span class="n">2</span> Configurar</h2>
+  <ul>
+    <li><span class="sq"></span><div>Crear el fichero de config: copiar el ejemplo y abrirlo con el Bloc de notas:</div></li>
+  </ul>
+  <div class="cmd">copy despliegue\.env.ejemplo despliegue\.env
+notepad despliegue\.env</div>
+  <ul>
+    <li><span class="sq"></span><div>Rellenar en <code>.env</code>: <b>POSTGRES_PASSWORD</b> (una robusta), <b>JWT_CLAVE_SECRETA</b> (larga y aleatoria), y el correo → <b>CORREO_HABILITADO=true</b>, <b>CORREO_HOST</b>, <b>CORREO_PUERTO=587</b>, <b>CORREO_USUARIO</b>, <b>CORREO_CLAVE</b>, <b>CORREO_REMITENTE</b>. <span class="mut">(Gmail/Workspace: usa una “contraseña de aplicación”.)</span></div></li>
+  </ul>
+
+  <h2><span class="n">3</span> Arrancar</h2>
+  <div class="cmd">docker compose -f despliegue\docker-compose.produccion.yml up -d</div>
+  <ul>
+    <li><span class="sq"></span><div>Esperar 1-2 min. Comprobar que hay 2 contenedores en marcha: <code>alxor-vet-api</code> y <code>alxor-vet-postgres</code>.</div></li>
+  </ul>
+
+  <h2><span class="n">4</span> Crear la clínica (arranque limpio + cuadro vacunal)</h2>
+  <div class="cmd">set CLINICA_NOMBRE=Nombre de la clínica
+set CLINICA_NIF=B12345674
+set ADMIN_EMAIL=admin@clinica.com
+set ADMIN_PASSWORD=UnaClaveFuerte1!
+python scripts\inicializar-clinica.py</div>
+  <ul>
+    <li><span class="sq"></span><div><span class="mut">En PowerShell usa</span> <code>$env:CLINICA_NOMBRE="…"</code> <span class="mut">en vez de</span> <code>set</code>. Crea la clínica, el admin y carga las <b>pautas vacunales por especie</b>. Sin clientes ni animales.</div></li>
+  </ul>
+
+  <h2><span class="n">5</span> Comprobar</h2>
+  <ul>
+    <li><span class="sq"></span><div>Abrir <code>http://localhost:8080/vet.html</code> → <b>entrar</b> con el admin.</div></li>
+    <li><span class="sq"></span><div>Menú <b>Vacunas</b>: se ven las pautas (perro, gato, conejo, hurón).</div></li>
+    <li><span class="sq"></span><div>Crear un <b>cliente + animal de prueba</b>, y en <b>Recordatorios</b> enviar uno para confirmar que el <b>correo sale</b> (revisar bandeja del destinatario).</div></li>
+    <li><span class="sq"></span><div><b>ipconfig</b> → anotar la IP del PC. Desde otro equipo de la clínica: <code>http://&lt;IP&gt;:8080/vet.html</code>.</div></li>
+    <li><span class="sq"></span><div><b>Copia de seguridad</b> (guárdala en una carpeta que respalden):</div></li>
+  </ul>
+  <div class="cmd">docker exec alxor-vet-postgres pg_dump -U postgres alxor > backup.sql</div>
+
+  <div class="warn"><b>Cartilla Viva (portal del dueño): es FASE 2.</b> Con instalación local no se activa; requiere publicar la app en internet. Todo lo demás (agenda, historial, vacunas, recordatorios por correo, facturación) funciona en esta fase.</div>
+
+  <h2><span class="n">?</span> Si algo falla</h2>
+  <ul class="fail">
+    <li><span class="q">✕</span><div><b>No arranca / “Docker not running”</b> → abrir Docker Desktop y esperar a “running”; reintentar el <code>up -d</code>.</div></li>
+    <li><span class="q">✕</span><div><b>Puerto 8080 ocupado</b> → cambiar <code>PUERTO_LAN</code> en <code>.env</code> (p. ej. 8090) y <code>up -d</code> otra vez.</div></li>
+    <li><span class="q">✕</span><div><b>El correo no sale</b> → revisar Host/usuario/contraseña, puerto <b>587</b> con STARTTLS, y en Gmail una <b>contraseña de aplicación</b>. Ver logs: <code>docker logs alxor-vet-api</code>.</div></li>
+    <li><span class="q">✕</span><div><b>No se accede desde otro PC</b> → mismo wifi/red y permitir el puerto en el <b>Firewall de Windows</b> (red privada).</div></li>
+  </ul>
+
+  <div class="foot"><span>ALXOR Vet · Checklist de instalación · Detalle completo en docs/veterinaria/INSTALACION.md</span><span>Fase 1</span></div>
+</section>
+</body></html>
