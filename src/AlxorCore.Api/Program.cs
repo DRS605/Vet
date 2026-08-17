@@ -142,6 +142,7 @@ app.MapearOrganizacion();
 app.MapearUsuarios();
 app.MapearTerceros();
 app.MapearClinica();
+app.MapearBusqueda();
 app.MapearPortal();
 app.MapearCatalogo();
 app.MapearFacturacion();
