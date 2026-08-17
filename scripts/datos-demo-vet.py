@@ -89,7 +89,7 @@ def main():
         paso(f"reutilizando «{emp.get('razonSocial', emp['id'])}»")
     else:
         llamar("POST", "/empresas", {
-            "nif": "B12345674", "razonSocial": "Clínica Veterinaria Sol de Levante SL",
+            "nif": "B12345674", "razonSocial": "Clínica Veterinaria Demo",
             "calle": "Avinguda del Port 88", "codigoPostal": "46023",
             "poblacion": "Valencia", "provincia": "Valencia",
         })

@@ -28,7 +28,7 @@ arrancada. En *Development* la API aplica sus migraciones sola al arrancar.
    (Si no tienes el SDK instalado, este repo se ha ejecutado con el SDK vía Docker; ver `CLAUDE.md`.)
    Comprobación de vida: `GET http://localhost:8080/salud`.
 
-3. **Datos de demo** (siembra la clínica «Sol de Levante» completa):
+3. **Datos de demo** (siembra la clínica «Clínica Veterinaria Demo» completa):
 
    ```bash
    python3 scripts/datos-demo-vet.py http://localhost:8080
@@ -51,7 +51,7 @@ arrancada. En *Development* la API aplica sus migraciones sola al arrancar.
 | Contraseña | `Demo1234!` |
 | Cartilla Viva (móvil, sin login) | `http://localhost:8080/cartilla.html?token=…` *(el token lo imprime el seed)* |
 
-La clínica de demo es **Clínica Veterinaria Sol de Levante SL** y la usuaria, **Dra. Marta Vidal**.
+La clínica de demo es **Clínica Veterinaria Demo** y la usuaria, **Dra. Marta Vidal**.
 Hay 4 clientes, 6 animales (incluido el cachorro **Coco**), historiales con consultas/vacunas/cirugía,
 citas de hoy (varias confirmadas para que luzca el KPI), próximas citas, recordatorios y actos por
 facturar.
