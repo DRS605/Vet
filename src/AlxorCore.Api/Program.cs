@@ -39,7 +39,7 @@ builder.Services.AgregarModuloCatalogo(builder.Configuration);
 builder.Services.AgregarModuloFacturacion(builder.Configuration);
 builder.Services.AgregarModuloGastos(builder.Configuration);
 builder.Services.AgregarModuloTesoreria(builder.Configuration);
-builder.Services.AgregarModuloDocumentos();
+builder.Services.AgregarModuloDocumentos(builder.Configuration);
 builder.Services.AgregarModuloInformes();
 builder.Services.AgregarModuloAuditoria(builder.Configuration);
 
@@ -47,6 +47,11 @@ builder.Services.AgregarModuloAuditoria(builder.Configuration);
 builder.Services.Configure<AlxorCore.Api.Servicios.OpcionesFacturacionRecurrente>(
     builder.Configuration.GetSection(AlxorCore.Api.Servicios.OpcionesFacturacionRecurrente.Seccion));
 builder.Services.AddHostedService<AlxorCore.Api.Servicios.ServicioFacturacionRecurrente>();
+
+// --- Recordatorios clínicos automáticos (proceso en segundo plano, DESACTIVADO por defecto) ---
+builder.Services.Configure<AlxorCore.Api.Servicios.OpcionesRecordatoriosAutomaticos>(
+    builder.Configuration.GetSection(AlxorCore.Api.Servicios.OpcionesRecordatoriosAutomaticos.Seccion));
+builder.Services.AddHostedService<AlxorCore.Api.Servicios.ServicioRecordatoriosAutomaticos>();
 
 // Los enumerados se serializan por nombre en la API.
 builder.Services.ConfigureHttpJsonOptions(opciones =>

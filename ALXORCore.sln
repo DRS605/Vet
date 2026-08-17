@@ -77,6 +77,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AlxorCore.Clinica.Infraestr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AlxorCore.Clinica.PruebasUnitarias", "tests\AlxorCore.Clinica.PruebasUnitarias\AlxorCore.Clinica.PruebasUnitarias.csproj", "{AC82B465-724E-4329-8774-ABF83ED72DBC}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AlxorCore.Documentos.Tests", "tests\AlxorCore.Documentos.Tests\AlxorCore.Documentos.Tests.csproj", "{42118A09-D3CA-4D27-A189-32E43F914427}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -226,6 +228,10 @@ Global
 		{AC82B465-724E-4329-8774-ABF83ED72DBC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC82B465-724E-4329-8774-ABF83ED72DBC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC82B465-724E-4329-8774-ABF83ED72DBC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{42118A09-D3CA-4D27-A189-32E43F914427}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{42118A09-D3CA-4D27-A189-32E43F914427}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{42118A09-D3CA-4D27-A189-32E43F914427}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{42118A09-D3CA-4D27-A189-32E43F914427}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{311ED081-35E2-4347-BABC-3A7FAB0DCE77} = {D1FA7A11-3AA5-47CE-8CB5-35CDA6F06594}
@@ -263,5 +269,6 @@ Global
 		{7160295D-B0A9-4FE9-A224-A1EA28BD6867} = {D1FA7A11-3AA5-47CE-8CB5-35CDA6F06594}
 		{4664520A-2EA1-475F-9CA2-61F6929A00E2} = {D1FA7A11-3AA5-47CE-8CB5-35CDA6F06594}
 		{AC82B465-724E-4329-8774-ABF83ED72DBC} = {49D534B5-ADF1-48D0-A761-46DCBEF7F9A9}
+		{42118A09-D3CA-4D27-A189-32E43F914427} = {49D534B5-ADF1-48D0-A761-46DCBEF7F9A9}
 	EndGlobalSection
 EndGlobal

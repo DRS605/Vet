@@ -1,0 +1,70 @@
+# ALXOR Vet — despliegue de PRODUCCIÓN para la clínica (instalación local).
+#
+# Levanta la pila completa (PostgreSQL + API) en el PC/servidor de la clínica, con los datos de la
+# base de datos en un volumen persistente y la API publicada en la red local (puerto 8080).
+#
+# Uso (desde la raíz del repositorio):
+#   1) Copia despliegue/.env.ejemplo a despliegue/.env y rellena los valores (SMTP, secreto JWT...).
+#   2) docker compose -f despliegue/docker-compose.produccion.yml --env-file despliegue/.env up -d --build
+#   3) python3 scripts/inicializar-clinica.py http://localhost:8080
+#
+# Accede desde otros equipos de la clínica en http://<IP-del-PC>:8080/vet.html
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: alxor-vet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en el .env}
+      POSTGRES_DB: ${POSTGRES_DB:-alxor}
+    volumes:
+      - alxor-vet-datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # La BD NO se publica al exterior: solo la usa la API dentro de la red del compose.
+
+  api:
+    build:
+      # El contexto es la raíz del repositorio (un nivel por encima de despliegue/).
+      context: ..
+      dockerfile: Dockerfile
+    container_name: alxor-vet-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # En producción aplicamos migraciones al arrancar mediante Development-like flag controlado:
+      # mantenemos Development para que la API migre sola y sirva Swagger (útil en clínica pequeña).
+      # Si se prefiere ocultar Swagger, cambiar a Production y aplicar migraciones manualmente.
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__AlxorCore: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-alxor};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en el .env}"
+
+      # --- Secreto JWT (¡OBLIGATORIO cambiarlo!, mínimo 32 caracteres) ---
+      Jwt__ClaveSecreta: ${JWT_CLAVE_SECRETA:?define JWT_CLAVE_SECRETA en el .env}
+
+      # --- Correo SMTP de la clínica (recordatorios, facturas y presupuestos por email) ---
+      Correo__Habilitado: ${CORREO_HABILITADO:-false}
+      Correo__Host: ${CORREO_HOST:-}
+      Correo__Puerto: ${CORREO_PUERTO:-587}
+      Correo__UsarStartTls: ${CORREO_STARTTLS:-true}
+      Correo__Usuario: ${CORREO_USUARIO:-}
+      Correo__Clave: ${CORREO_CLAVE:-}
+      Correo__Remitente: ${CORREO_REMITENTE:-no-responder@alxor.local}
+      Correo__RemitenteNombre: ${CORREO_REMITENTE_NOMBRE:-Clínica Veterinaria}
+      Correo__BaseUrl: ${CORREO_BASE_URL:-http://localhost:8080}
+
+      # --- Recordatorios automáticos (desactivados por defecto; ver INSTALACION.md) ---
+      Recordatorios__AutomaticoHabilitado: ${RECORDATORIOS_AUTOMATICO:-false}
+      Recordatorios__HoraEjecucion: ${RECORDATORIOS_HORA:-08:00}
+      Recordatorios__DiasAntelacion: ${RECORDATORIOS_DIAS:-30}
+    ports:
+      - "${PUERTO_LAN:-8080}:8080"
+
+volumes:
+  alxor-vet-datos:
