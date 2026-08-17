@@ -96,6 +96,27 @@
     .content{padding:24px 26px;max-width:1160px;width:100%;}
     .hamb{display:none;background:none;border:none;font-size:22px;line-height:1;color:var(--ink);padding:4px 9px;border-radius:9px;}
 
+    /* Buscador global */
+    .search{position:relative;flex:1;max-width:440px;margin:0 18px;}
+    .search input{width:100%;padding:9px 12px 9px 35px;border-radius:10px;background:#faf6ef;border:1px solid var(--line);font-size:13.5px;}
+    .search input:focus{background:#fff;}
+    .search .mag{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;display:flex;}
+    .search .mag svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;}
+    .search-results{position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 16px 40px rgba(46,27,14,.18);z-index:70;display:none;max-height:62vh;overflow-y:auto;}
+    .sr-item{display:flex;align-items:center;gap:11px;padding:10px 13px;cursor:pointer;border-bottom:1px solid #f4efe7;}
+    .sr-item:last-child{border-bottom:none;}
+    .sr-item:hover{background:#faf5ec;}
+    .sr-ico{width:30px;height:30px;border-radius:9px;background:var(--honey-soft);display:grid;place-items:center;font-size:16px;flex:none;}
+    .sr-txt{flex:1;min-width:0;} .sr-txt b{font-size:13px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .sr-txt span{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+    .sr-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);background:#f2e8da;padding:3px 8px;border-radius:999px;flex:none;}
+    .sr-msg{padding:16px 14px;color:var(--muted);font-size:13px;text-align:center;}
+    .sr-group{padding:8px 13px 4px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#b09a85;}
+
+    /* Gráfico de confirmación (SVG) y readout de fecha */
+    .chartwrap{padding:14px 16px 4px;}
+    .chartwrap svg{width:100%;height:auto;display:block;}
+    .datefmt{display:inline-flex;align-items:center;background:var(--accent-soft);color:var(--accent);font-weight:650;font-size:12.5px;padding:7px 11px;border-radius:10px;font-variant-numeric:tabular-nums;}
+
     h3.sec{font-size:20px;margin:0 0 3px;letter-spacing:-.02em;}
     .subt{color:var(--muted);margin:0 0 18px;font-size:13.5px;}
 
@@ -280,6 +301,13 @@
           <button class="hamb" onclick="toggleMenu()" aria-label="Menú">☰</button>
           <div class="title" id="viewTitle">Inicio</div>
         </div>
+        <div class="search">
+          <span class="mag"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+          <input id="globalSearch" type="search" autocomplete="off" spellcheck="false" placeholder="Buscar cliente o animal…"
+                 oninput="buscarGlobalInput(this.value)" onblur="setTimeout(cerrarBusqueda,150)"
+                 onkeydown="if(event.key==='Escape')this.blur()" />
+          <div class="search-results" id="searchResults"></div>
+        </div>
         <div class="company"><span class="chip" id="empresaChip"></span><div class="avatar" id="avatar">V</div></div>
       </header>
       <div class="content" id="view"></div>
@@ -375,6 +403,41 @@ async function guardarModal(){
 }
 $("modalBg").addEventListener("click",e=>{ if(e.target===$("modalBg")) cerrarModal(); });
 
+/* ---------- buscador global ---------- */
+let _buscarT=null, _buscarSeq=0;
+function buscarGlobalInput(v){
+  clearTimeout(_buscarT);
+  const q=(v||"").trim(); const box=$("searchResults");
+  if(q.length<2){ box.style.display="none"; box.innerHTML=""; return; }
+  box.style.display="block";
+  box.innerHTML='<div class="sr-msg">Buscando…</div>';
+  _buscarT=setTimeout(()=>ejecutarBusqueda(q),220);
+}
+async function ejecutarBusqueda(q){
+  const box=$("searchResults"); const seq=++_buscarSeq;
+  try{
+    const res=await api(`/buscar?q=${encodeURIComponent(q)}`);
+    if(seq!==_buscarSeq) return; // llegó una respuesta más nueva
+    if(!res.length){ box.innerHTML=`<div class="sr-msg">Sin resultados para «${esc(q)}»</div>`; return; }
+    const clientes=res.filter(r=>r.tipo==="cliente"), animales=res.filter(r=>r.tipo==="animal");
+    const item=r=>{
+      const emoji=r.tipo==="animal"?"🐾":"👤";
+      const nav=r.tipo==="animal"
+        ? `ir('animal',{animalId:'${r.id}',clienteId:'${r.clienteId||""}'})`
+        : `ir('cliente',{clienteId:'${r.id}'})`;
+      return `<div class="sr-item" onmousedown="cerrarBusqueda();${nav}">
+        <span class="sr-ico">${emoji}</span>
+        <div class="sr-txt"><b>${esc(r.etiqueta)}</b>${r.subetiqueta?`<span>${esc(r.subetiqueta)}</span>`:""}</div>
+        <span class="sr-tag">${r.tipo==="animal"?"Animal":"Cliente"}</span></div>`;
+    };
+    let h="";
+    if(clientes.length){ h+=`<div class="sr-group">Clientes</div>`+clientes.map(item).join(""); }
+    if(animales.length){ h+=`<div class="sr-group">Animales</div>`+animales.map(item).join(""); }
+    box.innerHTML=h;
+  }catch(e){ if(seq===_buscarSeq) box.innerHTML=`<div class="sr-msg">No se pudo buscar: ${esc(e.message)}</div>`; }
+}
+function cerrarBusqueda(){ const box=$("searchResults"); box.style.display="none"; box.innerHTML=""; const i=$("globalSearch"); if(i) i.value=""; }
+
 /* ---------- auth ---------- */
 async function entrar(){
   const err=$("loginError"); err.textContent=""; const btn=$("btnEntrar"); btn.disabled=true;
@@ -462,14 +525,26 @@ async function vInicio(){ cargando(); await conError(async()=>{
     return `<div class="ag"><span class="hr">${hh}</span><span class="dot" style="background:${color}"></span>
       <div class="who"><b>${a?esc(a.nombre)+" · "+esc(a.raza||a.especie):"Animal"}</b><span>${esc(c.motivo||c.tipo||"")}${c.veterinario?" — "+esc(c.veterinario):""}</span></div>
       ${pillEstadoCita(c.estado)}</div>`;
-  }).join("") : `<div class="empty"><div class="big">🗓️</div><h3>Sin citas hoy</h3><p>No hay nada en la agenda de hoy.</p></div>`;
+  }).join("") : vacio("🗓️","Sin citas hoy","No hay nada en la agenda de hoy. Programa una cita o revisa otro día.", `<button class="btn line" onclick="ir('agenda')">Abrir agenda</button>`);
 
-  const cit=mensual.map(m=>m.citadas), maxC=Math.max(1,...cit);
-  const barras = mensual.map(m=>{
-    const h=Math.round(20+ (m.citadas/maxC)*80);
-    const pctConf = m.citadas? Math.round(m.confirmadas/m.citadas*100):0;
-    return `<div class="bar"><span class="pct">${m.citadas?pctConf+"%":""}</span><div class="stack" style="height:${h}%"><div class="conf" style="height:${pctConf}%"></div></div><small>${MESES[m.mes-1]}</small></div>`;
-  }).join("");
+  const grafico = graficoConfirmacion(mensual);
+  const leyenda = `<div class="legend"><span><i style="background:#557129;border-radius:2px"></i>% de confirmación</span><span><i style="background:#f0dfbf"></i>volumen de citas</span></div>`;
+
+  // Widget inferior 1: próximas vacunas (7 días).
+  const vacHtml = proximas.length ? proximas.slice(0,6).map(v=>{
+    const a=animalesPorId[v.animalId];
+    return `<div class="rem"><div class="ic vac">💉</div>
+      <div class="info"><b>${a?esc(a.nombre):"Animal"}</b><p>${esc(v.nombre)} · ${fdate(v.proximaDosis)}</p></div>
+      ${a?`<div class="act"><button class="btn tiny line" onclick="ir('animal',{animalId:'${v.animalId}',clienteId:'${a.clienteId}'})">Ver ficha</button></div>`:""}</div>`;
+  }).join("") : vacio("💉","Sin vacunas próximas","No hay dosis previstas en los próximos 7 días.");
+
+  // Widget inferior 2: recordatorios pendientes con envío rápido.
+  const recHtml = rec.length ? rec.slice(0,6).map(r=>{
+    const a=animalesPorId[r.animalId];
+    return `<div class="rem"><div class="ic rev">🔔</div>
+      <div class="info"><b>${esc(r.titulo)}</b><p>${a?esc(a.nombre)+" · ":""}${fdate(r.fechaObjetivo)}</p></div>
+      <div class="act"><button class="btn tiny v" onclick="enviarRecordatorioInicio('${r.id}')">Enviar</button></div></div>`;
+  }).join("") : vacio("✅","Todo al día","No hay recordatorios pendientes por enviar.", `<button class="btn v" onclick="ir('recordatorios')">Ir a recordatorios</button>`);
 
   view(`
     <h3 class="sec">${saludo}, ${esc(nombre||"equipo")} 👋</h3>
@@ -477,9 +552,39 @@ async function vInicio(){ cargando(); await conError(async()=>{
     ${kpis}
     <div class="grid2">
       ${panel("Agenda de hoy", agHtml, `<a onclick="ir('agenda')">Ver agenda →</a>`)}
-      ${panel("Confirmación de citas", `<div class="bars">${barras||'<div class="loading" style="padding:18px">Sin datos aún.</div>'}</div><div class="legend"><span><i style="background:#557129"></i>% confirmadas</span><span><i style="background:var(--accent-soft)"></i>volumen de citas</span></div>`, `<span class="sp">últimos 6 meses</span>`)}
+      ${panel("Confirmación de citas", grafico+leyenda, `<span class="sp">tendencia · últimos 6 meses</span>`)}
+    </div>
+    <div class="grid2" style="margin-top:16px">
+      ${panel("Próximas vacunas (7 días)", vacHtml, `<a onclick="ir('vacunas')">Calendario →</a>`)}
+      ${panel("Recordatorios pendientes", recHtml, `<span class="sp">${rec.length} pendiente${rec.length===1?"":"s"}</span>`)}
     </div>`);
 }); }
+function graficoConfirmacion(mensual){
+  if(!mensual || !mensual.length || mensual.every(m=>!m.citadas))
+    return `<div class="empty" style="padding:34px 20px"><div class="big">📈</div><h3>Sin datos aún</h3><p>Cuando registres citas verás aquí la tendencia de confirmación.</p></div>`;
+  const n=mensual.length, W=560,H=210, padL=34,padR=14,padT=16,padB=28;
+  const plotW=W-padL-padR, plotH=H-padT-padB;
+  const maxVol=Math.max(1,...mensual.map(m=>m.citadas));
+  const step=plotW/n, cx=i=>padL+step*(i+0.5), yPct=p=>padT+plotH*(1-p/100), baseY=padT+plotH;
+  const bw=Math.min(38, step*0.5);
+  const barras=mensual.map((m,i)=>{ const hh=m.citadas/maxVol*plotH;
+    return `<rect x="${(cx(i)-bw/2).toFixed(1)}" y="${(baseY-hh).toFixed(1)}" width="${bw.toFixed(1)}" height="${hh.toFixed(1)}" rx="4" fill="#f0dfbf"/>`; }).join("");
+  const pts=mensual.map((m,i)=>({x:cx(i),has:m.citadas>0,pct:m.citadas?Math.round(m.confirmadas/m.citadas*100):0}));
+  const conPct=pts.filter(p=>p.has);
+  const linea=conPct.map((p,k)=>`${k?"L":"M"}${p.x.toFixed(1)} ${yPct(p.pct).toFixed(1)}`).join(" ");
+  const area=conPct.length? `M${conPct[0].x.toFixed(1)} ${baseY} `+conPct.map(p=>`L${p.x.toFixed(1)} ${yPct(p.pct).toFixed(1)}`).join(" ")+` L${conPct[conPct.length-1].x.toFixed(1)} ${baseY} Z` : "";
+  const grid=[0,50,100].map(v=>`<line x1="${padL}" y1="${yPct(v).toFixed(1)}" x2="${W-padR}" y2="${yPct(v).toFixed(1)}" stroke="#ece1d4" stroke-width="1"/><text x="${padL-6}" y="${(yPct(v)+3).toFixed(1)}" text-anchor="end" font-size="9" fill="#8a6f5c">${v}%</text>`).join("");
+  const marcas=conPct.map(p=>`<circle cx="${p.x.toFixed(1)}" cy="${yPct(p.pct).toFixed(1)}" r="3.5" fill="#fff" stroke="#557129" stroke-width="2"/><text x="${p.x.toFixed(1)}" y="${(yPct(p.pct)-8).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#4a6224">${p.pct}%</text>`).join("");
+  const xlab=mensual.map((m,i)=>`<text x="${cx(i).toFixed(1)}" y="${H-9}" text-anchor="middle" font-size="10" fill="#8a6f5c">${MESES[m.mes-1]}</text>`).join("");
+  return `<div class="chartwrap"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tendencia del porcentaje de confirmación de citas en los últimos meses">
+    <defs><linearGradient id="gConf" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5e7f2e" stop-opacity="0.22"/><stop offset="1" stop-color="#5e7f2e" stop-opacity="0"/></linearGradient></defs>
+    ${grid}${barras}${area?`<path d="${area}" fill="url(#gConf)"/>`:""}${linea?`<path d="${linea}" fill="none" stroke="#557129" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`:""}${marcas}${xlab}
+  </svg></div>`;
+}
+async function enviarRecordatorioInicio(id){
+  try{ await api(`/recordatorios/${id}/enviar`,{method:"POST"}); toast("Recordatorio enviado.","ok"); vInicio(); }
+  catch(e){ toast(e.message,"err"); }
+}
 function pillEstadoCita(e){
   const m={Solicitada:["wait","Sin confirmar"],Confirmada:["ok","Confirmada"],Atendida:["vet","Atendida"],Cancelada:["neg","Cancelada"],NoPresentado:["neg","No presentado"]};
   const [cls,txt]=m[e]||["b",e]; return `<span class="pill ${cls}">${txt}</span>`;
@@ -498,7 +603,9 @@ async function vClientes(){ cargando(); await conError(async()=>{
   const render = lista => {
     const cuerpo = lista.length
       ? `<table><thead><tr><th>Cliente</th><th>NIF</th><th>Correo</th><th>Población</th><th class="num"></th></tr></thead><tbody>${lista.map(filas).join("")}</tbody></table>`
-      : vacio("👤","Sin clientes","No hay clientes que coincidan.");
+      : ((window._clientes||[]).length
+          ? vacio("🔎","Sin coincidencias","Ningún cliente coincide con lo que buscas. Prueba con otro nombre, NIF o correo.")
+          : vacio("👤","Aún no tienes clientes","Crea la primera ficha de cliente para empezar a registrar sus animales, citas y vacunas.", `<button class="btn v" onclick="modalNuevoCliente()">${ICON.plus} Añade el primero</button>`));
     $("clientesBody").innerHTML=cuerpo;
   };
   view(`
@@ -604,7 +711,7 @@ async function vAnimal(){ cargando(); await conError(async()=>{
     <div class="it"><div class="date">${fdateCorta(e.fecha)}</div>
       <div class="rail"><span class="d" style="background:${e.color}"></span></div>
       <div class="card"><div class="h"><b>${esc(e.titulo)}</b><span class="pill ${e.cls}">${e.tipo}</span></div>${e.txt?`<div class="txt">${e.txt}</div>`:""}</div></div>`).join("")}</div>`
-    : vacio("📋","Historial vacío","Aún no hay consultas, vacunas ni cirugías registradas.");
+    : vacio("📋","Historial vacío","Aún no hay consultas, vacunas ni cirugías registradas para este animal.", `<button class="btn" onclick="modalConsulta('${a.id}')">${ICON.plus} Registrar la primera consulta</button>`);
 
   const vacTabla = vacunas.length ? `<table><tbody>${vacunas.slice().sort((x,y)=>String(y.fechaAplicacion).localeCompare(String(x.fechaAplicacion))).slice(0,6).map(v=>`
     <tr><td>${esc(v.nombre)}</td><td class="num">${v.proximaDosis?`<span class="pill wait">${fdate(v.proximaDosis)}</span>`:`<span class="pill ok">${fdate(v.fechaAplicacion).slice(-4)}</span>`}</td></tr>`).join("")}</tbody></table>`
@@ -630,21 +737,45 @@ async function vAnimal(){ cargando(); await conError(async()=>{
     </div>`);
 }); }
 
-function modalConsulta(animalId){
+function modalConsulta(animalId, opts){
+  opts=opts||{};
+  const refrescar = opts.alGuardar || vAnimal;
   abrir("Nueva consulta", `
     <div class="grid-2"><div><label>Fecha *</label><input id="k_fecha" type="date" value="${hoyISO()}"/></div><div><label>Peso (kg)</label><input id="k_peso" inputmode="decimal"/></div></div>
-    <label>Motivo</label><input id="k_motivo"/>
+    <label>Motivo</label><input id="k_motivo" value="${esc(opts.motivo||"")}"/>
     <label>Diagnóstico</label><textarea id="k_diag"></textarea>
     <label>Tratamiento</label><textarea id="k_trat"></textarea>
     <label>Veterinario/a</label><input id="k_vet" value="${esc(usuario?.nombre||"")}"/>
+    <div style="border-top:1px solid var(--line);margin-top:15px;padding-top:13px">
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin:0;color:var(--ink);font-weight:600">
+        <input type="checkbox" id="k_acto_on" style="width:auto;margin:0" onchange="$('k_acto_box').style.display=this.checked?'block':'none'"/>
+        Registrar un acto facturable de esta consulta
+      </label>
+      <div id="k_acto_box" style="display:none;margin-top:11px">
+        <label>Concepto *</label><input id="k_acto_con" placeholder="p. ej. Consulta general" value="Consulta"/>
+        <div class="grid-2"><div><label>Importe (base, €) *</label><input id="k_acto_imp" inputmode="decimal"/></div><div><label>IVA (%)</label><input id="k_acto_iva" inputmode="decimal" placeholder="21"/></div></div>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">El acto queda pendiente de facturar; podrás emitir factura o ticket desde Facturación.</p>
+      </div>
+    </div>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("k_fecha")) throw new Error("La fecha es obligatoria.");
+      const conActo=$("k_acto_on").checked;
+      if(conActo){
+        if(!val("k_acto_con")) throw new Error("Indica el concepto del acto.");
+        if(num("k_acto_imp")==null) throw new Error("Indica el importe del acto.");
+      }
       await api(`/animales/${animalId}/consultas`,{method:"POST",body:JSON.stringify({
         animalId, fecha:val("k_fecha"), motivo:val("k_motivo")||null, diagnostico:val("k_diag")||null,
         tratamiento:val("k_trat")||null, pesoKg:num("k_peso"), veterinario:val("k_vet")||null
       })});
-      toast("Consulta registrada.","ok"); vAnimal();
+      if(conActo){
+        await api(`/animales/${animalId}/actos`,{method:"POST",body:JSON.stringify({
+          animalId, concepto:val("k_acto_con"), importe:num("k_acto_imp"),
+          porcentajeIva:num("k_acto_iva"), fecha:val("k_fecha")||null
+        })});
+      }
+      toast(conActo?"Consulta y acto registrados.":"Consulta registrada.","ok"); refrescar();
     });
 }
 async function modalVacunar(animalId, especie){
@@ -748,7 +879,7 @@ async function vRecordatorios(){ cargando(); await conError(async()=>{
     return `<div class="rem"><div class="ic ${cls}">${em}</div>
       <div class="info"><b>${esc(r.titulo)}</b><p>${a?esc(a.nombre)+" · "+esc(a.raza||a.especie)+" — ":""}${fdate(r.fechaObjetivo)}${r.notas?" · "+esc(r.notas):""}</p></div>
       <div class="act"><button class="btn tiny v" onclick="enviarRecordatorio('${r.id}')">Enviar</button></div></div>`;
-  }).join("") : vacio("🔔","Nada pendiente","No hay recordatorios pendientes. Genera desde los vencimientos.");
+  }).join("") : vacio("🔔","Nada pendiente","No hay recordatorios pendientes. Genéralos a partir de las vacunas y revisiones próximas.", `<button class="btn v" onclick="generarRecordatorios()">Generar (30 días)</button>`);
   view(`
     <div class="toolbar">
       <button class="btn line" onclick="generarRecordatorios()">Generar (30 días)</button>
@@ -785,7 +916,7 @@ async function vAgenda(){ cargando(); await conError(async()=>{
     const hh=new Date(c.inicio).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
     let acc="";
     if(c.estado==="Solicitada") acc+=`<button class="btn tiny v" onclick="accionCita('${c.id}','confirmar')">Confirmar</button>`;
-    if(c.estado==="Solicitada"||c.estado==="Confirmada") acc+=`<button class="btn tiny line" onclick="accionCita('${c.id}','atender')">Atender</button>`;
+    if(c.estado==="Solicitada"||c.estado==="Confirmada") acc+=`<button class="btn tiny v" onclick="atenderCita('${c.id}','${c.animalId}','${esc(c.motivo||"").replace(/'/g,"\\'")}')">Atender</button>`;
     if(c.estado!=="Cancelada"&&c.estado!=="Atendida") acc+=`<button class="btn tiny line" onclick="accionCita('${c.id}','cancelar')">Cancelar</button>`;
     return `<div class="ag"><span class="hr">${hh}</span><span class="dot" style="background:${color}"></span>
       <div class="who"><b>${a?esc(a.nombre)+" · "+esc(a.raza||a.especie):"Animal"}</b><span>${esc(c.motivo||c.tipo||"")}${c.veterinario?" — "+esc(c.veterinario):""} · ${c.duracionMinutos} min</span></div>
@@ -794,7 +925,8 @@ async function vAgenda(){ cargando(); await conError(async()=>{
   view(`
     <div class="toolbar">
       <label style="margin:0 6px 0 0">Día</label>
-      <input id="agDia" type="date" value="${dia}" onchange="ir('agenda',{dia:this.value})"/>
+      <input id="agDia" type="date" value="${dia}" style="min-width:170px" oninput="$('agDiaFmt').textContent=fdate(this.value)" onchange="ir('agenda',{dia:this.value})"/>
+      <span class="datefmt" id="agDiaFmt" title="Fecha seleccionada (DD/MM/AAAA)">${fdate(dia)}</span>
       <div class="grow"></div>
       <button class="btn v" onclick="modalNuevaCita()">${ICON.plus} Nueva cita</button>
     </div>
@@ -803,9 +935,17 @@ async function vAgenda(){ cargando(); await conError(async()=>{
 async function accionCita(id, accion){
   try{
     if(accion==="confirmar") await api(`/citas/${id}/confirmar`,{method:"POST"});
-    else if(accion==="atender") await api(`/citas/${id}/atender`,{method:"POST"});
     else if(accion==="cancelar") await api(`/citas/${id}`,{method:"DELETE"});
     toast("Cita actualizada.","ok"); vAgenda();
+  }catch(e){ toast(e.message,"err"); }
+}
+// Flujo cita → atender → consulta (+ acto): marca la cita atendida y abre la consulta prerrellenada
+// con el animal de la cita; al guardar, ofrece registrar un acto facturable. Reutiliza los endpoints.
+async function atenderCita(citaId, animalId, motivo){
+  try{
+    await api(`/citas/${citaId}/atender`,{method:"POST"});
+    toast("Cita atendida. Registra la consulta.","ok");
+    modalConsulta(animalId, {alGuardar:vAgenda, motivo:motivo||""});
   }catch(e){ toast(e.message,"err"); }
 }
 async function modalNuevaCita(){
@@ -851,7 +991,7 @@ async function vFacturacion(){ cargando(); _actosSel=new Set(); await conError(a
         <td class="num"><button class="btn tiny line" onclick="cobrarTicket('${x.id}')">Ticket</button></td></tr>`;}).join("")}</tbody></table>
     <div class="barfoot"><div class="tot">Seleccionados <b id="selCount">0</b> · <span id="selTot">${eur(0)}</span></div>
       <button class="btn v" id="btnFacturar" onclick="facturarSeleccion()" disabled>Facturar seleccionados</button></div>`
-    : vacio("🧾","Nada por facturar","No hay actos clínicos pendientes.");
+    : vacio("🧾","Nada por facturar","Cuando registres actos clínicos en las fichas de los animales aparecerán aquí para emitir factura o cobrar con ticket.", `<button class="btn line" onclick="ir('clientes')">Ir a clientes</button>`);
   view(`
     <h3 class="sec">Actos pendientes</h3>
     <p class="subt">Selecciona actos de un mismo cliente y emite una factura, o cobra un acto suelto con ticket.</p>
