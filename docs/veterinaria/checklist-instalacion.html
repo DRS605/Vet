@@ -80,7 +80,7 @@ notepad despliegue\.env</div>
   </ul>
 
   <h2><span class="n">3</span> Arrancar</h2>
-  <div class="cmd">docker compose -f despliegue\docker-compose.produccion.yml up -d</div>
+  <div class="cmd">docker compose -f despliegue\docker-compose.produccion.yml --env-file despliegue\.env up -d --build</div>
   <ul>
     <li><span class="sq"></span><div>Esperar 1-2 min. Comprobar que hay 2 contenedores en marcha: <code>alxor-vet-api</code> y <code>alxor-vet-postgres</code>.</div></li>
   </ul>

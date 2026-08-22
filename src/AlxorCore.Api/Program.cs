@@ -74,7 +74,11 @@ builder.Services
     {
         jwt.MapInboundClaims = false;
         jwt.TokenValidationParameters = ConfiguracionJwt.ConstruirParametrosValidacion(opcionesJwt.Value);
-    });
+    })
+    // Fuerza la construcción de estas opciones al arrancar; al resolver IOptions<OpcionesJwt> se
+    // disparan sus validaciones (DataAnnotations + rechazo del placeholder), de modo que la app no
+    // arranca con un secreto JWT ausente, demasiado corto o el de ejemplo del .env.ejemplo.
+    .ValidateOnStart();
 
 builder.Services.AddAuthorization();
 
@@ -108,8 +112,11 @@ builder.Services.AddProblemDetails();
 
 var app = builder.Build();
 
-// En desarrollo aplicamos las migraciones automáticamente para facilitar el arranque.
-if (app.Environment.IsDevelopment())
+// Aplicación de migraciones al arrancar. Controlado por la configuración
+// «Migraciones:AplicarAlArrancar» (por defecto true) e INDEPENDIENTE del entorno: así una
+// instalación nueva de la clínica crea el esquema sola también en Production. EF Core Migrate() es
+// idempotente, por lo que reejecutarlo no tiene efecto si ya está al día.
+if (app.Configuration.GetValue("Migraciones:AplicarAlArrancar", true))
 {
     using var ambito = app.Services.CreateScope();
     await ambito.ServiceProvider.GetRequiredService<IdentidadDbContext>().Database.MigrateAsync().ConfigureAwait(false);
@@ -122,7 +129,11 @@ if (app.Environment.IsDevelopment())
     await ambito.ServiceProvider.GetRequiredService<AlxorCore.Gastos.Infraestructura.GastosDbContext>().Database.MigrateAsync().ConfigureAwait(false);
     await ambito.ServiceProvider.GetRequiredService<AlxorCore.Tesoreria.Infraestructura.TesoreriaDbContext>().Database.MigrateAsync().ConfigureAwait(false);
     await ambito.ServiceProvider.GetRequiredService<AlxorCore.Auditoria.Infraestructura.AuditoriaDbContext>().Database.MigrateAsync().ConfigureAwait(false);
+}
 
+// Swagger / SwaggerUI: SOLO en desarrollo (no se exponen en la red de la clínica en Production).
+if (app.Environment.IsDevelopment())
+{
     app.UseSwagger();
     app.UseSwaggerUI();
 }

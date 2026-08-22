@@ -56,7 +56,12 @@ public static class RegistroServicios
         // Seguridad.
         servicios.AddOptions<OpcionesJwt>()
             .Bind(configuracion.GetSection(OpcionesJwt.Seccion))
-            .ValidateDataAnnotations();
+            .ValidateDataAnnotations()
+            // Rechaza el valor de ejemplo del .env.ejemplo: la app no debe arrancar con el placeholder.
+            .Validate(
+                opciones => !EsClaveSecretaDeEjemplo(opciones.ClaveSecreta),
+                "El secreto JWT (Jwt:ClaveSecreta / JWT_CLAVE_SECRETA) sigue siendo el valor de ejemplo. " +
+                "Genera uno real y aleatorio de 32+ caracteres (p. ej. «openssl rand -base64 48») antes de arrancar.");
         servicios.AddSingleton<IHasherContrasena, HasherContrasenaIdentity>();
         servicios.AddScoped<IProveedorTokens, ProveedorTokensJwt>();
 
@@ -73,5 +78,23 @@ public static class RegistroServicios
         servicios.AddScoped<CrearUsuarioInvitado>();
 
         return servicios;
+    }
+
+    /// <summary>
+    /// Placeholder del secreto JWT que trae <c>despliegue/.env.ejemplo</c>. Se rechaza tal cual y
+    /// también cualquier valor que empiece por «CAMBIA», para no arrancar con un secreto de ejemplo.
+    /// </summary>
+    private const string ClaveSecretaEjemplo =
+        "CAMBIA_esto_por_un_secreto_largo_y_aleatorio_de_32+_caracteres";
+
+    private static bool EsClaveSecretaDeEjemplo(string? claveSecreta)
+    {
+        if (string.IsNullOrWhiteSpace(claveSecreta))
+        {
+            return false; // La ausencia la detecta [Required]; aquí solo el valor de ejemplo.
+        }
+
+        return claveSecreta.Equals(ClaveSecretaEjemplo, StringComparison.Ordinal)
+            || claveSecreta.StartsWith("CAMBIA", StringComparison.Ordinal);
     }
 }

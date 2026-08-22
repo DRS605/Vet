@@ -263,8 +263,28 @@ docker exec -i alxor-vet-postgres psql -U postgres -d alxor < copia.sql
 - **RLS en producción**: el aislamiento multiempresa se refuerza con Row-Level Security de
   PostgreSQL, que **solo actúa si la app se conecta con un rol de BD sin privilegios de superusuario
   y sin BYPASSRLS**. Por defecto se usa el rol `postgres` (superusuario), cómodo pero sin esa red de
-  seguridad. Para una instalación endurecida, crea un rol restringido y usa su usuario/contraseña en
-  la cadena de conexión.
+  seguridad. Para la instalación monoclínica de fase 1 esto es **suficiente** (el aislamiento por
+  empresa lo garantiza además el filtro global de EF Core), así que es **opcional**.
+
+  Para **endurecer** (recomendado si más adelante hay varias empresas o se expone la app), usa un
+  rol de aplicación restringido:
+
+  1. **Aplica primero las migraciones con el rol admin/owner** (arranca la API una vez con el usuario
+     `postgres`, que crea el esquema solo). Con eso ya existen todas las tablas.
+  2. Crea el rol restringido ejecutando el script incluido (una sola vez), como `postgres`:
+
+     ```powershell
+     docker exec -i alxor-vet-postgres psql -U postgres -d alxor -v clave="UNA_CLAVE_FUERTE" < despliegue\rls-rol-restringido.sql
+     ```
+
+     Crea el rol `alxor_app` **sin** superusuario y **sin** BYPASSRLS, con solo los permisos mínimos
+     (CONNECT, USAGE en los esquemas y SELECT/INSERT/UPDATE/DELETE en las tablas de negocio), de modo
+     que **sí queda sujeto a las políticas RLS**.
+  3. Apunta la conexión de la app a ese rol: en `despliegue/.env`, cambia el usuario/clave que usa
+     `ConnectionStrings__AlxorCore` (o define `POSTGRES_USER`/`POSTGRES_PASSWORD` del rol restringido)
+     y **desactiva la migración automática** para que la app no intente aplicar DDL con el rol sin
+     privilegios: añade `Migraciones__AplicarAlArrancar=false` al entorno de la API. Reinicia con
+     `up -d`. (Las migraciones futuras se aplican con el rol admin/owner, no con `alxor_app`.)
 - Si en el futuro expones la app a internet (ver [Apéndice · Fase 2](#apéndice--fase-2-publicar-la-app-en-internet)),
   hazlo **siempre con HTTPS** (Cloudflare Tunnel lo da automáticamente).
 

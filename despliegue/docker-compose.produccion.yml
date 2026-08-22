@@ -38,10 +38,10 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      # En producción aplicamos migraciones al arrancar mediante Development-like flag controlado:
-      # mantenemos Development para que la API migre sola y sirva Swagger (útil en clínica pequeña).
-      # Si se prefiere ocultar Swagger, cambiar a Production y aplicar migraciones manualmente.
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      # Production: NO expone /swagger ni páginas de error de desarrollo en la red de la clínica.
+      # Las migraciones se aplican solas al arrancar en cualquier entorno (flag
+      # Migraciones:AplicarAlArrancar, activo por defecto), así que no hace falta Development.
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__AlxorCore: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-alxor};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en el .env}"
 
