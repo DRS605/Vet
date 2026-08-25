@@ -82,4 +82,7 @@ internal sealed class ConsultasOrganizacion : IConsultasOrganizacion
             .Select(f => new EmpresaResumen(f.Id, f.Nif.Valor, f.RazonSocial, f.RolCodigo))
             .ToList();
     }
+
+    public Task<bool> ExisteAlgunaEmpresaAsync(CancellationToken ct = default) =>
+        _contexto.Empresas.AnyAsync(ct);
 }

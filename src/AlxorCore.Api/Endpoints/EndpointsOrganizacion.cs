@@ -15,6 +15,11 @@ public static class EndpointsOrganizacion
     {
         ArgumentNullException.ThrowIfNull(rutas);
 
+        rutas.MapGet("/estado-instalacion", EstadoInstalacionAsync)
+            .WithTags("Instalación")
+            .WithSummary("Indica si la instalación ya está inicializada (existe alguna empresa). Público.")
+            .AllowAnonymous();
+
         var empresas = rutas.MapGroup("/empresas").WithTags("Empresas");
 
         empresas.MapPost("", CrearAsync)
@@ -48,6 +53,12 @@ public static class EndpointsOrganizacion
             .RequierePermiso(Permisos.EmpresaAjustes);
 
         return rutas;
+    }
+
+    private static async Task<IResult> EstadoInstalacionAsync(ConsultarEstadoInstalacion caso, CancellationToken ct)
+    {
+        var inicializada = await caso.EstaInicializadaAsync(ct).ConfigureAwait(false);
+        return Results.Ok(new { inicializada });
     }
 
     private static async Task<IResult> CrearAsync(CrearEmpresaPeticion peticion, ClaimsPrincipal usuario, CrearEmpresa caso, CancellationToken ct)

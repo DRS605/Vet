@@ -57,6 +57,7 @@ public static class RegistroServicios
         servicios.AddScoped<IConsultaVacunaciones>(sp => sp.GetRequiredService<RepositorioVacunaciones>());
 
         servicios.AddScoped<CrearPautaVacunal>();
+        servicios.AddScoped<CargarPautasRecomendadas>();
         servicios.AddScoped<ActualizarPautaVacunal>();
         servicios.AddScoped<ObtenerPautaVacunal>();
         servicios.AddScoped<ListarPautasVacunales>();

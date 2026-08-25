@@ -243,11 +243,67 @@
       .company .chip .cname{max-width:32vw;}
     }
     @media(max-width:640px){ .kpis{grid-template-columns:1fr;} .pets{grid-template-columns:1fr;} .grid-2{grid-template-columns:1fr;} }
+
+    /* ---------- Asistente de primer arranque (onboarding) ---------- */
+    .wizard{display:none;min-height:100vh;background:
+      radial-gradient(1100px 560px at 82% -12%, rgba(245,168,0,.18), transparent 60%),
+      linear-gradient(180deg,#f7f0e6,#efe2cd);padding:34px 18px 60px;}
+    .wiz-shell{max-width:660px;margin:0 auto;}
+    .wiz-brand{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px;}
+    .wiz-brand .wordmark{font-size:20px;}
+    .wiz-brand .lnk{background:none;border:none;color:var(--accent);font-weight:650;font-size:13px;}
+    .wiz-brand .lnk:hover{text-decoration:underline;}
+    .wiz-steps{display:flex;align-items:center;gap:0;margin:0 0 22px;}
+    .wiz-steps .st{flex:1;display:flex;flex-direction:column;align-items:center;gap:7px;position:relative;}
+    .wiz-steps .st .dot{width:30px;height:30px;border-radius:50%;background:#fff;border:2px solid var(--line);color:var(--muted);display:grid;place-items:center;font-weight:800;font-size:13px;z-index:2;transition:all .2s;}
+    .wiz-steps .st .lbl{font-size:11.5px;color:var(--muted);font-weight:650;text-align:center;}
+    .wiz-steps .st.on .dot{background:var(--grad-honey);border-color:transparent;color:var(--ink);box-shadow:0 4px 12px rgba(240,165,0,.35);}
+    .wiz-steps .st.done .dot{background:var(--vet);border-color:transparent;color:#fff;}
+    .wiz-steps .st.on .lbl,.wiz-steps .st.done .lbl{color:var(--ink);}
+    .wiz-steps .st::before{content:"";position:absolute;top:15px;left:-50%;width:100%;height:2px;background:var(--line);z-index:1;}
+    .wiz-steps .st:first-child::before{display:none;}
+    .wiz-steps .st.done::before,.wiz-steps .st.on::before{background:var(--honey-ink);opacity:.4;}
+    .wiz-card{background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow);padding:30px 30px 26px;}
+    .wiz-card h2{font-size:23px;letter-spacing:-.02em;margin:0 0 4px;}
+    .wiz-card .lead{color:var(--muted);margin:0 0 22px;font-size:14px;line-height:1.5;}
+    .wiz-card .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:0 16px;}
+    .wiz-hint{font-size:12px;color:var(--muted);margin:5px 0 0;}
+    .wiz-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:26px;}
+    .wiz-rules{list-style:none;padding:0;margin:10px 0 0;font-size:12.5px;color:var(--muted);}
+    .wiz-rules li{display:flex;align-items:center;gap:8px;padding:3px 0;}
+    .wiz-rules li .tick{width:16px;height:16px;border-radius:50%;background:#f0e6d6;color:transparent;display:grid;place-items:center;font-size:10px;font-weight:900;flex:none;transition:all .15s;}
+    .wiz-rules li.ok{color:var(--vet);} .wiz-rules li.ok .tick{background:var(--vet);color:#fff;}
+    .vac-species{border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden;}
+    .vac-species .vhead{display:flex;align-items:center;gap:11px;padding:12px 15px;background:#faf5ec;cursor:pointer;user-select:none;}
+    .vac-species .vhead .emo{font-size:19px;}
+    .vac-species .vhead b{font-size:14.5px;}
+    .vac-species .vhead .cnt{margin-left:auto;font-size:12px;color:var(--muted);}
+    .vac-species .vhead .sw{width:42px;height:24px;border-radius:999px;background:#e3d6c4;position:relative;flex:none;transition:background .18s;}
+    .vac-species .vhead .sw::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .18s;box-shadow:0 1px 3px rgba(0,0,0,.25);}
+    .vac-species.on .vhead .sw{background:var(--vet);} .vac-species.on .vhead .sw::after{transform:translateX(18px);}
+    .vac-species .vlist{padding:6px 15px 12px;}
+    .vac-row{display:flex;align-items:center;gap:11px;padding:8px 0;border-bottom:1px solid #f4efe7;font-size:13px;}
+    .vac-row:last-child{border-bottom:none;}
+    .vac-row input[type=checkbox]{width:17px;height:17px;accent-color:var(--vet);flex:none;margin:0;}
+    .vac-row .vn{flex:1;} .vac-row .vn b{font-weight:600;}
+    .vac-row .vmeta{font-size:11.5px;color:var(--muted);}
+    .vac-species:not(.on) .vlist{opacity:.4;pointer-events:none;}
+    .wiz-summary{list-style:none;padding:0;margin:0 0 8px;}
+    .wiz-summary li{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);}
+    .wiz-summary li:last-child{border-bottom:none;}
+    .wiz-summary .ico{width:34px;height:34px;border-radius:10px;background:var(--honey-soft);display:grid;place-items:center;font-size:17px;flex:none;}
+    .wiz-summary .txt{flex:1;min-width:0;} .wiz-summary .txt .k{font-size:11.5px;color:var(--muted);font-weight:650;text-transform:uppercase;letter-spacing:.04em;} .wiz-summary .txt .v{font-size:14px;}
+    .wiz-progress{margin-top:18px;display:none;}
+    .wiz-progress.show{display:block;}
+    .wiz-bar{height:9px;border-radius:999px;background:#eaddc9;overflow:hidden;}
+    .wiz-bar span{display:block;height:100%;width:0;background:var(--grad-honey);transition:width .35s ease;}
+    .wiz-progress .step-msg{font-size:13px;color:var(--muted);margin-top:9px;display:flex;align-items:center;gap:8px;}
+    @media(max-width:560px){ .wiz-card{padding:22px 18px;} .wiz-card .grid-2{grid-template-columns:1fr;} .wiz-steps .st .lbl{display:none;} }
   </style>
 </head>
 <body>
   <!-- LOGIN -->
-  <div id="login" class="login">
+  <div id="login" class="login" style="display:none">
     <div class="promo">
       <div class="wordmark"><span class="mark"></span> ALXOR <span class="tag">Vet</span></div>
       <h2>La clínica, en la palma de la mano.</h2>
@@ -270,7 +326,21 @@
         <input id="pass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()" />
         <button class="btn block" id="btnEntrar" onclick="entrar()">Entrar</button>
         <div class="error" id="loginError"></div>
+        <p style="text-align:center;margin:18px 0 0;font-size:13px;color:var(--muted)">¿Primera vez?
+          <button type="button" class="lnk" style="background:none;border:none;color:var(--accent);font-weight:650;font-size:13px;padding:0" onclick="mostrarAsistente()">Configura tu clínica</button></p>
       </div>
+    </div>
+  </div>
+
+  <!-- ASISTENTE DE PRIMER ARRANQUE (onboarding) -->
+  <div id="wizard" class="wizard">
+    <div class="wiz-shell">
+      <div class="wiz-brand">
+        <div class="wordmark"><span class="mark"></span> ALXOR <span class="tag">Vet</span></div>
+        <button type="button" class="lnk" onclick="mostrarLogin()">Ya tengo cuenta → Iniciar sesión</button>
+      </div>
+      <div class="wiz-steps" id="wizSteps"></div>
+      <div class="wiz-card" id="wizCard"></div>
     </div>
   </div>
 
@@ -1017,6 +1087,295 @@ async function cobrarTicket(id){
   try{ await api(`/actos/${id}/ticket`,{method:"POST"}); toast("Cobrado con ticket.","ok"); vFacturacion(); }
   catch(e){ toast(e.message,"err"); }
 }
+
+/* ============================================================
+   ASISTENTE DE PRIMER ARRANQUE (onboarding)
+   ============================================================ */
+/* Cuadro vacunal recomendado por defecto (espejo del catálogo del servidor, solo para mostrarlo).
+   La creación real la hace el servidor con POST /onboarding/pautas-recomendadas (idempotente). */
+const WIZ_CUADRO = {
+  Perro:[
+    {n:"Polivalente (DHPPi/L)",c:"Recomendada",ini:6,ref:12},
+    {n:"Rabia",c:"Legal",ini:12,ref:12},
+    {n:"Tos de las perreras",c:"Opcional",ini:8,ref:12},
+    {n:"Leishmania",c:"Recomendada",ini:26,ref:12}],
+  Gato:[
+    {n:"Trivalente felina",c:"Recomendada",ini:8,ref:12},
+    {n:"Leucemia felina",c:"Recomendada",ini:8,ref:12},
+    {n:"Rabia",c:"Legal",ini:12,ref:12}],
+  Conejo:[
+    {n:"Mixomatosis",c:"Recomendada",ini:5,ref:6},
+    {n:"RHD/VHD (enfermedad hemorrágica)",c:"Recomendada",ini:10,ref:12}],
+  Huron:[
+    {n:"Moquillo (Distemper)",c:"Recomendada",ini:8,ref:12},
+    {n:"Rabia",c:"Legal",ini:12,ref:12}]
+};
+const WIZ_ESPECIES = [["Perro","🐕"],["Gato","🐈"],["Conejo","🐇"],["Huron","🦡"]];
+let wiz = null;
+function _wizInicial(){
+  const vac={};
+  for(const [esp] of WIZ_ESPECIES){ vac[esp]={on:true, pautas:WIZ_CUADRO[esp].map(()=>true)}; }
+  return { paso:1,
+    clinica:{nombre:"",nif:"",calle:"",cp:"",poblacion:"",provincia:"",regimen:"General"},
+    admin:{nombre:"",email:"",pass:"",pass2:""},
+    vac };
+}
+function mostrarAsistente(){
+  wiz=_wizInicial();
+  $("login").style.display="none"; $("empresaSel").style.display="none"; $("app").style.display="none";
+  $("wizard").style.display="block";
+  wizRender();
+}
+function mostrarLogin(){
+  $("wizard").style.display="none"; $("empresaSel").style.display="none"; $("app").style.display="none";
+  $("login").style.display="grid";
+}
+const WIZ_LBLS=["Tu clínica","Tu usuario","Vacunas","Resumen"];
+function wizRenderSteps(){
+  $("wizSteps").innerHTML=WIZ_LBLS.map((l,i)=>{
+    const n=i+1; const cls=n<wiz.paso?"done":n===wiz.paso?"on":"";
+    return `<div class="st ${cls}"><span class="dot">${n<wiz.paso?"✓":n}</span><span class="lbl">${l}</span></div>`;
+  }).join("");
+}
+function wizRender(){
+  wizRenderSteps();
+  const c=$("wizCard");
+  if(wiz.paso===1) c.innerHTML=wizPaso1();
+  else if(wiz.paso===2) c.innerHTML=wizPaso2();
+  else if(wiz.paso===3) c.innerHTML=wizPaso3();
+  else c.innerHTML=wizPaso4();
+  c.scrollIntoView({behavior:"smooth",block:"start"});
+}
+/* --- Paso 1: clínica --- */
+function wizPaso1(){
+  const k=wiz.clinica;
+  return `
+    <h2>Tu clínica</h2>
+    <p class="lead">Los datos fiscales de tu centro. Aparecerán en las facturas que emitas.</p>
+    <label>Nombre de la clínica *</label>
+    <input id="w_nombre" value="${esc(k.nombre)}" placeholder="Clínica Veterinaria San Roque" />
+    <div class="grid-2">
+      <div><label>NIF / CIF *</label><input id="w_nif" value="${esc(k.nif)}" placeholder="B12345674" /></div>
+      <div><label>IVA por defecto</label>
+        <select id="w_regimen">
+          <option value="General" ${k.regimen==="General"?"selected":""}>Régimen general (IVA 21%)</option>
+          <option value="RecargoEquivalencia" ${k.regimen==="RecargoEquivalencia"?"selected":""}>Recargo de equivalencia</option>
+        </select>
+      </div>
+    </div>
+    <label>Dirección (calle y número)</label>
+    <input id="w_calle" value="${esc(k.calle)}" placeholder="Calle Mayor, 12" />
+    <div class="grid-2">
+      <div><label>Código postal</label><input id="w_cp" value="${esc(k.cp)}" inputmode="numeric" placeholder="28080" /></div>
+      <div><label>Población</label><input id="w_poblacion" value="${esc(k.poblacion)}" placeholder="Madrid" /></div>
+    </div>
+    <label>Provincia</label>
+    <input id="w_provincia" value="${esc(k.provincia)}" placeholder="Madrid" />
+    <p class="wiz-hint">Podrás cambiar estos datos más adelante. El nombre y el NIF son obligatorios.</p>
+    <div class="error" id="w_err"></div>
+    <div class="wiz-foot">
+      <span></span>
+      <button class="btn v" onclick="wizSiguiente1()">Continuar →</button>
+    </div>`;
+}
+function _wizGuardar1(){
+  wiz.clinica={ nombre:val("w_nombre"), nif:val("w_nif"), calle:val("w_calle"), cp:val("w_cp"),
+    poblacion:val("w_poblacion"), provincia:val("w_provincia"), regimen:val("w_regimen")||"General" };
+}
+function wizSiguiente1(){
+  _wizGuardar1(); const k=wiz.clinica; const err=$("w_err"); err.textContent="";
+  if(!k.nombre){ err.textContent="Escribe el nombre de la clínica."; return; }
+  if(!k.nif){ err.textContent="El NIF/CIF es obligatorio."; return; }
+  wiz.paso=2; wizRender();
+}
+/* --- Paso 2: usuario admin --- */
+function wizPaso2(){
+  const a=wiz.admin;
+  return `
+    <h2>Tu usuario</h2>
+    <p class="lead">La cuenta con la que entrarás a diario. Serás la persona administradora de la clínica.</p>
+    <label>Tu nombre *</label>
+    <input id="w_anombre" value="${esc(a.nombre)}" placeholder="Dra. Marta Ruiz" />
+    <label>Correo electrónico *</label>
+    <input id="w_aemail" type="email" autocomplete="username" value="${esc(a.email)}" placeholder="admin@miclinica.com" />
+    <div class="grid-2">
+      <div><label>Contraseña *</label><input id="w_apass" type="password" autocomplete="new-password" value="${esc(a.pass)}" oninput="wizPassCheck()" /></div>
+      <div><label>Repite la contraseña *</label><input id="w_apass2" type="password" autocomplete="new-password" value="${esc(a.pass2)}" oninput="wizPassCheck()" /></div>
+    </div>
+    <ul class="wiz-rules" id="w_rules">
+      <li id="w_r_len"><span class="tick">✓</span> Al menos 8 caracteres</li>
+      <li id="w_r_eq"><span class="tick">✓</span> Las dos contraseñas coinciden</li>
+    </ul>
+    <div class="error" id="w_err"></div>
+    <div class="wiz-foot">
+      <button class="btn line" onclick="wizAtras(1)">← Atrás</button>
+      <button class="btn v" onclick="wizSiguiente2()">Continuar →</button>
+    </div>`;
+}
+function wizPassCheck(){
+  const p=$("w_apass").value, p2=$("w_apass2").value;
+  $("w_r_len").classList.toggle("ok", p.length>=8);
+  $("w_r_eq").classList.toggle("ok", p.length>0 && p===p2);
+}
+function _wizGuardar2(){
+  wiz.admin={ nombre:val("w_anombre"), email:val("w_aemail"), pass:$("w_apass").value, pass2:$("w_apass2").value };
+}
+function wizSiguiente2(){
+  _wizGuardar2(); const a=wiz.admin; const err=$("w_err"); err.textContent="";
+  if(!a.nombre){ err.textContent="Escribe tu nombre."; return; }
+  if(!a.email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(a.email)){ err.textContent="Escribe un correo electrónico válido."; return; }
+  if(a.pass.length<8){ err.textContent="La contraseña debe tener al menos 8 caracteres."; return; }
+  if(a.pass!==a.pass2){ err.textContent="Las dos contraseñas no coinciden."; return; }
+  wiz.paso=3; wizRender();
+}
+/* --- Paso 3: cuadro de vacunas --- */
+function wizPaso3(){
+  const pill=c=>c==="Legal"?'<span class="pill neg">Legal</span>':c==="Recomendada"?'<span class="pill vet">Recomendada</span>':'<span class="pill b">Opcional</span>';
+  const cards=WIZ_ESPECIES.map(([esp,emo])=>{
+    const st=wiz.vac[esp];
+    const filas=WIZ_CUADRO[esp].map((p,i)=>`
+      <label class="vac-row">
+        <input type="checkbox" ${st.pautas[i]?"checked":""} onchange="wizTogglePauta('${esp}',${i},this.checked)" />
+        <span class="vn"><b>${esc(p.n)}</b> ${pill(p.c)}</span>
+        <span class="vmeta">${p.ini!=null?"inicio "+p.ini+" sem":""}${p.ref!=null?" · refuerzo "+p.ref+" m":""}</span>
+      </label>`).join("");
+    return `<div class="vac-species ${st.on?"on":""}" id="vsp-${esp}">
+      <div class="vhead" onclick="wizToggleEspecie('${esp}')">
+        <span class="emo">${emo}</span><b>${esp}</b>
+        <span class="cnt" id="vcnt-${esp}"></span>
+        <span class="sw" role="switch" aria-checked="${st.on}"></span>
+      </div>
+      <div class="vlist">${filas}</div>
+    </div>`;
+  }).join("");
+  setTimeout(wizActualizarContadores,0);
+  return `
+    <h2>Cuadro de vacunas</h2>
+    <p class="lead">Estas son las pautas recomendadas por especie. Vienen marcadas; desmarca lo que no uses.
+      Después podrás editarlas o añadir nuevas en el menú <b>Vacunas</b>.</p>
+    ${cards}
+    <p class="wiz-hint">Las aves y los reptiles no tienen un calendario universal, así que empiezan sin pautas: las añadirás tú según tu criterio.</p>
+    <div class="wiz-foot">
+      <button class="btn line" onclick="wizAtras(2)">← Atrás</button>
+      <button class="btn v" onclick="wiz.paso=4;wizRender()">Continuar →</button>
+    </div>`;
+}
+function wizActualizarContadores(){
+  for(const [esp] of WIZ_ESPECIES){
+    const st=wiz.vac[esp]; const n=st.pautas.filter(Boolean).length; const tot=st.pautas.length;
+    const el=$("vcnt-"+esp); if(el) el.textContent = st.on ? `${n} de ${tot}` : "sin cargar";
+  }
+}
+function wizToggleEspecie(esp){
+  const st=wiz.vac[esp]; st.on=!st.on;
+  st.pautas=st.pautas.map(()=>st.on);
+  const card=$("vsp-"+esp); card.classList.toggle("on",st.on);
+  card.querySelectorAll('.vac-row input').forEach(cb=>cb.checked=st.on);
+  wizActualizarContadores();
+}
+function wizTogglePauta(esp,i,checked){
+  const st=wiz.vac[esp]; st.pautas[i]=checked;
+  if(checked && !st.on){ st.on=true; $("vsp-"+esp).classList.add("on"); }
+  if(!st.pautas.some(Boolean)){ st.on=false; $("vsp-"+esp).classList.remove("on"); }
+  wizActualizarContadores();
+}
+/* --- Paso 4: resumen + crear --- */
+function wizPaso4(){
+  const k=wiz.clinica, a=wiz.admin;
+  const especiesSel=WIZ_ESPECIES.filter(([e])=>wiz.vac[e].pautas.some(Boolean));
+  const totalPautas=especiesSel.reduce((s,[e])=>s+wiz.vac[e].pautas.filter(Boolean).length,0);
+  const vacTxt = especiesSel.length
+    ? especiesSel.map(([e,emo])=>`${emo} ${e} (${wiz.vac[e].pautas.filter(Boolean).length})`).join(" · ")
+    : "Sin pautas por ahora";
+  const dir=[k.calle,k.cp,k.poblacion,k.provincia].filter(Boolean).join(", ")||"Sin dirección";
+  return `
+    <h2>Todo listo</h2>
+    <p class="lead">Revisa el resumen y crea tu clínica. Podrás cambiar cualquier dato después.</p>
+    <ul class="wiz-summary">
+      <li><span class="ico">🏥</span><div class="txt"><div class="k">Clínica</div><div class="v"><b>${esc(k.nombre)}</b> · ${esc(k.nif)}</div><div class="v" style="color:var(--muted)">${esc(dir)} · ${k.regimen==="RecargoEquivalencia"?"Recargo de equivalencia":"Régimen general (IVA 21%)"}</div></div></li>
+      <li><span class="ico">👤</span><div class="txt"><div class="k">Administrador</div><div class="v"><b>${esc(a.nombre)}</b></div><div class="v" style="color:var(--muted)">${esc(a.email)}</div></div></li>
+      <li><span class="ico">💉</span><div class="txt"><div class="k">Cuadro de vacunas · ${totalPautas} pauta${totalPautas===1?"":"s"}</div><div class="v">${esc(vacTxt)}</div></div></li>
+    </ul>
+    <div class="error" id="w_err"></div>
+    <div class="wiz-progress" id="w_prog"><div class="wiz-bar"><span id="w_bar"></span></div><div class="step-msg" id="w_msg"></div></div>
+    <div class="wiz-foot">
+      <button class="btn line" id="w_back4" onclick="wizAtras(3)">← Atrás</button>
+      <button class="btn v" id="w_crear" onclick="wizCrear()">Crear mi clínica ✨</button>
+    </div>`;
+}
+function wizAtras(p){ wiz.paso=p; wizRender(); }
+function _wizProgreso(pct,msg){ $("w_bar").style.width=pct+"%"; $("w_msg").innerHTML=`<span>⏳</span> ${esc(msg)}`; }
+async function wizCrear(){
+  const k=wiz.clinica, a=wiz.admin, err=$("w_err"); err.textContent="";
+  const btn=$("w_crear"); btn.disabled=true; $("w_back4").disabled=true;
+  $("w_prog").classList.add("show");
+  try{
+    // 1) Registrar usuario (si ya existe, se reutiliza al iniciar sesión).
+    _wizProgreso(12,"Creando tu usuario…");
+    try{ await api("/auth/registro",{method:"POST",body:JSON.stringify({email:a.email,nombre:a.nombre,contrasena:a.pass})}); }
+    catch(e){ /* el usuario podía existir de un intento anterior; seguimos e intentamos login */ }
+
+    // 2) Iniciar sesión.
+    _wizProgreso(30,"Iniciando sesión…");
+    const login=await api("/auth/login",{method:"POST",body:JSON.stringify({email:a.email,contrasena:a.pass})});
+    token=login.token; usuario=login.usuario;
+
+    // 3) Crear la empresa (o reutilizar si ya existiera con ese NIF de un intento previo).
+    _wizProgreso(50,"Registrando la clínica…");
+    let empresas=await api("/empresas");
+    let emp=empresas.find(e=>e.nif===k.nif);
+    if(!emp){
+      const cuerpo={nif:k.nif,razonSocial:k.nombre,regimenIva:k.regimen};
+      if(k.calle) cuerpo.calle=k.calle; if(k.cp) cuerpo.codigoPostal=k.cp;
+      if(k.poblacion) cuerpo.poblacion=k.poblacion; if(k.provincia) cuerpo.provincia=k.provincia;
+      await api("/empresas",{method:"POST",body:JSON.stringify(cuerpo)});
+      empresas=await api("/empresas");
+      emp=empresas.find(e=>e.nif===k.nif)||empresas[0];
+    }
+
+    // 4) Seleccionar la empresa (token con empresa activa y permisos).
+    _wizProgreso(68,"Preparando tu clínica…");
+    const sel=await api("/empresas/"+emp.id+"/seleccionar",{method:"POST"});
+    token=sel.token; empresa=emp;
+
+    // 5) Cargar el cuadro de vacunas.
+    _wizProgreso(84,"Cargando el cuadro de vacunas…");
+    const especiesEnteras=[]; const pautasSueltas=[];
+    for(const [esp] of WIZ_ESPECIES){
+      const st=wiz.vac[esp]; const marcadas=st.pautas.filter(Boolean).length;
+      if(marcadas===0) continue;
+      if(marcadas===st.pautas.length){ especiesEnteras.push(esp); }
+      else { WIZ_CUADRO[esp].forEach((p,i)=>{ if(st.pautas[i]) pautasSueltas.push([esp,p]); }); }
+    }
+    if(especiesEnteras.length){
+      await api("/onboarding/pautas-recomendadas",{method:"POST",body:JSON.stringify({especies:especiesEnteras})});
+    }
+    for(const [esp,p] of pautasSueltas){
+      try{ await api("/vacunas/pautas",{method:"POST",body:JSON.stringify({especie:esp,nombre:p.n,caracter:p.c,edadInicioSemanas:p.ini,periodicidadRefuerzoMeses:p.ref})}); }
+      catch(e){ /* si ya existiera, se ignora (idempotencia) */ }
+    }
+
+    // 6) Listo: sesión iniciada, al Panel.
+    _wizProgreso(100,"¡Clínica creada! Entrando…");
+    $("wizard").style.display="none";
+    setTimeout(()=>{ arrancar(); toast("¡Bienvenida a tu clínica! 🐾","ok"); },500);
+  }catch(e){
+    $("w_prog").classList.remove("show");
+    err.textContent=(e.message||"No se pudo completar la configuración.")+" Revisa los datos e inténtalo de nuevo.";
+    btn.disabled=false; $("w_back4").disabled=false;
+    token=null; // no dejar una sesión a medias
+  }
+}
+
+/* ---------- arranque inicial: ¿asistente o login? ---------- */
+async function arranqueInicial(){
+  try{
+    const est=await api("/estado-instalacion");
+    if(est && est.inicializada===false){ mostrarAsistente(); return; }
+  }catch(e){ /* si falla, se muestra el login normal */ }
+  mostrarLogin();
+}
+arranqueInicial();
 </script>
 </body>
 </html>

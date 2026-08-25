@@ -15,6 +15,22 @@ public sealed class ListarMisEmpresas
         await _consultas.ListarEmpresasDeUsuarioAsync(usuarioId, ct).ConfigureAwait(false);
 }
 
+/// <summary>
+/// Caso de uso: consultar si la instalación ya está inicializada, es decir, si existe al menos una
+/// empresa. Lo usa el endpoint público <c>/estado-instalacion</c> para que la SPA decida entre
+/// mostrar el asistente de primer arranque o el login normal. Es una instalación monoclínica local:
+/// exponer solo este booleano de forma anónima es aceptable.
+/// </summary>
+public sealed class ConsultarEstadoInstalacion
+{
+    private readonly IConsultasOrganizacion _consultas;
+
+    public ConsultarEstadoInstalacion(IConsultasOrganizacion consultas) => _consultas = consultas;
+
+    public async Task<bool> EstaInicializadaAsync(CancellationToken ct = default) =>
+        await _consultas.ExisteAlgunaEmpresaAsync(ct).ConfigureAwait(false);
+}
+
 /// <summary>Caso de uso: obtener una empresa por su identificador (dentro del contexto de la empresa activa).</summary>
 public sealed class ObtenerEmpresa
 {

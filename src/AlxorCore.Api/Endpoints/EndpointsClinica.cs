@@ -111,6 +111,12 @@ public static class EndpointsClinica
             .WithSummary("Registra una vacunación de un animal.")
             .RequierePermiso(Permisos.VacunaGestionar);
 
+        var onboarding = rutas.MapGroup("/onboarding").WithTags("Onboarding");
+
+        onboarding.MapPost("/pautas-recomendadas", CargarPautasRecomendadasAsync)
+            .WithSummary("Carga en la empresa activa el cuadro vacunal recomendado por defecto (idempotente).")
+            .RequierePermiso(Permisos.VacunaGestionar);
+
         var cirugias = rutas.MapGroup("/cirugias").WithTags("Cirugías");
 
         cirugias.MapGet("/proximas-revisiones", ListarProximasRevisionesAsync)
@@ -339,6 +345,19 @@ public static class EndpointsClinica
 
         var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, datos, ct).ConfigureAwait(false);
         return resultado.EsCorrecto ? resultado.ACreado($"/vacunas/pautas/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> CargarPautasRecomendadasAsync(
+        CargarPautasRecomendadasComando? comando, IContextoEmpresa contexto, CargarPautasRecomendadas caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var resultado = await caso.EjecutarAsync(
+            contexto.EmpresaId.Value, comando ?? new CargarPautasRecomendadasComando(), ct).ConfigureAwait(false);
+        return resultado.AOk();
     }
 
     private static async Task<IResult> ObtenerPautaAsync(Guid id, ObtenerPautaVacunal caso, CancellationToken ct) =>
