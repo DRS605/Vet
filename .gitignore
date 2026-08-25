@@ -24,3 +24,11 @@ secrets.json
 # OS
 .DS_Store
 Thumbs.db
+
+# Paquete de Windows (binarios NO versionados: se regeneran, ver windows/README-BUILD.md)
+dist/
+windows/postgres/
+windows/datos/
+windows/logs/
+windows/config/
+windows/app/

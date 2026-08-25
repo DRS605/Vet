@@ -1,0 +1,130 @@
+========================================================================
+  ALXOR Vet - Instalacion en Windows (sin Docker, autoinstalable)
+========================================================================
+
+Gestion veterinaria para tu clinica. No necesitas instalar .NET, ni
+Python, ni Docker: todo va dentro de esta carpeta.
+
+Requisitos: Windows 10 u 11 de 64 bits. La PRIMERA vez necesita conexion
+a internet (solo si el paquete no trae ya la carpeta "postgres").
+
+
+------------------------------------------------------------------------
+  PASOS (primera vez)
+------------------------------------------------------------------------
+
+1. Descomprime este ZIP en una carpeta del PC, por ejemplo:
+       C:\ALXOR-Vet
+   (Evita el Escritorio o "Archivos de programa"; usa una carpeta propia.)
+
+2. Doble clic en:  "Instalar ALXOR Vet.bat"
+   - Prepara la base de datos dentro de la carpeta "datos".
+   - Arranca la aplicacion.
+   - Abre el navegador solo en el ASISTENTE de primer arranque.
+   Espera a que termine (unos minutos la primera vez). No cierres la ventana.
+
+   Nota de Windows: si aparece "Windows protegio tu PC" (SmartScreen) o el
+   antivirus pregunta, pulsa "Mas informacion" -> "Ejecutar de todas formas".
+   Es porque el programa aun no esta firmado; el codigo es tuyo.
+
+3. En el navegador, sigue el asistente:
+       - Datos de la clinica (empresa).
+       - Usuario administrador (email + contrasena).
+       - Cuadro de vacunas (se carga por especie; luego editable).
+
+   La direccion es:  http://localhost:8080/vet.html
+
+
+------------------------------------------------------------------------
+  USO DIARIO
+------------------------------------------------------------------------
+
+- Se instalo un acceso directo en el Inicio de Windows: la aplicacion
+  arranca sola al encender el PC.
+- Para arrancarla a mano:   doble clic en "Arrancar ALXOR Vet.bat"
+- Para pararla:             doble clic en "Detener ALXOR Vet.bat"
+
+
+------------------------------------------------------------------------
+  ACCEDER DESDE OTROS ORDENADORES DE LA CLINICA
+------------------------------------------------------------------------
+
+1. Averigua la IP del PC servidor: abre "Simbolo del sistema" y escribe:
+       ipconfig
+   Busca "Direccion IPv4" (algo como 192.168.1.50).
+
+2. Desde cualquier PC de la MISMA red, abre en el navegador:
+       http://192.168.1.50:8080/vet.html
+   (cambia la IP por la tuya)
+
+3. Cortafuegos: el instalador intenta abrir el puerto 8080 solo si lo
+   ejecutas como administrador. Si no pudo, ejecuta UNA vez, en un
+   PowerShell "como administrador":
+       netsh advfirewall firewall add rule name="ALXOR Vet (8080)" dir=in action=allow protocol=TCP localport=8080
+
+   Consejo: pide al router una IP fija para ese PC, para que la direccion
+   no cambie.
+
+
+------------------------------------------------------------------------
+  CORREO (recordatorios y facturas por email) - OPCIONAL
+------------------------------------------------------------------------
+
+Por defecto el correo esta DESACTIVADO. Para activarlo, con la aplicacion
+detenida, edita el fichero:
+       app\appsettings.Production.json
+En la seccion "Correo" pon:
+       "Habilitado": true
+y rellena Host, Puerto (587), Usuario, Clave y Remitente con los datos
+del SMTP de tu clinica (en Gmail/Workspace usa una "contrasena de
+aplicacion"). Guarda y vuelve a arrancar con "Arrancar ALXOR Vet.bat".
+Nota: se usa el puerto 587 con STARTTLS (el 465 no esta soportado).
+
+
+------------------------------------------------------------------------
+  COPIA DE SEGURIDAD
+------------------------------------------------------------------------
+
+Todos los datos viven en la carpeta "datos". Dos formas:
+
+A) Sencilla (con la app DETENIDA): "Detener ALXOR Vet.bat" y luego copia
+   la carpeta "datos" completa a un disco externo o unidad de red.
+
+B) Con pg_dump (la app puede seguir en marcha), desde esta carpeta en
+   PowerShell:
+       $env:PGPASSWORD = (Get-Content config\alxor.config.json | ConvertFrom-Json).PgPassword
+       postgres\pgsql\bin\pg_dump.exe -h localhost -p 5433 -U postgres alxor > copia_alxor.sql
+
+Guarda la copia FUERA del PC (nube, disco externo, unidad de red).
+
+
+------------------------------------------------------------------------
+  SI ALGO FALLA
+------------------------------------------------------------------------
+
+Mira la carpeta "logs":
+   - instalacion.log  -> el paso a paso de la instalacion/arranque.
+   - postgres.log     -> mensajes de la base de datos.
+   - app.log          -> mensajes de la aplicacion.
+
+Errores tipicos:
+   - "No se pudo descargar PostgreSQL": no habia internet. Conecta el PC y
+     vuelve a pulsar "Instalar ALXOR Vet.bat" (o deja el zip oficial de
+     PostgreSQL 'binaries only' para Windows x64 dentro de la carpeta
+     "postgres" y reintenta).
+   - El navegador no abre: entra a mano en http://localhost:8080/vet.html
+
+
+------------------------------------------------------------------------
+  QUE HAY EN ESTA CARPETA
+------------------------------------------------------------------------
+
+   Instalar ALXOR Vet.bat   -> instala y arranca la primera vez
+   Arrancar ALXOR Vet.bat   -> arranca en el dia a dia
+   Detener ALXOR Vet.bat    -> para todo de forma limpia
+   app\                     -> la aplicacion (no la muevas)
+   scripts\                 -> automatizacion interna
+   datos\                   -> tu base de datos (COPIA DE SEGURIDAD aqui)
+   config\                  -> configuracion y contrasenas generadas
+   logs\                    -> registros
+   postgres\                -> PostgreSQL portable (se crea/descarga solo)

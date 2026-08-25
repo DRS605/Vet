@@ -10,6 +10,56 @@ cuadro vacunal cargado y el correo de la clínica configurado.
 
 ---
 
+## 0. Instalación sin Docker (Windows, autoinstalable) — la más sencilla
+
+> **Recomendada para la clínica.** Es un ZIP que se descomprime y arranca de un **doble clic**,
+> **sin Docker, sin instalar .NET ni Python**. PostgreSQL va **portable** dentro de la propia
+> carpeta. El resto del documento (secciones 1 en adelante) describe la instalación **con Docker**,
+> que sigue siendo válida para quien la prefiera o para Linux/macOS.
+
+**Qué es:** un paquete `ALXORVet-Windows.zip` que contiene la app como ejecutable único
+(`AlxorCore.Api.exe`, self-contained: lleva dentro el runtime de .NET), la interfaz web (`wwwroot`
+con `vet.html`), los lanzadores `.bat` y un `LEEME.txt`.
+
+**Pasos en el PC de la clínica (Windows 10/11 64-bit):**
+
+1. Descomprime el ZIP en una carpeta propia, p. ej. `C:\ALXOR-Vet`.
+2. Doble clic en **`Instalar ALXOR Vet.bat`**. La primera vez:
+   - genera los **secretos** (contraseña de PostgreSQL y `Jwt:ClaveSecreta`, con el RNG del sistema);
+   - escribe la configuración en `app\appsettings.Production.json` (conexión, JWT, sección `Correo`
+     con `Habilitado=false`, `Migraciones:AplicarAlArrancar=true`);
+   - prepara **PostgreSQL portable** en la subcarpeta `datos\` (lo **descarga** de la web oficial la
+     primera vez si no viene incluido en `postgres\`), `initdb`, lo arranca en `localhost:5433` y crea
+     la BD `alxor`;
+   - arranca la app en `http://0.0.0.0:8080` (aplica las migraciones sola) y **abre el navegador** en
+     `http://localhost:8080/vet.html` (el **asistente de primer arranque**: empresa + admin + vacunas);
+   - deja un acceso directo en el **Inicio de Windows** para arrancar al encender.
+3. Uso diario: **`Arrancar ALXOR Vet.bat`** y **`Detener ALXOR Vet.bat`**.
+
+**Acceso desde otros PCs de la clínica (LAN):** avería la IP con `ipconfig` y entra en
+`http://<IP-del-PC>:8080/vet.html`. Si ejecutaste el instalador **como administrador**, la regla de
+firewall del puerto 8080 se crea sola; si no, ábrela una vez con:
+
+```powershell
+netsh advfirewall firewall add rule name="ALXOR Vet (8080)" dir=in action=allow protocol=TCP localport=8080
+```
+
+**Correo:** desactivado por defecto. Con la app detenida, edita la sección `Correo` de
+`app\appsettings.Production.json` (`"Habilitado": true`, Host/Puerto 587/Usuario/Clave/Remitente) y
+vuelve a arrancar.
+
+**Copia de seguridad:** detén la app y copia la carpeta `datos\` completa; o usa
+`postgres\pgsql\bin\pg_dump.exe -h localhost -p 5433 -U postgres alxor > copia.sql`.
+
+**Si algo falla:** todo queda registrado en `logs\` (`instalacion.log`, `postgres.log`, `app.log`).
+
+**Regenerar el paquete** (para el equipo técnico): ver `windows/README-BUILD.md`. En resumen,
+`dotnet publish src/AlxorCore.Api -c Release -r win-x64 --self-contained true
+-p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true` y luego
+`bash windows/scripts/empaquetar.sh`, que produce `dist/ALXORVet-Windows.zip`.
+
+---
+
 ## 1. Requisitos
 
 - Un **PC o servidor de la clínica** encendido durante el horario de trabajo (idealmente siempre).
