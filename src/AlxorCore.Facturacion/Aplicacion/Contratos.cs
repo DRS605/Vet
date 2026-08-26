@@ -36,13 +36,14 @@ public sealed record FacturaDto(
     DateTimeOffset? FechaHoraGenRegistro,
     Guid? RectificaFacturaId,
     string? MotivoRectificacion,
+    string? Observaciones,
     IReadOnlyList<LineaFacturaDto> Lineas)
 {
     public static FacturaDto Desde(Factura f) => new(
         f.Id, f.NumeroCompleto, f.FechaEmision, f.FechaOperacion, f.FechaVencimiento, f.ClienteId, f.ClienteNombre, f.ClienteNif,
         f.BaseImponible, f.CuotaIva, f.PorcentajeIrpf, f.RetencionIrpf, f.RecargoEquivalencia, f.RecargoTotal, f.Total, f.Estado.ToString(), f.TipoFactura.ToString(), f.Huella, f.HuellaAnterior,
         f.FechaHoraGenRegistro,
-        f.RectificaFacturaId, f.MotivoRectificacion,
+        f.RectificaFacturaId, f.MotivoRectificacion, f.Observaciones,
         f.Lineas.Select(l => new LineaFacturaDto(
             l.Descripcion, l.Cantidad, l.PrecioUnitario, l.PorcentajeDescuento, l.CodigoIva, l.PorcentajeIva, l.Base, l.CuotaIva,
             l.CosteUnitario, l.Margen, l.PorcentajeRecargo, l.CuotaRecargo)).ToList());

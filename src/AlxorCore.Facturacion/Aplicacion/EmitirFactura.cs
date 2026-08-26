@@ -28,7 +28,8 @@ public sealed record EmitirFacturaComando(
     decimal? PorcentajeIrpf = null,
     string? Serie = null,
     int? DiasVencimiento = null,
-    bool RecargoEquivalencia = false);
+    bool RecargoEquivalencia = false,
+    string? Observaciones = null);
 
 /// <summary>
 /// Caso de uso estrella: emitir una factura. Compone cliente (Terceros), productos/impuestos
@@ -106,7 +107,7 @@ public sealed class EmitirFactura
         }
 
         var numeroFactura = new NumeroFactura(numero.Valor.Prefijo, numero.Valor.Ejercicio, numero.Valor.Numero);
-        var factura = Factura.Emitir(empresaId, numeroFactura, fechaEmision, fechaOperacion, clienteFacturado, lineas, porcentajeIrpf, _reloj, fechaVencimiento);
+        var factura = Factura.Emitir(empresaId, numeroFactura, fechaEmision, fechaOperacion, clienteFacturado, lineas, porcentajeIrpf, _reloj, fechaVencimiento, comando.Observaciones);
         if (factura.EsFallo)
         {
             return Resultado.Fallo<FacturaDto>(factura.Error);

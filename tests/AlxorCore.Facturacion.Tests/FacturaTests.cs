@@ -132,6 +132,32 @@ public class FacturaTests
     }
 
     [Fact]
+    public void Emitir_guarda_las_observaciones_recortadas()
+    {
+        var factura = Factura.Emitir(Guid.NewGuid(), Numero(), Fecha, Fecha, Cliente,
+            [Linea(1m, 100m, 21m)], 0m, Reloj, observaciones: "  Pago a 30 días fin de mes.  ").Valor;
+
+        factura.Observaciones.Should().Be("Pago a 30 días fin de mes.");
+    }
+
+    [Fact]
+    public void Emitir_sin_observaciones_las_deja_nulas()
+    {
+        var factura = Factura.Emitir(Guid.NewGuid(), Numero(), Fecha, Fecha, Cliente, [Linea(1m, 100m, 21m)], 0m, Reloj).Valor;
+        factura.Observaciones.Should().BeNull();
+    }
+
+    [Fact]
+    public void Emitir_rechaza_observaciones_demasiado_largas()
+    {
+        var largo = new string('x', Factura.LongitudMaximaObservaciones + 1);
+        var resultado = Factura.Emitir(Guid.NewGuid(), Numero(), Fecha, Fecha, Cliente, [Linea(1m, 100m, 21m)], 0m, Reloj, observaciones: largo);
+
+        resultado.EsFallo.Should().BeTrue();
+        resultado.Error.Codigo.Should().Be("factura.observaciones_largas");
+    }
+
+    [Fact]
     public void Emitir_congela_los_datos_del_cliente()
     {
         var factura = Factura.Emitir(Guid.NewGuid(), Numero(), Fecha, Fecha, Cliente, [Linea(1m, 100m, 21m)], 0m, Reloj).Valor;

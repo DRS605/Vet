@@ -203,6 +203,18 @@ public sealed class ListarActosDeAnimal
 }
 
 /// <summary>
+/// Datos para facturar un lote de actos clínicos. Además de los <see cref="ActoIds"/> a incluir y marcar
+/// como facturados, admite <see cref="Lineas"/> libres compuestas por la SPA (los actos precargados con su
+/// importe ya editable + las líneas añadidas a mano o del maestro de conceptos) y un texto de
+/// <see cref="Observaciones"/> para el pie de la factura. Si <see cref="Lineas"/> viene vacío, se compone
+/// una línea por acto con su importe original.
+/// </summary>
+public sealed record FacturarActosComando(
+    IReadOnlyList<Guid> ActoIds,
+    IReadOnlyList<LineaComando>? Lineas = null,
+    string? Observaciones = null);
+
+/// <summary>
 /// Caso de uso estrella del puente de facturación: emite <b>una única factura VeriFactu</b> a partir
 /// de varios actos clínicos. Carga los actos indicados y valida que <b>todos existen</b>, están
 /// <see cref="EstadoActo.Pendiente"/> y son del <b>mismo cliente</b> (si no, devuelve un
@@ -234,11 +246,24 @@ public sealed class FacturarActos
         _reloj = reloj;
     }
 
-    public async Task<Resultado<FacturaDto>> EjecutarAsync(Guid empresaId, IReadOnlyList<Guid> actoIds, CancellationToken ct = default)
+    public Task<Resultado<FacturaDto>> EjecutarAsync(Guid empresaId, IReadOnlyList<Guid> actoIds, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(actoIds);
+        return EjecutarAsync(empresaId, new FacturarActosComando(actoIds), ct);
+    }
 
-        var ids = actoIds.Where(id => id != Guid.Empty).Distinct().ToList();
+    /// <summary>
+    /// Factura los actos indicados admitiendo, además, <b>líneas libres añadidas</b> por el usuario y un
+    /// campo <b>Observaciones</b>. Si el comando trae <see cref="FacturarActosComando.Lineas"/>, esas líneas
+    /// (compuestas en la SPA a partir de los actos + las añadidas, con importes ya editados) son las de la
+    /// factura; si no, se compone una línea por acto (comportamiento clásico). En ambos casos se valida que
+    /// los actos existen, están pendientes y son del mismo cliente, y al emitir se marcan como facturados.
+    /// </summary>
+    public async Task<Resultado<FacturaDto>> EjecutarAsync(Guid empresaId, FacturarActosComando comando, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(comando);
+
+        var ids = (comando.ActoIds ?? []).Where(id => id != Guid.Empty).Distinct().ToList();
         if (ids.Count == 0)
         {
             return Resultado.Fallo<FacturaDto>(Error.Validacion("acto.facturar_sin_actos", "Indica al menos un acto a facturar."));
@@ -261,13 +286,16 @@ public sealed class FacturarActos
             return Resultado.Fallo<FacturaDto>(Error.Validacion("acto.clientes_distintos", "Todos los actos de una factura deben ser del mismo cliente."));
         }
 
-        // Una línea por acto: concepto, cantidad 1, precio base = importe, IVA = porcentaje del acto.
-        var lineas = actos
-            .Select(a => new LineaComando(Cantidad: 1m, Descripcion: a.Concepto, PrecioUnitario: a.Importe, CodigoIva: a.CodigoIva()))
-            .ToList();
+        // Si la SPA envía las líneas (actos precargados + añadidas, con importes ya editados), se usan tal
+        // cual; si no, una línea por acto: concepto, cantidad 1, precio base = importe, IVA = del acto.
+        var lineas = comando.Lineas is { Count: > 0 }
+            ? comando.Lineas
+            : actos
+                .Select(a => new LineaComando(Cantidad: 1m, Descripcion: a.Concepto, PrecioUnitario: a.Importe, CodigoIva: a.CodigoIva()))
+                .ToList();
 
         // Reutiliza el caso de uso de Facturación: numeración correlativa, IVA y VeriFactu.
-        var factura = await _emitirFactura.EjecutarAsync(empresaId, new EmitirFacturaComando(clienteId, lineas), ct).ConfigureAwait(false);
+        var factura = await _emitirFactura.EjecutarAsync(empresaId, new EmitirFacturaComando(clienteId, lineas, Observaciones: comando.Observaciones), ct).ConfigureAwait(false);
         if (factura.EsFallo)
         {
             return Resultado.Fallo<FacturaDto>(factura.Error);

@@ -162,6 +162,9 @@
     tbody tr{border-bottom:1px solid #f4efe7;} tbody tr:last-child{border-bottom:none;}
     tbody tr.clickable{cursor:pointer;} tbody tr.clickable:hover{background:#faf7f1;}
     td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;}
+    .tbl-lineas td,.tbl-lineas th{padding:5px 6px;}
+    .tbl-lineas input,.tbl-lineas select{padding:7px 9px;border-radius:8px;font-size:13px;}
+    .tbl-lineas input.num{text-align:right;}
     .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:650;white-space:nowrap;}
     .pill.ok{background:var(--vet-soft);color:var(--pos);} .pill.wait{background:#fbeecd;color:var(--warn);}
     .pill.part{background:var(--accent-soft);color:var(--accent);} .pill.neg{background:#f7e3dd;color:var(--neg);}
@@ -475,6 +478,13 @@ function diaHasta(dstr){ return dstr+"T23:59:59"+tz(); }
    gestionarlo. Los selectores de especie (alta de animal, pautas, filtro de vacunas) salen de aquí. */
 let especiesCache = [];
 async function cargarEspecies(){ try{ especiesCache = await api("/especies"); }catch{ especiesCache = []; } }
+/* Maestro de conceptos facturables (productos del Catálogo). */
+let conceptosCache = [];
+async function cargarConceptos(){ try{ conceptosCache = await api("/productos"); }catch{ conceptosCache = []; } return conceptosCache; }
+/* <datalist> con los conceptos del maestro (para autocompletar el campo Concepto). */
+function datalistConceptos(id){ return `<datalist id="${id}">${conceptosCache.map(p=>`<option value="${esc(p.nombre)}"></option>`).join("")}</datalist>`; }
+/* Busca un concepto del maestro por nombre exacto (sin distinguir mayúsculas), o null si es texto libre. */
+function conceptoPorNombre(nombre){ const n=(nombre||"").trim().toLowerCase(); return conceptosCache.find(p=>p.nombre.toLowerCase()===n)||null; }
 function emojiEspecie(e){ const m={Perro:"🐕",Gato:"🐈",Conejo:"🐇",Ave:"🦜",Huron:"🦡"}; return m[e]||"🐾"; }
 function opcionesEspecie(sel){
   if(!especiesCache.length) return `<option value="${esc(sel||"")}">${esc(sel||"—")}</option>`;
@@ -499,7 +509,7 @@ const NAV = [
   ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["facturacion","Facturación"],
   ["ajustes","Ajustes"]
 ];
-const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",ajustes:"Ajustes"};
+const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",ajustes:"Ajustes"};
 
 /* ---------- fetch con Bearer ---------- */
 async function api(path, opts={}){
@@ -613,9 +623,9 @@ function toggleMenu(){ const s=document.querySelector(".sidebar"),b=$("backdrop"
 function closeMenu(){ document.querySelector(".sidebar").classList.remove("open"); $("backdrop").classList.remove("show"); }
 function ir(k, params){
   closeMenu(); vista=k; ctx=Object.assign({}, params||{});
-  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes") || (k==="especies"&&a.dataset.k==="vacunas")));
+  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes") || (k==="especies"&&a.dataset.k==="vacunas") || (k==="conceptos"&&a.dataset.k==="facturacion")));
   $("viewTitle").textContent=TITULOS[k]||k;
-  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,ajustes:vAjustes}[k];
+  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,ajustes:vAjustes}[k];
   (fn||vInicio)();
 }
 const view = h => $("view").innerHTML=h;
@@ -947,12 +957,15 @@ function modalCirugia(animalId){
       toast("Cirugía registrada.","ok"); vAnimal();
     });
 }
-function modalActo(animalId){
+async function modalActo(animalId){
+  if(!conceptosCache.length) await cargarConceptos();
   abrir("Registrar acto clínico", `
-    <label>Concepto *</label><input id="x_concepto" placeholder="p. ej. Consulta general"/>
+    <label>Concepto *</label>
+    <input id="x_concepto" list="dl_conceptos_acto" autocomplete="off" placeholder="Escribe o elige del maestro…" oninput="actoConceptoElegido()"/>
+    ${datalistConceptos("dl_conceptos_acto")}
     <div class="grid-2"><div><label>Importe (base, €) *</label><input id="x_importe" inputmode="decimal"/></div><div><label>IVA (%)</label><input id="x_iva" inputmode="decimal" placeholder="21"/></div></div>
     <label>Fecha</label><input id="x_fecha" type="date" value="${hoyISO()}"/>
-    <p class="muted" style="font-size:12px">El acto queda pendiente de facturar; podrás facturarlo o cobrarlo con ticket desde Facturación.</p>
+    <p class="muted" style="font-size:12px">Elige un concepto del maestro (rellena el importe, siempre editable) o escribe uno libre. El acto queda pendiente de facturar.</p>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("x_concepto")) throw new Error("El concepto es obligatorio.");
@@ -963,6 +976,12 @@ function modalActo(animalId){
       })});
       toast("Acto registrado.","ok"); vAnimal();
     });
+}
+/* Al elegir/escribir un concepto del maestro, rellena importe e IVA (siguen editables). */
+function actoConceptoElegido(){
+  const p=conceptoPorNombre(val("x_concepto")); if(!p) return;
+  $("x_importe").value = p.precioUnitario;
+  if(p.porcentajeIva!=null) $("x_iva").value = p.porcentajeIva;
 }
 
 /* ---------- VACUNAS ---------- */
@@ -1160,6 +1179,7 @@ async function modalNuevaCita(){
 let _actosSel=new Set();
 async function vFacturacion(){ cargando(); _actosSel=new Set(); await conError(async()=>{
   const [actos, animales, clientes]=await Promise.all([api(`/actos?estado=Pendiente`), api(`/animales`), api(`/clientes`)]);
+  await cargarConceptos();
   window._actosCache=actos;
   const aById={}; animales.forEach(a=>aById[a.id]=a);
   const cById={}; clientes.forEach(c=>cById[c.id]=c);
@@ -1177,7 +1197,7 @@ async function vFacturacion(){ cargando(); _actosSel=new Set(); await conError(a
     : vacio("🧾","Nada por facturar","Cuando registres actos clínicos en las fichas de los animales aparecerán aquí para emitir factura o cobrar con ticket.", `<button class="btn line" onclick="ir('clientes')">Ir a clientes</button>`);
   view(`
     <h3 class="sec">Actos pendientes</h3>
-    <p class="subt">Selecciona actos de un mismo cliente y emite una factura, o cobra un acto suelto con ticket.</p>
+    <p class="subt">Selecciona actos de un mismo cliente y emite una factura, o cobra un acto suelto con ticket. <a onclick="ir('conceptos')" style="cursor:pointer">Gestionar servicios / conceptos →</a></p>
     ${panel("Pendientes de facturar", cuerpo, `<span class="sp">${actos.length} acto${actos.length===1?"":"s"}</span>`)}`);
 }); }
 function toggleActo(id){
@@ -1190,14 +1210,120 @@ function toggleActo(id){
   const btn=$("btnFacturar"); btn.disabled=_actosSel.size===0 || clientes.size>1;
   btn.textContent = clientes.size>1 ? "Selecciona un solo cliente" : "Facturar seleccionados";
 }
+const IVAS = [21,10,4,0];
+function codigoIvaDe(pct){ const p=Number(pct); return IVAS.includes(p)?`IVA${p}`:"IVA21"; }
+function _ivaOpts(sel){ return IVAS.map(v=>`<option value="${v}"${Number(sel)===v?" selected":""}>${v}%</option>`).join(""); }
+let _facLineas=[];
 async function facturarSeleccion(){
   const ids=[..._actosSel]; if(!ids.length) return;
-  try{ const f=await api(`/actos/facturar`,{method:"POST",body:JSON.stringify({actoIds:ids})});
-    toast(f&&f.numeroCompleto?`Factura ${f.numeroCompleto} emitida.`:"Factura emitida.","ok"); vFacturacion();
-  }catch(e){ toast(e.message,"err"); }
+  if(!conceptosCache.length) await cargarConceptos();
+  // Precarga una línea por acto seleccionado (importe editable antes de emitir).
+  const actos=(window._actosCache||[]).filter(a=>_actosSel.has(a.id));
+  _facLineas = actos.map(a=>({concepto:a.concepto, cantidad:1, importe:a.importe, iva:a.porcentajeIva!=null?a.porcentajeIva:21, productoId:null}));
+  abrir("Emitir factura", `
+    <p class="muted" style="margin:0 0 10px;font-size:13px">Revisa las líneas (todo editable). Añade líneas nuevas del maestro o de texto libre, y unas observaciones opcionales. Al pulsar Emitir se genera la factura VeriFactu.</p>
+    <div id="facLineasBox"></div>
+    ${datalistConceptos("dl_conceptos_fac")}
+    <div style="margin:6px 0 14px"><button type="button" class="btn tiny line" onclick="facAnadir()">${ICON.plus} Añadir línea</button></div>
+    <label>Observaciones</label>
+    <textarea id="fac_obs" rows="3" placeholder="Texto libre que aparecerá al pie de la factura (opcional)…"></textarea>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      facSync();
+      if(!_facLineas.length) throw new Error("La factura debe tener al menos una línea.");
+      for(const l of _facLineas){
+        if(!l.concepto || !l.concepto.trim()) throw new Error("Cada línea necesita un concepto.");
+        if(l.importe==null || isNaN(l.importe)) throw new Error(`Indica el importe de «${l.concepto}».`);
+        if(!(l.cantidad>0)) throw new Error(`La cantidad de «${l.concepto}» debe ser mayor que cero.`);
+      }
+      const lineas=_facLineas.map(l=>({cantidad:l.cantidad, descripcion:l.concepto.trim(), precioUnitario:l.importe, codigoIva:codigoIvaDe(l.iva), productoId:l.productoId||null}));
+      const f=await api(`/actos/facturar`,{method:"POST",body:JSON.stringify({actoIds:ids, lineas, observaciones:val("fac_obs")||null})});
+      toast(f&&f.numeroCompleto?`Factura ${f.numeroCompleto} emitida.`:"Factura emitida.","ok"); vFacturacion();
+    }, "Emitir");
+  facRender();
 }
+function facRender(){
+  const box=$("facLineasBox"); if(!box) return;
+  box.innerHTML = `<table class="tbl-lineas"><thead><tr><th>Concepto</th><th class="num" style="width:70px">Cant.</th><th class="num" style="width:100px">Importe €</th><th style="width:80px">IVA</th><th style="width:34px"></th></tr></thead>
+    <tbody>${_facLineas.map((l,i)=>`
+      <tr>
+        <td><input id="fl_con_${i}" list="dl_conceptos_fac" autocomplete="off" value="${esc(l.concepto)}" oninput="facConcepto(${i})" placeholder="Concepto…"/></td>
+        <td><input id="fl_cant_${i}" class="num" inputmode="decimal" value="${l.cantidad}"/></td>
+        <td><input id="fl_imp_${i}" class="num" inputmode="decimal" value="${l.importe}"/></td>
+        <td><select id="fl_iva_${i}">${_ivaOpts(l.iva)}</select></td>
+        <td><button type="button" class="btn tiny line" title="Quitar" onclick="facQuitar(${i})">✕</button></td>
+      </tr>`).join("")}</tbody></table>`;
+}
+function facSync(){
+  _facLineas=_facLineas.map((l,i)=>{
+    const con=$("fl_con_"+i), cant=$("fl_cant_"+i), imp=$("fl_imp_"+i), iva=$("fl_iva_"+i);
+    if(!con) return l;
+    return {concepto:con.value, cantidad:Number((cant.value||"").replace(",",".")), importe:imp.value===""?null:Number(imp.value.replace(",",".")), iva:Number(iva.value), productoId:l.productoId||null};
+  });
+}
+function facConcepto(i){
+  const p=conceptoPorNombre($("fl_con_"+i).value);
+  _facLineas[i].productoId = p?p.id:null;
+  if(p){ $("fl_imp_"+i).value=p.precioUnitario; if(p.porcentajeIva!=null) $("fl_iva_"+i).value=p.porcentajeIva; }
+}
+function facAnadir(){ facSync(); _facLineas.push({concepto:"", cantidad:1, importe:null, iva:21, productoId:null}); facRender(); $("fl_con_"+(_facLineas.length-1))?.focus(); }
+function facQuitar(i){ facSync(); _facLineas.splice(i,1); facRender(); }
 async function cobrarTicket(id){
   try{ await api(`/actos/${id}/ticket`,{method:"POST"}); toast("Cobrado con ticket.","ok"); vFacturacion(); }
+  catch(e){ toast(e.message,"err"); }
+}
+
+/* ---------- SERVICIOS / CONCEPTOS (maestro del Catálogo) ---------- */
+async function vConceptos(){ cargando(); await conError(async()=>{
+  await cargarConceptos();
+  const filas = conceptosCache.map(p=>`
+    <tr>
+      <td><b>${esc(p.nombre)}</b>${p.referencia?` <span class="muted">· ${esc(p.referencia)}</span>`:""}</td>
+      <td class="num">${eur(p.precioUnitario)}</td>
+      <td class="num muted">${p.porcentajeIva}%</td>
+      <td class="muted">${esc(p.unidad||"ud")}</td>
+      <td class="num">
+        <button class="btn tiny line" onclick='modalConcepto(${JSON.stringify(p)})'>Editar</button>
+        <button class="btn tiny line" onclick='darBajaConcepto(${JSON.stringify(p.id)},${JSON.stringify(p.nombre)})'>Dar de baja</button>
+      </td>
+    </tr>`).join("");
+  const cuerpo = conceptosCache.length
+    ? `<table><thead><tr><th>Concepto</th><th class="num">Precio</th><th class="num">IVA</th><th>Unidad</th><th class="num">Acciones</th></tr></thead><tbody>${filas}</tbody></table>`
+    : vacio("🧾","Sin conceptos","Crea tus servicios y conceptos facturables (Consulta, Vacunación, Cirugía…) con su precio prefijado. Al registrar un acto o facturar podrás elegirlos y el importe se rellenará solo (siempre editable).", `<button class="btn v" onclick="modalConcepto()">${ICON.plus} Nuevo concepto</button>`);
+  view(`
+    <div style="margin-bottom:12px"><a onclick="ir('facturacion')" class="muted">← Facturación</a></div>
+    <h3 class="sec">Servicios / Conceptos</h3>
+    <p class="subt">El maestro de conceptos facturables de tu clínica, con su importe prefijado. Se reutiliza al registrar actos y al emitir facturas: eliges el concepto y se rellena el importe (siempre editable), o escribes uno libre.</p>
+    ${panel("Maestro de conceptos", cuerpo, `<button class="btn v small" onclick="modalConcepto()">${ICON.plus} Nuevo concepto</button>`)}`);
+}); }
+function modalConcepto(p){
+  const editar = !!(p&&p.id);
+  const ivaSel = p&&p.porcentajeIva!=null ? p.porcentajeIva : 21;
+  const tipoSel = p&&p.tipo ? p.tipo : "Servicio";
+  abrir(editar?"Editar concepto":"Nuevo concepto", `
+    <label>Nombre *</label><input id="co_nombre" value="${esc(p&&p.nombre||"")}" placeholder="p. ej. Consulta general"/>
+    <div class="grid-2">
+      <div><label>Precio (€) *</label><input id="co_precio" inputmode="decimal" value="${p&&p.precioUnitario!=null?p.precioUnitario:""}"/></div>
+      <div><label>IVA</label><select id="co_iva">${_ivaOpts(ivaSel)}</select></div>
+    </div>
+    <div class="grid-2">
+      <div><label>Referencia</label><input id="co_ref" value="${esc(p&&p.referencia||"")}" placeholder="opcional"/></div>
+      <div><label>Unidad</label><input id="co_uni" value="${esc(p&&p.unidad||"")}" placeholder="ud"/></div>
+    </div>
+    <label>Tipo</label><select id="co_tipo"><option value="Servicio"${tipoSel==="Servicio"?" selected":""}>Servicio</option><option value="Bien"${tipoSel==="Bien"?" selected":""}>Bien</option></select>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      if(!val("co_nombre")) throw new Error("El nombre es obligatorio.");
+      if(num("co_precio")==null) throw new Error("Indica el precio.");
+      const body={nombre:val("co_nombre"), precioUnitario:num("co_precio"), codigoIva:codigoIvaDe(val("co_iva")), referencia:val("co_ref")||null, unidad:val("co_uni")||null, tipo:val("co_tipo")};
+      if(editar) await api(`/productos/${p.id}`,{method:"PUT",body:JSON.stringify(body)});
+      else await api(`/productos`,{method:"POST",body:JSON.stringify(body)});
+      toast(editar?"Concepto actualizado.":"Concepto creado.","ok"); await cargarConceptos(); vConceptos();
+    }, editar?"Guardar":"Crear");
+}
+async function darBajaConcepto(id, nombre){
+  if(!confirm(`¿Dar de baja el concepto «${nombre}»? Dejará de aparecer en el maestro.`)) return;
+  try{ await api(`/productos/${id}`,{method:"DELETE"}); toast("Concepto dado de baja.","ok"); await cargarConceptos(); vConceptos(); }
   catch(e){ toast(e.message,"err"); }
 }
 
@@ -1252,6 +1378,11 @@ async function vAjustes(){ cargando(); await conError(async()=>{
         <div class="form">
           <p class="muted" style="margin:0 0 14px">Gestiona el maestro de especies de tu clínica: da de alta, edita o da de baja las especies que usan los animales y las pautas de vacunas.</p>
           <div class="form-actions"><button class="btn v" onclick="ir('especies')">${ICON.plus} Gestionar especies</button></div>
+        </div>`)}
+      ${panel("Servicios / Conceptos", `
+        <div class="form">
+          <p class="muted" style="margin:0 0 14px">El maestro de conceptos facturables con su importe prefijado (Consulta, Vacunación, Cirugía…). Se reutiliza al registrar actos y al emitir facturas.</p>
+          <div class="form-actions"><button class="btn v" onclick="ir('conceptos')">${ICON.plus} Gestionar conceptos</button></div>
         </div>`)}
     </div>`);
 }); }

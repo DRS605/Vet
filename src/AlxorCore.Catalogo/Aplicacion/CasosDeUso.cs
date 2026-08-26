@@ -97,6 +97,34 @@ public sealed class ActualizarProducto
     }
 }
 
+/// <summary>Caso de uso: dar de baja (desactivar) un producto. No se borra: deja de aparecer en el catálogo activo.</summary>
+public sealed class DesactivarProducto
+{
+    private readonly IRepositorioProductos _productos;
+    private readonly IUnidadDeTrabajoCatalogo _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public DesactivarProducto(IRepositorioProductos productos, IUnidadDeTrabajoCatalogo unidadDeTrabajo, IReloj reloj)
+    {
+        _productos = productos;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado> EjecutarAsync(Guid productoId, CancellationToken ct = default)
+    {
+        var producto = await _productos.ObtenerPorIdAsync(productoId, ct).ConfigureAwait(false);
+        if (producto is null)
+        {
+            return Resultado.Fallo(Error.NoEncontrado("producto.no_encontrado", "El producto no existe."));
+        }
+
+        producto.Desactivar(_reloj);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok();
+    }
+}
+
 /// <summary>Caso de uso: listar el histórico de precios de un producto (más reciente primero).</summary>
 public sealed class ListarHistoricoPrecios
 {

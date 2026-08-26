@@ -36,6 +36,10 @@ public static class EndpointsCatalogo
             .WithSummary("Actualiza un producto.")
             .RequierePermiso(Permisos.ProductoGestionar);
 
+        productos.MapDelete("/{id:guid}", DesactivarAsync)
+            .WithSummary("Da de baja (desactiva) un producto.")
+            .RequierePermiso(Permisos.ProductoGestionar);
+
         productos.MapPost("/importar", ImportarAsync)
             .WithSummary("Importa productos desde CSV (previsualiza o confirma).")
             .RequierePermiso(Permisos.ProductoGestionar);
@@ -91,6 +95,9 @@ public static class EndpointsCatalogo
 
     private static async Task<IResult> ActualizarAsync(Guid id, DatosProducto datos, ActualizarProducto caso, CancellationToken ct) =>
         (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> DesactivarAsync(Guid id, DesactivarProducto caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
 
     private static async Task<IResult> ImportarAsync(ImportarCsvPeticion peticion, IContextoEmpresa contexto, ImportarProductos caso, CancellationToken ct)
     {

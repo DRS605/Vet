@@ -3,6 +3,7 @@ using System;
 using AlxorCore.Facturacion.Infraestructura;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AlxorCore.Facturacion.Infraestructura.Persistencia.Migraciones
 {
     [DbContext(typeof(FacturacionDbContext))]
-    partial class FacturacionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826104620_FacturaObservaciones")]
+    partial class FacturaObservaciones
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -1,6 +1,7 @@
 using AlxorCore.Api.Comun;
 using AlxorCore.Clinica.Aplicacion;
 using AlxorCore.Clinica.Dominio;
+using AlxorCore.Facturacion.Aplicacion;
 using AlxorCore.Nucleo.Autorizacion;
 using AlxorCore.Nucleo.Multiempresa;
 using AlxorCore.Nucleo.Resultados;
@@ -663,11 +664,22 @@ public static class EndpointsClinica
             return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
         }
 
-        var actoIds = cuerpo?.ActoIds ?? new List<Guid>();
-        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, actoIds, ct).ConfigureAwait(false);
+        var comando = new FacturarActosComando(
+            cuerpo?.ActoIds ?? new List<Guid>(),
+            cuerpo?.Lineas,
+            cuerpo?.Observaciones);
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, comando, ct).ConfigureAwait(false);
         return resultado.EsCorrecto ? resultado.ACreado($"/facturas/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
     }
 }
 
-/// <summary>Cuerpo para facturar varios actos clínicos: la lista de identificadores de acto.</summary>
-public sealed record FacturarActosCuerpo(IReadOnlyList<Guid> ActoIds);
+/// <summary>
+/// Cuerpo para facturar varios actos clínicos. Además de los identificadores de acto, admite las líneas
+/// editadas/añadidas en la pantalla de Facturación (<see cref="Lineas"/>, con importes ya editables y
+/// líneas de texto libre) y las <see cref="Observaciones"/> del pie de la factura. Si <see cref="Lineas"/>
+/// va vacío, se factura una línea por acto con su importe original.
+/// </summary>
+public sealed record FacturarActosCuerpo(
+    IReadOnlyList<Guid> ActoIds,
+    IReadOnlyList<LineaComando>? Lineas = null,
+    string? Observaciones = null);

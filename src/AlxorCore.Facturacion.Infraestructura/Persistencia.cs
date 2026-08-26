@@ -79,6 +79,8 @@ internal sealed class ConfiguracionFactura : IEntityTypeConfiguration<Factura>
 
         builder.Property(f => f.CreadoEn).HasColumnName("creado_en").IsRequired();
 
+        builder.Property(f => f.Observaciones).HasColumnName("observaciones").HasMaxLength(Factura.LongitudMaximaObservaciones);
+
         // Campos VeriFactu/SII reservados (nullable, sin lógica en el MVP).
         builder.Property(f => f.Huella).HasColumnName("huella").HasMaxLength(128);
         builder.Property(f => f.HuellaAnterior).HasColumnName("huella_anterior").HasMaxLength(128);

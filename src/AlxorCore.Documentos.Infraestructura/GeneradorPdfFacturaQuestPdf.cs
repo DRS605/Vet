@@ -122,6 +122,15 @@ internal sealed class GeneradorPdfFacturaQuestPdf : IGeneradorPdfFactura
                         totales.Item().Text($"TOTAL: {Redondeo.Formatear(factura.Total)} €").Bold().FontSize(13);
                     });
 
+                    if (!string.IsNullOrWhiteSpace(factura.Observaciones))
+                    {
+                        col.Item().PaddingTop(18).Column(obs =>
+                        {
+                            obs.Item().Text("Observaciones").Bold();
+                            obs.Item().PaddingTop(2).Text(factura.Observaciones).FontColor(Colors.Grey.Darken2);
+                        });
+                    }
+
                     var qr = GenerarQr(factura, emisor);
                     if (qr is not null)
                     {

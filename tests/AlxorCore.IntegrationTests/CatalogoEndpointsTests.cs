@@ -81,6 +81,19 @@ public sealed class CatalogoEndpointsTests : IClassFixture<FabricaApiPruebas>
     }
 
     [Fact]
+    public async Task Dar_de_baja_un_producto_lo_saca_del_catalogo_activo()
+    {
+        var (cliente, _) = await Ayudas.ConEmpresaAsync(_fabrica);
+        var creado = (await (await cliente.PostAsJsonAsync("/productos", new { Nombre = "Consulta", PrecioUnitario = 35m, CodigoIva = "IVA21" })).Content.ReadFromJsonAsync<ProductoDto>())!;
+
+        var baja = await cliente.DeleteAsync(new Uri($"/productos/{creado.Id}", UriKind.Relative));
+        baja.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var lista = await cliente.GetFromJsonAsync<List<ProductoDto>>("/productos");
+        lista!.Should().NotContain(p => p.Id == creado.Id);
+    }
+
+    [Fact]
     public async Task Crear_producto_con_iva_invalido_devuelve_400()
     {
         var (cliente, _) = await Ayudas.ConEmpresaAsync(_fabrica);

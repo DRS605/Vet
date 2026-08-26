@@ -21,6 +21,8 @@ public sealed class ActoFacturacionEndpointsTests : IClassFixture<FabricaApiPrue
     private sealed record ActoResp(
         Guid Id, Guid AnimalId, Guid ClienteId, decimal Importe, decimal PorcentajeIva, string Estado, Guid? FacturaId);
     private sealed record FacturaResp(Guid Id, string NumeroCompleto, decimal BaseImponible, decimal CuotaIva, decimal Total, string Estado);
+    private sealed record LineaResp(string Descripcion, decimal Cantidad, decimal PrecioUnitario, decimal PorcentajeIva);
+    private sealed record FacturaDetalleResp(Guid Id, string NumeroCompleto, decimal BaseImponible, decimal Total, string? Observaciones, List<LineaResp> Lineas);
 
     private static async Task<Guid> CrearClienteAsync(HttpClient cliente, string nombre = "Propietario SL")
     {
@@ -105,6 +107,47 @@ public sealed class ActoFacturacionEndpointsTests : IClassFixture<FabricaApiPrue
             acto!.Estado.Should().Be("Facturado");
             acto.FacturaId.Should().Be(factura.Id);
         }
+    }
+
+    [Fact]
+    public async Task Facturar_actos_con_linea_libre_anadida_y_observaciones_las_persiste()
+    {
+        var (cliente, _) = await Ayudas.ConEmpresaAsync(_fabrica);
+        var clienteId = await CrearClienteAsync(cliente);
+        var animal = await CrearAnimalAsync(cliente, clienteId);
+        var acto = await RegistrarActoAsync(cliente, animal.Id, "Consulta", 40m, iva: 21m);
+
+        // La SPA compone TODAS las líneas (acto precargado con importe editado + línea de texto libre)
+        // y unas observaciones, y las envía junto con el acto a facturar.
+        var cuerpo = new
+        {
+            ActoIds = new[] { acto.Id },
+            Lineas = new object[]
+            {
+                new { Cantidad = 1m, Descripcion = "Consulta", PrecioUnitario = 40m, CodigoIva = "IVA21" },
+                new { Cantidad = 1m, Descripcion = "Corte de uñas", PrecioUnitario = 8m, CodigoIva = "IVA21" },
+            },
+            Observaciones = "Volver en 15 días para revisión.",
+        };
+
+        var facturar = await cliente.PostAsJsonAsync("/actos/facturar", cuerpo);
+        facturar.StatusCode.Should().Be(HttpStatusCode.Created);
+        var factura = (await facturar.Content.ReadFromJsonAsync<FacturaDetalleResp>())!;
+
+        factura.Lineas.Should().HaveCount(2);
+        factura.Lineas.Should().Contain(l => l.Descripcion == "Corte de uñas" && l.PrecioUnitario == 8m);
+        factura.Observaciones.Should().Be("Volver en 15 días para revisión.");
+        factura.BaseImponible.Should().Be(48m); // 40 + 8
+
+        // El acto queda vinculado a la factura emitida.
+        var enActo = await cliente.GetFromJsonAsync<ActoResp>($"/actos/{acto.Id}");
+        enActo!.Estado.Should().Be("Facturado");
+        enActo.FacturaId.Should().Be(factura.Id);
+
+        // Se persiste: al consultar la factura vuelven las dos líneas y las observaciones.
+        var enFacturacion = await cliente.GetFromJsonAsync<FacturaDetalleResp>($"/facturas/{factura.Id}");
+        enFacturacion!.Lineas.Should().HaveCount(2);
+        enFacturacion.Observaciones.Should().Be("Volver en 15 días para revisión.");
     }
 
     [Fact]

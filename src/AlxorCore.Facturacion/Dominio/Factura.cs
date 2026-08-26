@@ -20,6 +20,9 @@ public sealed class Factura : RaizAgregadoEmpresa<Guid>
 {
     public const decimal IrpfMaximo = 60m;
 
+    /// <summary>Longitud máxima de las observaciones (texto libre al pie de la factura).</summary>
+    public const int LongitudMaximaObservaciones = 1000;
+
     /// <summary>
     /// Importe total máximo de una factura simplificada (ticket). Se usa el límite de 3.000 € que la
     /// normativa (art. 4 RD 1619/2012) permite en sectores como comercio minorista y hostelería, que
@@ -109,6 +112,9 @@ public sealed class Factura : RaizAgregadoEmpresa<Guid>
 
     public DateTimeOffset CreadoEn { get; private set; }
 
+    /// <summary>Observaciones (texto libre) que se muestran al pie de la factura y en su PDF. Opcional.</summary>
+    public string? Observaciones { get; private set; }
+
     // --- Campos VeriFactu/SII ---
     public string? Huella { get; private set; }
     public string? HuellaAnterior { get; private set; }
@@ -149,7 +155,8 @@ public sealed class Factura : RaizAgregadoEmpresa<Guid>
         IReadOnlyList<NuevaLinea> lineas,
         decimal porcentajeIrpf,
         IReloj reloj,
-        DateOnly? fechaVencimiento = null)
+        DateOnly? fechaVencimiento = null,
+        string? observaciones = null)
     {
         ArgumentNullException.ThrowIfNull(numero);
         ArgumentNullException.ThrowIfNull(cliente);
@@ -159,6 +166,11 @@ public sealed class Factura : RaizAgregadoEmpresa<Guid>
         if (lineas.Count == 0)
         {
             return Resultado.Fallo<Factura>(Error.Validacion("factura.sin_lineas", "La factura debe tener al menos una línea."));
+        }
+
+        if (observaciones is not null && observaciones.Trim().Length > LongitudMaximaObservaciones)
+        {
+            return Resultado.Fallo<Factura>(Error.Validacion("factura.observaciones_largas", "Las observaciones son demasiado largas."));
         }
 
         if (fechaOperacion > fechaEmision)
@@ -185,7 +197,10 @@ public sealed class Factura : RaizAgregadoEmpresa<Guid>
             }
         }
 
-        var factura = new Factura(Guid.NewGuid(), empresaId, numero, fechaEmision, fechaOperacion, fechaVencimiento ?? fechaEmision, cliente, porcentajeIrpf, reloj.AhoraUtc);
+        var factura = new Factura(Guid.NewGuid(), empresaId, numero, fechaEmision, fechaOperacion, fechaVencimiento ?? fechaEmision, cliente, porcentajeIrpf, reloj.AhoraUtc)
+        {
+            Observaciones = string.IsNullOrWhiteSpace(observaciones) ? null : observaciones.Trim(),
+        };
         foreach (var datos in lineas)
         {
             factura._lineas.Add(new LineaFactura(empresaId, datos));

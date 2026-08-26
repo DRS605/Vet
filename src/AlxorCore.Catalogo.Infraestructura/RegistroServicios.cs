@@ -40,6 +40,7 @@ public static class RegistroServicios
         servicios.AddScoped<CrearProducto>();
         servicios.AddScoped<ImportarProductos>();
         servicios.AddScoped<ActualizarProducto>();
+        servicios.AddScoped<DesactivarProducto>();
         servicios.AddScoped<ListarProductos>();
         servicios.AddScoped<ObtenerProducto>();
         servicios.AddScoped<ListarHistoricoPrecios>();
