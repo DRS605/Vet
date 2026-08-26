@@ -151,6 +151,20 @@ public static class RegistroServicios
         servicios.AddScoped<IRepositorioAccesosPortal>(sp => sp.GetRequiredService<RepositorioAccesosPortal>());
         servicios.AddScoped<IConsultaAccesosPortal>(sp => sp.GetRequiredService<RepositorioAccesosPortal>());
 
+        // Campos personalizados: la clínica amplía las fichas de cliente y animal sin tocar código.
+        servicios.AddScoped<RepositorioCamposPersonalizados>();
+        servicios.AddScoped<IRepositorioCamposPersonalizados>(sp => sp.GetRequiredService<RepositorioCamposPersonalizados>());
+        servicios.AddScoped<IConsultaCamposPersonalizados>(sp => sp.GetRequiredService<RepositorioCamposPersonalizados>());
+        servicios.AddScoped<IRepositorioValoresCampos>(sp => sp.GetRequiredService<RepositorioCamposPersonalizados>());
+        servicios.AddScoped<IConsultaValoresCampos>(sp => sp.GetRequiredService<RepositorioCamposPersonalizados>());
+
+        servicios.AddScoped<CrearCampoPersonalizado>();
+        servicios.AddScoped<ActualizarCampoPersonalizado>();
+        servicios.AddScoped<DesactivarCampoPersonalizado>();
+        servicios.AddScoped<ListarCamposPersonalizados>();
+        servicios.AddScoped<ObtenerCamposDeRegistro>();
+        servicios.AddScoped<GuardarCamposDeRegistro>();
+
         servicios.AddScoped<GenerarAccesoPortal>();
         servicios.AddScoped<RevocarAccesoPortal>();
         servicios.AddScoped<ObtenerAccesoPortal>();

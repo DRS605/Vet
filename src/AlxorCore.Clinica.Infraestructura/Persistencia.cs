@@ -41,6 +41,10 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<AccesoPortal> AccesosPortal => Set<AccesoPortal>();
 
+    public DbSet<CampoPersonalizado> CamposPersonalizados => Set<CampoPersonalizado>();
+
+    public DbSet<ValorCampoPersonalizado> ValoresCampos => Set<ValorCampoPersonalizado>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Esquema);
@@ -892,6 +896,123 @@ internal sealed class RepositorioAccesosPortal : IRepositorioAccesosPortal, ICon
 
     public Task<AccesoPortal?> ObtenerPorClienteAsync(Guid clienteId, CancellationToken ct = default) =>
         _contexto.AccesosPortal.SingleOrDefaultAsync(a => a.ClienteId == clienteId && a.Activo, ct);
+}
+
+internal sealed class ConfiguracionCampoPersonalizado : IEntityTypeConfiguration<CampoPersonalizado>
+{
+    public void Configure(EntityTypeBuilder<CampoPersonalizado> builder)
+    {
+        builder.ToTable("campo_personalizado");
+        builder.HasKey(c => c.Id);
+        builder.Property(c => c.Id).HasColumnName("id");
+        builder.Property(c => c.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(c => c.Entidad).HasColumnName("entidad").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(c => c.Etiqueta).HasColumnName("etiqueta").HasMaxLength(CampoPersonalizado.LongitudMaximaEtiqueta).IsRequired();
+        builder.Property(c => c.Clave).HasColumnName("clave").HasMaxLength(CampoPersonalizado.LongitudMaximaClave).IsRequired();
+        builder.Property(c => c.Tipo).HasColumnName("tipo").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(c => c.Opciones).HasColumnName("opciones").HasMaxLength(CampoPersonalizado.LongitudMaximaOpciones);
+        builder.Property(c => c.Obligatorio).HasColumnName("obligatorio").IsRequired();
+        builder.Property(c => c.Orden).HasColumnName("orden").IsRequired();
+        builder.Property(c => c.Activo).HasColumnName("activo").IsRequired();
+        builder.Property(c => c.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(c => c.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        // La clave es única por empresa y entidad: no puede haber dos «Nº de chip» en la ficha de animal.
+        builder.HasIndex(c => new { c.EmpresaId, c.Entidad, c.Clave })
+            .HasDatabaseName("ux_campo_personalizado_empresa_entidad_clave")
+            .IsUnique();
+        builder.Ignore(c => c.EventosDominio);
+    }
+}
+
+internal sealed class ConfiguracionValorCampoPersonalizado : IEntityTypeConfiguration<ValorCampoPersonalizado>
+{
+    public void Configure(EntityTypeBuilder<ValorCampoPersonalizado> builder)
+    {
+        builder.ToTable("valor_campo_personalizado");
+        builder.HasKey(v => v.Id);
+        builder.Property(v => v.Id).HasColumnName("id");
+        builder.Property(v => v.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(v => v.CampoId).HasColumnName("campo_id").IsRequired();
+        builder.Property(v => v.Entidad).HasColumnName("entidad").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(v => v.RegistroId).HasColumnName("registro_id").IsRequired();
+        builder.Property(v => v.Valor).HasColumnName("valor").HasMaxLength(ValorCampoPersonalizado.LongitudMaximaValor).IsRequired();
+        builder.Property(v => v.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        // Un valor por campo y ficha; y un índice para leer todos los valores de una ficha de una vez.
+        builder.HasIndex(v => new { v.CampoId, v.RegistroId })
+            .HasDatabaseName("ux_valor_campo_campo_registro")
+            .IsUnique();
+        builder.HasIndex(v => new { v.EmpresaId, v.RegistroId }).HasDatabaseName("ix_valor_campo_empresa_registro");
+        builder.Ignore(v => v.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioCamposPersonalizados : IRepositorioCamposPersonalizados, IConsultaCamposPersonalizados, IRepositorioValoresCampos, IConsultaValoresCampos
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioCamposPersonalizados(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<CampoPersonalizado?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.CamposPersonalizados.SingleOrDefaultAsync(c => c.Id == id, ct);
+
+    public void Agregar(CampoPersonalizado campo) => _contexto.CamposPersonalizados.Add(campo);
+
+    public async Task<CampoPersonalizadoDto?> ObtenerAsync(Guid id, CancellationToken ct = default)
+    {
+        var campo = await _contexto.CamposPersonalizados.SingleOrDefaultAsync(c => c.Id == id, ct).ConfigureAwait(false);
+        return campo is null ? null : CampoPersonalizadoDto.Desde(campo);
+    }
+
+    public async Task<IReadOnlyList<CampoPersonalizadoDto>> ListarAsync(Guid empresaId, EntidadPersonalizable entidad, bool incluirInactivos = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.CamposPersonalizados.Where(c => c.EmpresaId == empresaId && c.Entidad == entidad);
+        if (!incluirInactivos)
+        {
+            consulta = consulta.Where(c => c.Activo);
+        }
+
+        var campos = await consulta.OrderBy(c => c.Orden).ThenBy(c => c.Etiqueta).ToListAsync(ct).ConfigureAwait(false);
+        return campos.Select(CampoPersonalizadoDto.Desde).ToList();
+    }
+
+    public Task<bool> ExisteClaveAsync(Guid empresaId, EntidadPersonalizable entidad, string clave, Guid? excluirId = null, CancellationToken ct = default) =>
+        _contexto.CamposPersonalizados.AnyAsync(
+            c => c.EmpresaId == empresaId && c.Entidad == entidad && c.Clave == clave && (excluirId == null || c.Id != excluirId),
+            ct);
+
+    public async Task<IReadOnlyList<ValorCampoPersonalizado>> ListarPorRegistroAsync(Guid registroId, CancellationToken ct = default) =>
+        await _contexto.ValoresCampos.Where(v => v.RegistroId == registroId).ToListAsync(ct).ConfigureAwait(false);
+
+    public void Agregar(ValorCampoPersonalizado valor) => _contexto.ValoresCampos.Add(valor);
+
+    public void Eliminar(ValorCampoPersonalizado valor) => _contexto.ValoresCampos.Remove(valor);
+
+    public async Task<IReadOnlyList<ValorCampoDto>> ObtenerParaRegistroAsync(Guid empresaId, EntidadPersonalizable entidad, Guid registroId, CancellationToken ct = default)
+    {
+        var definiciones = await _contexto.CamposPersonalizados
+            .Where(c => c.EmpresaId == empresaId && c.Entidad == entidad && c.Activo)
+            .OrderBy(c => c.Orden)
+            .ThenBy(c => c.Etiqueta)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        if (definiciones.Count == 0)
+        {
+            return Array.Empty<ValorCampoDto>();
+        }
+
+        var valores = await _contexto.ValoresCampos
+            .Where(v => v.RegistroId == registroId && v.Entidad == entidad)
+            .ToDictionaryAsync(v => v.CampoId, v => v.Valor, ct)
+            .ConfigureAwait(false);
+
+        return definiciones
+            .Select(c => new ValorCampoDto(
+                c.Id, c.Etiqueta, c.Clave, c.Tipo, c.OpcionesLista, c.Obligatorio, c.Orden,
+                valores.TryGetValue(c.Id, out var valor) ? valor : null))
+            .ToList();
+    }
 }
 
 /// <summary>Factoría en tiempo de diseño para migraciones.</summary>

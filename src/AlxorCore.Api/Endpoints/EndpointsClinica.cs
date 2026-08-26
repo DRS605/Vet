@@ -60,6 +60,32 @@ public static class EndpointsClinica
             .WithSummary("Da de baja (baja lógica) una especie del maestro.")
             .RequierePermiso(Permisos.AnimalGestionar);
 
+        var campos = rutas.MapGroup("/campos-personalizados").WithTags("Campos personalizados");
+
+        campos.MapGet("", ListarCamposAsync)
+            .WithSummary("Lista los campos personalizados de una entidad (?entidad=Cliente|Animal; ?incluirInactivos= para todos).")
+            .RequierePermiso(Permisos.AnimalLeer);
+
+        campos.MapPost("", CrearCampoAsync)
+            .WithSummary("Crea un campo personalizado en el maestro de la empresa.")
+            .RequierePermiso(Permisos.EmpresaAjustes);
+
+        campos.MapPut("/{id:guid}", ActualizarCampoAsync)
+            .WithSummary("Actualiza un campo personalizado.")
+            .RequierePermiso(Permisos.EmpresaAjustes);
+
+        campos.MapDelete("/{id:guid}", DesactivarCampoAsync)
+            .WithSummary("Da de baja (baja lógica) un campo personalizado.")
+            .RequierePermiso(Permisos.EmpresaAjustes);
+
+        campos.MapGet("/valores/{entidad}/{registroId:guid}", ObtenerValoresCamposAsync)
+            .WithSummary("Obtiene los campos personalizados de una ficha (cliente o animal) con su valor actual.")
+            .RequierePermiso(Permisos.AnimalLeer);
+
+        campos.MapPut("/valores/{entidad}/{registroId:guid}", GuardarValoresCamposAsync)
+            .WithSummary("Guarda los valores de los campos personalizados de una ficha.")
+            .RequierePermiso(Permisos.AnimalGestionar);
+
         var clientes = rutas.MapGroup("/clientes").WithTags("Animales");
 
         clientes.MapGet("/{clienteId:guid}/animales", ListarPorClienteAsync)
@@ -354,6 +380,72 @@ public static class EndpointsClinica
 
     private static async Task<IResult> DarDeBajaEspecieAsync(Guid id, DesactivarEspecie caso, CancellationToken ct) =>
         (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> ListarCamposAsync(string entidad, bool? incluirInactivos, IContextoEmpresa contexto, ListarCamposPersonalizados caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        if (!TryEntidad(entidad, out var e))
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("campo.entidad_invalida", "La entidad debe ser «Cliente» o «Animal»."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, e, incluirInactivos ?? false, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> CrearCampoAsync(DatosCampoPersonalizado datos, IContextoEmpresa contexto, CrearCampoPersonalizado caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, datos, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/campos-personalizados/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> ActualizarCampoAsync(Guid id, DatosCampoPersonalizado datos, ActualizarCampoPersonalizado caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> DesactivarCampoAsync(Guid id, DesactivarCampoPersonalizado caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> ObtenerValoresCamposAsync(string entidad, Guid registroId, IContextoEmpresa contexto, ObtenerCamposDeRegistro caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        if (!TryEntidad(entidad, out var e))
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("campo.entidad_invalida", "La entidad debe ser «Cliente» o «Animal»."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, e, registroId, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> GuardarValoresCamposAsync(string entidad, Guid registroId, IReadOnlyList<DatosValorCampo> valores, IContextoEmpresa contexto, GuardarCamposDeRegistro caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        if (!TryEntidad(entidad, out var e))
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("campo.entidad_invalida", "La entidad debe ser «Cliente» o «Animal»."));
+        }
+
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, e, registroId, valores ?? Array.Empty<DatosValorCampo>(), ct).ConfigureAwait(false);
+        return resultado.ASinContenido();
+    }
+
+    private static bool TryEntidad(string? entidad, out EntidadPersonalizable valor) =>
+        Enum.TryParse(entidad, ignoreCase: true, out valor) && Enum.IsDefined(valor);
 
     private static async Task<IResult> ListarConsultasAsync(Guid animalId, ListarConsultasDeAnimal caso, CancellationToken ct) =>
         Results.Ok(await caso.EjecutarAsync(animalId, ct).ConfigureAwait(false));

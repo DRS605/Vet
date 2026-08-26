@@ -219,6 +219,15 @@
     .species-tabs .sp.on{background:var(--honey-soft);color:var(--honey-ink);border-color:transparent;}
     .species-tabs .sp .e{font-size:15px;}
 
+    /* Campos personalizados: bloque dentro de los formularios y panel de solo lectura en la ficha. */
+    .cp-block{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);}
+    .cp-block .cp-h{font-size:12px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;}
+    .cp-list{padding:6px 4px;}
+    .cp-row{display:flex;justify-content:space-between;gap:16px;padding:9px 14px;border-bottom:1px solid #f4efe7;}
+    .cp-row:last-child{border-bottom:none;}
+    .cp-row .cp-k{color:var(--muted);font-weight:600;}
+    .cp-row .cp-v{color:var(--ink);font-weight:600;text-align:right;word-break:break-word;}
+
     .rem{display:flex;gap:13px;padding:13px 18px;border-bottom:1px solid #f4efe7;align-items:flex-start;}
     .rem:last-child{border-bottom:none;}
     .rem .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;font-size:17px;}
@@ -493,6 +502,70 @@ function opcionesEspecie(sel){
 }
 function edadTexto(a){ if(a.edadMeses==null) return "Edad desconocida"; const m=a.edadMeses; if(m<12) return `${m} mes${m===1?"":"es"}`; const y=Math.floor(m/12); return `${y} año${y===1?"":"s"}`; }
 
+/* ---------- CAMPOS PERSONALIZADOS ----------
+   Campos que la clínica define libremente para las fichas de cliente y de animal (Ajustes →
+   Campos personalizados). Aquí van los helpers que los pintan en los formularios de alta/edición
+   y recogen/guardan sus valores. La entidad es "Cliente" o "Animal". */
+const CP_TIPOS = [["Texto","Texto corto"],["TextoLargo","Texto largo"],["Numero","Número"],["Fecha","Fecha"],["Booleano","Sí / No"],["Lista","Lista de opciones"]];
+function cpTipoNombre(t){ const x=CP_TIPOS.find(p=>p[0]===t); return x?x[1]:t; }
+/* Carga los campos de una ficha con su valor. Para un registro nuevo (sin id) trae solo las
+   definiciones activas (valor vacío); para uno existente, definiciones + valor actual. */
+async function cpCargar(entidad, registroId){
+  try{
+    if(registroId) return await api(`/campos-personalizados/valores/${entidad}/${registroId}`);
+    const defs = await api(`/campos-personalizados?entidad=${entidad}`);
+    return defs.map(d=>({campoId:d.id, etiqueta:d.etiqueta, clave:d.clave, tipo:d.tipo, opciones:d.opciones, obligatorio:d.obligatorio, orden:d.orden, valor:null}));
+  }catch{ return []; }
+}
+/* HTML de los campos personalizados dentro de un formulario. Vacío si la clínica no ha definido ninguno. */
+function cpHtml(campos){
+  if(!campos || !campos.length) return "";
+  const filas = campos.map(c=>{
+    const id="cp_"+c.campoId, v=c.valor==null?"":c.valor, req=c.obligatorio?' <span style="color:var(--neg)">*</span>':"";
+    let campo;
+    if(c.tipo==="TextoLargo") campo=`<textarea id="${id}">${esc(v)}</textarea>`;
+    else if(c.tipo==="Numero") campo=`<input id="${id}" inputmode="decimal" value="${esc(v)}"/>`;
+    else if(c.tipo==="Fecha") campo=`<input id="${id}" type="date" value="${esc(String(v).slice(0,10))}"/>`;
+    else if(c.tipo==="Booleano") return `<label style="margin-top:8px"><input type="checkbox" id="${id}" style="width:auto;margin-right:8px" ${v==="true"?"checked":""}/>${esc(c.etiqueta)}</label>`;
+    else if(c.tipo==="Lista"){ const ops=(c.opciones||[]); campo=`<select id="${id}"><option value="">—</option>${ops.map(o=>`<option value="${esc(o)}" ${o===v?"selected":""}>${esc(o)}</option>`).join("")}</select>`; }
+    else campo=`<input id="${id}" value="${esc(v)}"/>`;
+    return `<label>${esc(c.etiqueta)}${req}</label>${campo}`;
+  }).join("");
+  return `<div class="cp-block"><div class="cp-h">Datos adicionales</div>${filas}</div>`;
+}
+/* Lee los valores de los campos del DOM y valida en cliente (obligatorios y números) antes de guardar,
+   para no crear la ficha si algo falla. Devuelve [{campoId, valor}]. */
+function cpRecoger(campos){
+  const out=[];
+  for(const c of (campos||[])){
+    const el=$("cp_"+c.campoId); if(!el) continue;
+    let v = c.tipo==="Booleano" ? (el.checked?"true":"false") : (el.value||"").trim();
+    if(c.obligatorio && (v===""||v==null)) throw new Error(`El campo «${c.etiqueta}» es obligatorio.`);
+    if(c.tipo==="Numero" && v!==""){ const n=v.replace(",", "."); if(isNaN(Number(n))) throw new Error(`El campo «${c.etiqueta}» debe ser un número.`); }
+    out.push({campoId:c.campoId, valor:v});
+  }
+  return out;
+}
+/* Guarda de una vez los valores de los campos personalizados de una ficha. */
+async function cpGuardar(entidad, registroId, valores){
+  if(!valores || !valores.length) return;
+  await api(`/campos-personalizados/valores/${entidad}/${registroId}`,{method:"PUT",body:JSON.stringify(valores)});
+}
+/* Formatea un valor almacenado para mostrarlo en la ficha (según su tipo). */
+function cpMostrar(c){
+  if(c.valor==null||c.valor==="") return "—";
+  if(c.tipo==="Booleano") return c.valor==="true"?"Sí":"No";
+  if(c.tipo==="Fecha"){ const p=String(c.valor).slice(0,10).split("-"); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:c.valor; }
+  return c.valor;
+}
+/* Panel de solo lectura con los campos personalizados que tienen valor. Vacío si no hay ninguno con dato. */
+function cpPanelVista(campos){
+  const llenos=(campos||[]).filter(c=>c.valor!=null && c.valor!=="");
+  if(!llenos.length) return "";
+  const filas=llenos.map(c=>`<div class="cp-row"><span class="cp-k">${esc(c.etiqueta)}</span><span class="cp-v">${esc(cpMostrar(c))}</span></div>`).join("");
+  return panel("Datos adicionales", `<div class="cp-list">${filas}</div>`);
+}
+
 const ICON = {
   inicio:'<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>',
   agenda:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
@@ -510,7 +583,7 @@ const NAV = [
   ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["facturacion","Facturación"],
   ["ajustes","Ajustes"]
 ];
-const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",ajustes:"Ajustes"};
+const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",ajustes:"Ajustes"};
 
 /* ---------- fetch con Bearer ---------- */
 async function api(path, opts={}){
@@ -629,9 +702,9 @@ function toggleMenu(){ const s=document.querySelector(".sidebar"),b=$("backdrop"
 function closeMenu(){ document.querySelector(".sidebar").classList.remove("open"); $("backdrop").classList.remove("show"); }
 function ir(k, params){
   closeMenu(); vista=k; ctx=Object.assign({}, params||{});
-  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes") || (k==="especies"&&a.dataset.k==="vacunas") || (k==="conceptos"&&a.dataset.k==="facturacion")));
+  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes") || (k==="especies"&&a.dataset.k==="vacunas") || (k==="conceptos"&&a.dataset.k==="facturacion") || (k==="campos"&&a.dataset.k==="ajustes")));
   $("viewTitle").textContent=TITULOS[k]||k;
-  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,ajustes:vAjustes}[k];
+  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,ajustes:vAjustes}[k];
   (fn||vInicio)();
 }
 const view = h => $("view").innerHTML=h;
@@ -772,17 +845,20 @@ function filtrarClientes(){
 }
 /* Modal de cliente: da de alta (sin argumento) o edita (con el cliente) reusando el mismo formulario.
    Al editar se prerrellena y guarda con PUT; al crear, con POST. */
-function modalCliente(c){
+async function modalCliente(c){
   const editar=!!(c&&c.id);
+  const campos = await cpCargar("Cliente", c&&c.id);
   abrir(editar?"Editar cliente":"Nuevo cliente", `
     <label>Nombre *</label><input id="c_nombre" placeholder="Nombre y apellidos" value="${esc(c&&c.nombre||"")}"/>
     <div class="grid-2"><div><label>NIF / DNI</label><input id="c_nif" value="${esc(c&&c.nifFiscal||"")}"/></div><div><label>Correo</label><input id="c_email" type="email" value="${esc(c&&c.email||"")}"/></div></div>
     <label>Dirección</label><input id="c_calle" placeholder="Calle y número" value="${esc(c&&c.calle||"")}"/>
     <div class="grid-2"><div><label>Población</label><input id="c_pob" value="${esc(c&&c.poblacion||"")}"/></div><div><label>Provincia</label><input id="c_prov" value="${esc(c&&c.provincia||"")}"/></div></div>
     <div class="grid-2"><div><label>Código postal</label><input id="c_cp" value="${esc(c&&c.codigoPostal||"")}"/></div><div><label>IRPF (%)</label><input id="c_irpf" inputmode="decimal" value="${c&&c.porcentajeIrpfDefecto!=null?c.porcentajeIrpfDefecto:""}" placeholder="0"/></div></div>
+    ${cpHtml(campos)}
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("c_nombre")) throw new Error("El nombre es obligatorio.");
+      const cpVals=cpRecoger(campos);
       const cuerpo={
         nombre:val("c_nombre"), nifFiscal:val("c_nif")||null, email:val("c_email")||null,
         calle:val("c_calle")||null, codigoPostal:val("c_cp")||null, poblacion:val("c_pob")||null, provincia:val("c_prov")||null,
@@ -790,10 +866,12 @@ function modalCliente(c){
       };
       if(editar){
         await api("/clientes/"+c.id,{method:"PUT",body:JSON.stringify(cuerpo)});
+        await cpGuardar("Cliente", c.id, cpVals);
         toast("Cliente actualizado.","ok");
         if(vista==="cliente") vCliente(); else vClientes();
       } else {
         const creado=await api("/clientes",{method:"POST",body:JSON.stringify(cuerpo)});
+        await cpGuardar("Cliente", creado.id, cpVals);
         toast("Cliente creado.","ok"); ir("cliente",{clienteId:creado.id});
       }
     }, editar?"Guardar":"Crear");
@@ -813,7 +891,7 @@ function darBajaCliente(id, nombre){
 /* ---------- FICHA CLIENTE ---------- */
 async function vCliente(){ cargando(); await conError(async()=>{
   const id=ctx.clienteId;
-  const [c, animales]=await Promise.all([api("/clientes/"+id), api(`/clientes/${id}/animales`)]);
+  const [c, animales, camposCli]=await Promise.all([api("/clientes/"+id), api(`/clientes/${id}/animales`), cpCargar("Cliente", id)]);
   window._clientesById=window._clientesById||{}; window._clientesById[id]=c;
   const petCard = a => `<div class="pet" onclick="ir('animal',{animalId:'${a.id}',clienteId:'${id}'})">
     <div class="av">${emojiEspecie(a.especie)}</div>
@@ -836,14 +914,17 @@ async function vCliente(){ cargando(); await conError(async()=>{
         <button class="btn v" onclick="modalNuevoAnimal('${id}')">${ICON.plus} Añadir animal</button>
       </div>
     </div>
+    ${cpPanelVista(camposCli)}
     ${panel(`Animales de ${esc(c.nombre.split(" ")[0])}`, petsHtml, `<span class="sp">${animales.length} ficha${animales.length===1?"":"s"}</span>`)}`);
 }); }
 /* Modal de animal: alta (con clienteId) o edición (pasando el animal). Al editar se prerrellena la
    ficha completa —especie desde el maestro, sexo, raza, nacimiento, microchip, esterilizado, peso,
    notas— y se guarda con PUT; al crear, con POST. */
-function modalAnimal(clienteId, a){
+async function modalAnimal(clienteId, a){
   const editar=!!(a&&a.id);
   const sx=s=>(a&&a.sexo)===s?" selected":"";
+  if(!especiesCache.length) await cargarEspecies();
+  const campos = await cpCargar("Animal", a&&a.id);
   abrir(editar?"Editar animal":"Nuevo animal", `
     <label>Nombre *</label><input id="a_nombre" value="${esc(a&&a.nombre||"")}"/>
     <div class="grid-2">
@@ -854,15 +935,18 @@ function modalAnimal(clienteId, a){
     <div class="grid-2"><div><label>Microchip</label><input id="a_chip" value="${esc(a&&a.microchip||"")}"/></div><div><label>Peso (kg)</label><input id="a_peso" inputmode="decimal" value="${a&&a.pesoKg!=null?a.pesoKg:""}"/></div></div>
     <label><input type="checkbox" id="a_ester" style="width:auto;margin-right:8px" ${a&&a.esterilizado?"checked":""}/>Esterilizado</label>
     <label>Notas</label><textarea id="a_notas">${esc(a&&a.notas||"")}</textarea>
+    ${cpHtml(campos)}
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("a_nombre")) throw new Error("El nombre es obligatorio.");
+      const cpVals=cpRecoger(campos);
       if(editar){
         await api("/animales/"+a.id,{method:"PUT",body:JSON.stringify({
           nombre:val("a_nombre"), especie:val("a_especie"), sexo:val("a_sexo"),
           raza:val("a_raza")||null, fechaNacimiento:val("a_fnac")||null, microchip:val("a_chip")||null,
           esterilizado:$("a_ester").checked, pesoKg:num("a_peso"), notas:val("a_notas")||null
         })});
+        await cpGuardar("Animal", a.id, cpVals);
         toast("Animal actualizado.","ok"); vAnimal();
       } else {
         const creado=await api("/animales",{method:"POST",body:JSON.stringify({
@@ -870,6 +954,7 @@ function modalAnimal(clienteId, a){
           raza:val("a_raza")||null, fechaNacimiento:val("a_fnac")||null, microchip:val("a_chip")||null,
           esterilizado:$("a_ester").checked, pesoKg:num("a_peso"), notas:val("a_notas")||null
         })});
+        await cpGuardar("Animal", creado.id, cpVals);
         toast("Animal creado.","ok"); ir("animal",{animalId:creado.id,clienteId});
       }
     }, editar?"Guardar":"Crear");
@@ -888,10 +973,10 @@ function darBajaAnimal(id, nombre, clienteId){
 /* ---------- FICHA ANIMAL + HISTORIAL ---------- */
 async function vAnimal(){ cargando(); await conError(async()=>{
   const id=ctx.animalId;
-  const [a, consultas, vacunas, cirugias, actos]=await Promise.all([
+  const [a, consultas, vacunas, cirugias, actos, camposAni]=await Promise.all([
     api("/animales/"+id),
     api(`/animales/${id}/consultas`), api(`/animales/${id}/vacunas`),
-    api(`/animales/${id}/cirugias`), api(`/animales/${id}/actos`)
+    api(`/animales/${id}/cirugias`), api(`/animales/${id}/actos`), cpCargar("Animal", id)
   ]);
   ctx.clienteId = ctx.clienteId || a.clienteId;
   let cliente=null; try{ cliente=await api("/clientes/"+a.clienteId); }catch{}
@@ -945,6 +1030,7 @@ async function vAnimal(){ cargando(); await conError(async()=>{
       <button class="btn line" onclick="modalCirugia('${a.id}')">Nueva cirugía</button>
       <button class="btn line" onclick="modalActo('${a.id}')">Registrar acto</button>
     </div>
+    ${cpPanelVista(camposAni)}
     <div class="grid2">
       ${panel("Historial", tl, `<span class="sp">Consultas · vacunas · cirugías · actos</span>`)}
       ${panel("Vacunas", vacTabla)}
@@ -1220,6 +1306,74 @@ function darBajaEspecie(id, nombre){
   abrir("Dar de baja especie", `<p>¿Seguro que quieres dar de baja «${esc(nombre)}»? Dejará de ofrecerse en los selectores, pero los animales existentes conservan su especie.</p><div class="error" id="modalErr"></div>`, async()=>{
     await api("/especies/"+id,{method:"DELETE"});
     toast("Especie dada de baja.","ok"); await cargarEspecies(); vEspecies();
+  }, "Dar de baja");
+}
+
+/* ---------- CAMPOS PERSONALIZADOS (maestro) ---------- */
+let _cpEntidad = "Animal";
+async function vCampos(){ cargando(); await conError(async()=>{
+  if(ctx.entidad) _cpEntidad=ctx.entidad;
+  const entidad=_cpEntidad;
+  const campos=await api(`/campos-personalizados?entidad=${entidad}&incluirInactivos=true`);
+  const filas=campos.map(c=>`
+    <tr class="${c.activo?"":"muted"}">
+      <td><b>${esc(c.etiqueta)}</b>${c.obligatorio?' <span class="pill b">Obligatorio</span>':""}${c.activo?"":' <span class="pill b">De baja</span>'}</td>
+      <td class="muted">${esc(cpTipoNombre(c.tipo))}${c.tipo==="Lista"&&c.opciones&&c.opciones.length?` <span class="muted">(${esc(c.opciones.join(", "))})</span>`:""}</td>
+      <td class="num muted">${c.orden}</td>
+      <td class="num">${c.activo?`<button class="btn tiny line" onclick='modalEditarCampo(${JSON.stringify(c)})'>Editar</button>
+        <button class="btn tiny line" onclick='darBajaCampo(${JSON.stringify(c.id)},${JSON.stringify(c.etiqueta)})'>Dar de baja</button>`:""}</td>
+    </tr>`).join("");
+  const tabla = campos.length
+    ? `<table><thead><tr><th>Campo</th><th>Tipo</th><th class="num">Orden</th><th class="num">Acciones</th></tr></thead><tbody>${filas}</tbody></table>`
+    : vacio("🧩","Sin campos","Aún no has añadido campos a esta ficha. Crea el primero para ampliar el formulario.", `<button class="btn v" onclick="modalNuevoCampo()">${ICON.plus} Nuevo campo</button>`);
+  const tab=(v,l)=>`<span class="sp ${v===entidad?"on":""}" onclick="ir('campos',{entidad:'${v}'})">${l}</span>`;
+  view(`
+    <div style="margin-bottom:12px"><a onclick="ir('ajustes')" class="muted">← Ajustes</a></div>
+    <h3 class="sec">Campos personalizados</h3>
+    <p class="subt">Amplía libremente las fichas con los campos que necesite tu clínica. Elige la ficha (cliente o mascota), el nombre del campo y su tipo; aparecerá en el alta y la edición de esa ficha.</p>
+    <div class="species-tabs" style="margin-bottom:14px">${tab("Cliente","👤 Ficha de cliente")} ${tab("Animal","🐾 Ficha de mascota")}</div>
+    ${panel(`Campos de ${entidad==="Cliente"?"cliente":"mascota"}`, tabla, `<button class="btn v small" onclick="modalNuevoCampo()">${ICON.plus} Nuevo campo</button>`)}`);
+}); }
+function _camposCampo(c){
+  const t=c&&c.tipo||"Texto";
+  const tipoOpc=CP_TIPOS.map(([v,l])=>`<option value="${v}"${v===t?" selected":""}>${l}</option>`).join("");
+  const ops=c&&c.opciones&&c.opciones.length?c.opciones.join("\n"):"";
+  return `
+    <label>Nombre del campo *</label><input id="cf_etiqueta" value="${esc(c&&c.etiqueta||"")}" placeholder="p. ej. Nº de chip aseguradora"/>
+    <div class="grid-2">
+      <div><label>Tipo</label><select id="cf_tipo" onchange="cfToggleOpciones()">${tipoOpc}</select></div>
+      <div><label>Orden</label><input id="cf_orden" inputmode="numeric" value="${c&&c.orden!=null?c.orden:0}"/></div>
+    </div>
+    <div id="cf_opcionesWrap" style="display:${t==="Lista"?"block":"none"}">
+      <label>Opciones (una por línea)</label><textarea id="cf_opciones" placeholder="Tranquilo&#10;Nervioso&#10;Agresivo">${esc(ops)}</textarea>
+    </div>
+    <label style="margin-top:8px"><input type="checkbox" id="cf_oblig" style="width:auto;margin-right:8px" ${c&&c.obligatorio?"checked":""}/>Obligatorio</label>
+    <div class="error" id="modalErr"></div>`;
+}
+function cfToggleOpciones(){ const w=$("cf_opcionesWrap"); if(w) w.style.display=$("cf_tipo").value==="Lista"?"block":"none"; }
+function _cfCuerpo(){
+  const etiqueta=val("cf_etiqueta"); if(!etiqueta) throw new Error("El nombre del campo es obligatorio.");
+  const tipo=val("cf_tipo");
+  const opciones=tipo==="Lista"?(($("cf_opciones").value||"").trim()):null;
+  if(tipo==="Lista" && !opciones) throw new Error("Una lista debe tener al menos una opción.");
+  return {entidad:_cpEntidad, etiqueta, tipo, opciones, obligatorio:$("cf_oblig").checked, orden:num("cf_orden")||0};
+}
+function modalNuevoCampo(){
+  abrir("Nuevo campo", _camposCampo(null), async()=>{
+    await api("/campos-personalizados",{method:"POST",body:JSON.stringify(_cfCuerpo())});
+    toast("Campo creado.","ok"); vCampos();
+  }, "Crear");
+}
+function modalEditarCampo(c){
+  abrir("Editar campo", _camposCampo(c), async()=>{
+    await api("/campos-personalizados/"+c.id,{method:"PUT",body:JSON.stringify(_cfCuerpo())});
+    toast("Campo actualizado.","ok"); vCampos();
+  }, "Guardar");
+}
+function darBajaCampo(id, etiqueta){
+  abrir("Dar de baja campo", `<p>¿Seguro que quieres dar de baja el campo «${esc(etiqueta)}»? Dejará de pedirse en la ficha, pero los datos ya guardados se conservan.</p><div class="error" id="modalErr"></div>`, async()=>{
+    await api("/campos-personalizados/"+id,{method:"DELETE"});
+    toast("Campo dado de baja.","ok"); vCampos();
   }, "Dar de baja");
 }
 
@@ -1535,6 +1689,11 @@ async function vAjustes(){ cargando(); await conError(async()=>{
         <div class="form">
           <p class="muted" style="margin:0 0 14px">El maestro de conceptos facturables con su importe prefijado (Consulta, Vacunación, Cirugía…). Se reutiliza al registrar actos y al emitir facturas.</p>
           <div class="form-actions"><button class="btn v" onclick="ir('conceptos')">${ICON.plus} Gestionar conceptos</button></div>
+        </div>`)}
+      ${panel("Campos personalizados", `
+        <div class="form">
+          <p class="muted" style="margin:0 0 14px">Añade a las fichas de <b>clientes</b> y de <b>mascotas</b> los campos que necesites (nº de chip aseguradora, alergias, consentimiento firmado…). Tú decides el nombre y el tipo; aparecerán en el formulario de alta y edición.</p>
+          <div class="form-actions"><button class="btn v" onclick="ir('campos')">${ICON.plus} Gestionar campos</button></div>
         </div>`)}
     </div>`);
 }); }
