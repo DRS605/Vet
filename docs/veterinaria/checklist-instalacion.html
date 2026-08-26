@@ -56,7 +56,7 @@
     <div class="box">
       <h3>Datos a apuntar (al terminar)</h3>
       <div class="fill">IP del PC (ipconfig): _______________________</div>
-      <div class="fill">Acceso clínica: http://______:8080/vet.html</div>
+      <div class="fill">Acceso clínica: http://______:8090/vet.html</div>
       <div class="fill">Admin — email: _______________________</div>
       <div class="fill">Admin — contraseña: _________________</div>
       <div class="fill">Fecha instalación: ____ / ____ / 2026</div>
@@ -97,10 +97,10 @@ python scripts\inicializar-clinica.py</div>
 
   <h2><span class="n">5</span> Comprobar</h2>
   <ul>
-    <li><span class="sq"></span><div>Abrir <code>http://localhost:8080/vet.html</code> → <b>entrar</b> con el admin.</div></li>
+    <li><span class="sq"></span><div>Abrir <code>http://localhost:8090/vet.html</code> → <b>entrar</b> con el admin.</div></li>
     <li><span class="sq"></span><div>Menú <b>Vacunas</b>: se ven las pautas (perro, gato, conejo, hurón).</div></li>
     <li><span class="sq"></span><div>Crear un <b>cliente + animal de prueba</b>, y en <b>Recordatorios</b> enviar uno para confirmar que el <b>correo sale</b> (revisar bandeja del destinatario).</div></li>
-    <li><span class="sq"></span><div><b>ipconfig</b> → anotar la IP del PC. Desde otro equipo de la clínica: <code>http://&lt;IP&gt;:8080/vet.html</code>.</div></li>
+    <li><span class="sq"></span><div><b>ipconfig</b> → anotar la IP del PC. Desde otro equipo de la clínica: <code>http://&lt;IP&gt;:8090/vet.html</code>.</div></li>
     <li><span class="sq"></span><div><b>Copia de seguridad</b> (guárdala en una carpeta que respalden):</div></li>
   </ul>
   <div class="cmd">docker exec alxor-vet-postgres pg_dump -U postgres alxor > backup.sql</div>
@@ -110,7 +110,7 @@ python scripts\inicializar-clinica.py</div>
   <h2><span class="n">?</span> Si algo falla</h2>
   <ul class="fail">
     <li><span class="q">✕</span><div><b>No arranca / “Docker not running”</b> → abrir Docker Desktop y esperar a “running”; reintentar el <code>up -d</code>.</div></li>
-    <li><span class="q">✕</span><div><b>Puerto 8080 ocupado</b> → cambiar <code>PUERTO_LAN</code> en <code>.env</code> (p. ej. 8090) y <code>up -d</code> otra vez.</div></li>
+    <li><span class="q">✕</span><div><b>Puerto 8090 ocupado</b> → cambiar <code>PUERTO_LAN</code> en <code>.env</code> (p. ej. 8091) y <code>up -d</code> otra vez.</div></li>
     <li><span class="q">✕</span><div><b>El correo no sale</b> → revisar Host/usuario/contraseña, puerto <b>587</b> con STARTTLS, y en Gmail una <b>contraseña de aplicación</b>. Ver logs: <code>docker logs alxor-vet-api</code>.</div></li>
     <li><span class="q">✕</span><div><b>No se accede desde otro PC</b> → mismo wifi/red y permitir el puerto en el <b>Firewall de Windows</b> (red privada).</div></li>
   </ul>

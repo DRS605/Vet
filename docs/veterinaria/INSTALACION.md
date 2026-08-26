@@ -53,22 +53,22 @@ con `vet.html`), los lanzadores `.bat` y un `LEEME.txt`.
      **descarga** de la web oficial la primera vez), hace `initdb` en `%LOCALAPPDATA%\ALXOR Vet\datos\`,
      lo arranca en `localhost:5433` y crea la BD `alxor`. Con la **opción A (existente)**: **no
      descarga ni arranca** nada de eso; solo verifica que hay conexión con tu PostgreSQL;
-   - arranca la app en `http://0.0.0.0:8080` pasándole **toda la configuración por variables de
+   - arranca la app en `http://0.0.0.0:8090` pasándole **toda la configuración por variables de
      entorno** (`ConnectionStrings__AlxorCore`, `Jwt__ClaveSecreta`, `ASPNETCORE_ENVIRONMENT=Production`,
      `ASPNETCORE_URLS`, `Migraciones__AplicarAlArrancar=true` y la sección `Correo__*`, deshabilitada
      por defecto); **no escribe ningún `appsettings` en la carpeta de instalación**. Aplica las
-     migraciones sola y **abre el navegador** en `http://localhost:8080/vet.html` (el **asistente de
+     migraciones sola y **abre el navegador** en `http://localhost:8090/vet.html` (el **asistente de
      primer arranque**: empresa + admin + vacunas);
    - deja un acceso directo en el **Inicio de Windows** (apuntando al `Arrancar ALXOR Vet.bat` de la
      carpeta de instalación) para arrancar al encender.
 3. Uso diario: **`Arrancar ALXOR Vet.bat`** y **`Detener ALXOR Vet.bat`**.
 
 **Acceso desde otros PCs de la clínica (LAN):** avería la IP con `ipconfig` y entra en
-`http://<IP-del-PC>:8080/vet.html`. Si ejecutaste el instalador **como administrador**, la regla de
-firewall del puerto 8080 se crea sola; si no, ábrela una vez con:
+`http://<IP-del-PC>:8090/vet.html`. Si ejecutaste el instalador **como administrador**, la regla de
+firewall del puerto 8090 se crea sola; si no, ábrela una vez con:
 
 ```powershell
-netsh advfirewall firewall add rule name="ALXOR Vet (8080)" dir=in action=allow protocol=TCP localport=8080
+netsh advfirewall firewall add rule name="ALXOR Vet (8090)" dir=in action=allow protocol=TCP localport=8090
 ```
 
 **Dónde viven los datos:** con el **PostgreSQL portable**, todo el estado (base de datos, binarios de
@@ -167,7 +167,7 @@ docker compose -f despliegue\docker-compose.produccion.yml --env-file despliegue
 La primera vez tarda unos minutos (compila la API). Cuando termine, comprueba que responde:
 
 ```powershell
-curl http://localhost:8080/salud
+curl http://localhost:8090/salud
 ```
 
 Debe devolver `{"estado":"ok"}`.
@@ -182,14 +182,14 @@ $env:CLINICA_NOMBRE   = "Clínica Veterinaria San Roque"
 $env:CLINICA_NIF      = "B12345674"
 $env:ADMIN_EMAIL      = "admin@clinica.com"
 $env:ADMIN_PASSWORD   = "CambiaEstaClave1!"
-python scripts\inicializar-clinica.py http://localhost:8080
+python scripts\inicializar-clinica.py http://localhost:8090
 ```
 
 Al terminar imprime el acceso (URL de `/vet.html` y usuario administrador). El script es
 **idempotente**: si lo ejecutas otra vez no duplica ni la empresa ni las pautas.
 
 > Si no tienes Python en el servidor, puedes ejecutar el script desde tu portátil cambiando la URL
-> por `http://<IP-del-PC>:8080` (ver la sección siguiente para averiguar la IP).
+> por `http://<IP-del-PC>:8090` (ver la sección siguiente para averiguar la IP).
 
 ---
 
@@ -205,10 +205,10 @@ donde corre ALXOR Vet.
 Desde cualquier equipo de la **misma red** de la clínica, abre entonces:
 
 ```
-http://<IP-del-PC>:8080/vet.html
+http://<IP-del-PC>:8090/vet.html
 ```
 
-Por ejemplo: `http://192.168.1.50:8080/vet.html`. Entra con el usuario administrador que configuraste.
+Por ejemplo: `http://192.168.1.50:8090/vet.html`. Entra con el usuario administrador que configuraste.
 
 > Consejo: reserva una **IP fija** para ese PC en el router (o configúrala como estática) para que la
 > dirección no cambie y los accesos directos de los demás equipos sigan funcionando.
@@ -233,7 +233,7 @@ Por ejemplo: `http://192.168.1.50:8080/vet.html`. Entra con el usuario administr
    CLINICA_NIF="B12345674" \
    ADMIN_EMAIL="admin@clinica.com" \
    ADMIN_PASSWORD="CambiaEstaClave1!" \
-   python3 scripts/inicializar-clinica.py http://localhost:8080
+   python3 scripts/inicializar-clinica.py http://localhost:8090
    ```
 
    Para que Docker arranque al encender: en Linux `sudo systemctl enable docker`; en macOS marca el
@@ -279,7 +279,7 @@ CORREO_USUARIO=clinica@tudominio.com
 CORREO_CLAVE=xxxxxxxx              # en Gmail/Workspace: "contraseña de aplicación"
 CORREO_REMITENTE=clinica@tudominio.com
 CORREO_REMITENTE_NOMBRE=Clínica Veterinaria San Roque
-CORREO_BASE_URL=http://localhost:8080
+CORREO_BASE_URL=http://localhost:8090
 ```
 
 Notas:
@@ -397,7 +397,7 @@ docker exec -i alxor-vet-postgres psql -U postgres -d alxor < copia.sql
 | Actualizar tras cambios de código | añadir `--build` al arranque |
 | Copia de seguridad | ver [sección 7](#7-copia-de-seguridad-de-la-base-de-datos) |
 
-Acceso de la clínica: **http://\<IP-del-PC\>:8080/vet.html**
+Acceso de la clínica: **http://\<IP-del-PC\>:8090/vet.html**
 
 ---
 
@@ -420,7 +420,7 @@ automático. A grandes rasgos:
    ```bash
    cloudflared tunnel create alxor-vet
    cloudflared tunnel route dns alxor-vet vet.tudominio.com
-   cloudflared tunnel run --url http://localhost:8080 alxor-vet
+   cloudflared tunnel run --url http://localhost:8090 alxor-vet
    ```
 
 4. Configura `cloudflared` como servicio para que arranque con el sistema.
@@ -429,6 +429,6 @@ automático. A grandes rasgos:
 
 ### Opción B: redirección de puertos en el router
 
-Redirige el puerto 8080 (o el 443 con un proxy inverso y certificado) del router hacia el PC de la
+Redirige el puerto 8090 (o el 443 con un proxy inverso y certificado) del router hacia el PC de la
 clínica. Es más frágil (IP pública que puede cambiar, sin HTTPS de serie, expone el equipo) y
 requiere conocimientos de red; **Cloudflare Tunnel es preferible**.

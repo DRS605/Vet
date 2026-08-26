@@ -56,7 +56,7 @@ Base de datos: puedes elegir entre DOS opciones (el instalador te pregunta):
        - Usuario administrador (email + contrasena).
        - Cuadro de vacunas (se carga por especie; luego editable).
 
-   La direccion es:  http://localhost:8080/vet.html
+   La direccion es:  http://localhost:8090/vet.html
 
 
 ------------------------------------------------------------------------
@@ -78,13 +78,13 @@ Base de datos: puedes elegir entre DOS opciones (el instalador te pregunta):
    Busca "Direccion IPv4" (algo como 192.168.1.50).
 
 2. Desde cualquier PC de la MISMA red, abre en el navegador:
-       http://192.168.1.50:8080/vet.html
+       http://192.168.1.50:8090/vet.html
    (cambia la IP por la tuya)
 
-3. Cortafuegos: el instalador intenta abrir el puerto 8080 solo si lo
+3. Cortafuegos: el instalador intenta abrir el puerto 8090 solo si lo
    ejecutas como administrador. Si no pudo, ejecuta UNA vez, en un
    PowerShell "como administrador":
-       netsh advfirewall firewall add rule name="ALXOR Vet (8080)" dir=in action=allow protocol=TCP localport=8080
+       netsh advfirewall firewall add rule name="ALXOR Vet (8090)" dir=in action=allow protocol=TCP localport=8090
 
    Consejo: pide al router una IP fija para ese PC, para que la direccion
    no cambie.
@@ -147,7 +147,7 @@ Errores tipicos:
      vuelve a pulsar "Instalar ALXOR Vet.bat" (o deja el zip oficial de
      PostgreSQL 'binaries only' para Windows x64 dentro de la carpeta
      "postgres" y reintenta).
-   - El navegador no abre: entra a mano en http://localhost:8080/vet.html
+   - El navegador no abre: entra a mano en http://localhost:8090/vet.html
 
 
 ------------------------------------------------------------------------

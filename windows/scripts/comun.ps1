@@ -47,7 +47,7 @@ $Global:UrlPostgres = "https://get.enterprisedb.com/postgresql/postgresql-$Versi
 # --- Parametros por defecto --------------------------------------------------
 # Puerto de PostgreSQL: 5433 para NO chocar con un PostgreSQL de sistema (5432).
 $Global:PgPuertoDefecto  = 5433
-$Global:AppPuertoDefecto = 8080
+$Global:AppPuertoDefecto = 8090
 
 function Asegurar-Carpetas {
     # Solo se crean carpetas bajo la raiz de datos escribible (perfil del

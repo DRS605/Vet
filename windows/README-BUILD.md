@@ -86,7 +86,7 @@ El script `windows/scripts/empaquetar.sh` hace exactamente esto de un solo paso.
   secretos/config) vive en `%LOCALAPPDATA%\ALXOR Vet\` (`datos\`, `postgres\`, `logs\`,
   `config\`), que siempre es escribible. Copia de seguridad = copiar `…\ALXOR Vet\datos` (con la
   app detenida) o `pg_dump`.
-- **Puertos**: la app escucha en `0.0.0.0:8080`; PostgreSQL en `localhost:5433` (5433 para no
+- **Puertos**: la app escucha en `0.0.0.0:8090`; PostgreSQL en `localhost:5433` (5433 para no
   chocar con un PostgreSQL de sistema en 5432). Se pueden cambiar en
   `%LOCALAPPDATA%\ALXOR Vet\config\alxor.config.json`, de donde el lanzador toma la config en
   cada arranque.
