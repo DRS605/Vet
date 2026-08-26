@@ -180,6 +180,42 @@ public sealed class CitaEndpointsTests : IClassFixture<FabricaApiPruebas>
     }
 
     [Fact]
+    public async Task Agenda_y_kpi_admiten_rango_con_offset_local_no_utc()
+    {
+        // Regresión: en un PC español (UTC+2) la SPA envía el rango con offset +02:00. Npgsql exige
+        // offset 0 al mapear DateTimeOffset a «timestamp with time zone», así que sin normalizar a UTC
+        // lanzaba ArgumentException y el panel daba Error 500. Este test usa offset +02:00 EXPLÍCITO
+        // (no la zona del proceso), por lo que detecta el fallo aunque el CI corra en UTC.
+        var (cliente, _) = await Ayudas.ConEmpresaAsync(_fabrica);
+        var clienteId = await CrearClienteAsync(cliente, "Propietario Madrid");
+        var animalId = await CrearAnimalAsync(cliente, clienteId, "Chispa");
+
+        // Cita a las 09:00 UTC del 17/08/2026, dentro de la ventana local de ese día en España.
+        var cita = await CrearCitaAsync(cliente, animalId, new DateTimeOffset(2026, 8, 17, 9, 0, 0, TimeSpan.Zero));
+        await cliente.PostAsync(new Uri($"/citas/{cita.Id}/confirmar", UriKind.Relative), content: null);
+
+        var offset = TimeSpan.FromHours(2);
+        var desde = new DateTimeOffset(2026, 8, 17, 0, 0, 0, offset);   // 16/08 22:00 UTC
+        var hasta = new DateTimeOffset(2026, 8, 17, 23, 59, 59, offset); // 17/08 21:59:59 UTC
+
+        static string Q(DateTimeOffset v) => Uri.EscapeDataString(v.ToString("yyyy-MM-ddTHH:mm:sszzz"));
+
+        // Agenda: no debe lanzar (500) y debe devolver la cita del rango.
+        var respAgenda = await cliente.GetAsync(new Uri($"/agenda?desde={Q(desde)}&hasta={Q(hasta)}", UriKind.Relative));
+        respAgenda.StatusCode.Should().Be(HttpStatusCode.OK, "el rango con offset local debe normalizarse a UTC, no dar 500");
+        var agenda = await respAgenda.Content.ReadFromJsonAsync<List<CitaResp>>();
+        agenda!.Should().ContainSingle(c => c.Id == cita.Id);
+
+        // KPI/resumen: mismo rango con offset +02:00.
+        var respKpi = await cliente.GetAsync(new Uri($"/citas/kpi?desde={Q(desde)}&hasta={Q(hasta)}", UriKind.Relative));
+        respKpi.StatusCode.Should().Be(HttpStatusCode.OK, "el KPI con offset local debe normalizarse a UTC, no dar 500");
+        var kpi = await respKpi.Content.ReadFromJsonAsync<ResumenResp>();
+        kpi!.Total.Should().Be(1);
+        kpi.Confirmadas.Should().Be(1);
+        kpi.PorcentajeConfirmacion.Should().Be(100);
+    }
+
+    [Fact]
     public async Task La_agenda_esta_aislada_por_empresa()
     {
         var (empresaA, _) = await Ayudas.ConEmpresaAsync(_fabrica);

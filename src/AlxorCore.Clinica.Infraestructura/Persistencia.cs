@@ -562,6 +562,12 @@ internal sealed class RepositorioCitas : IRepositorioCitas, IConsultaCitas
 
     public async Task<IReadOnlyList<CitaDto>> ListarAgendaAsync(Guid empresaId, DateTimeOffset desde, DateTimeOffset hasta, EstadoCita? estado = null, string? veterinario = null, CancellationToken ct = default)
     {
+        // Npgsql exige offset 0 (UTC) al mapear DateTimeOffset a «timestamp with time zone».
+        // El cliente puede enviar el rango con offset local (p. ej. +02:00 en España), así que lo
+        // normalizamos a UTC antes de la consulta. Es un cambio de representación, no de instante.
+        desde = desde.ToUniversalTime();
+        hasta = hasta.ToUniversalTime();
+
         var consulta = _contexto.Citas
             .Where(c => c.EmpresaId == empresaId && c.Inicio >= desde && c.Inicio <= hasta);
 
@@ -585,6 +591,11 @@ internal sealed class RepositorioCitas : IRepositorioCitas, IConsultaCitas
 
     public async Task<ResumenCitasDto> ResumenAsync(Guid empresaId, DateTimeOffset desde, DateTimeOffset hasta, CancellationToken ct = default)
     {
+        // Npgsql exige offset 0 (UTC) al mapear DateTimeOffset a «timestamp with time zone»;
+        // normalizamos el rango recibido de la API (puede llegar con offset local) antes de consultar.
+        desde = desde.ToUniversalTime();
+        hasta = hasta.ToUniversalTime();
+
         // Un único recorrido en BD que cuenta por estado; el porcentaje se compone en memoria.
         var conteos = await _contexto.Citas
             .Where(c => c.EmpresaId == empresaId && c.Inicio >= desde && c.Inicio <= hasta)
@@ -615,7 +626,9 @@ internal sealed class RepositorioCitas : IRepositorioCitas, IConsultaCitas
         // Ventana: los últimos «meses» meses naturales incluido el actual. Se agrupa en memoria por
         // año/mes del inicio (en UTC) para que la serie sea determinista con independencia del huso.
         var primerMes = new DateOnly(hoy.Year, hoy.Month, 1).AddMonths(-(meses - 1));
-        var inicioVentana = new DateTimeOffset(primerMes.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        // Se construye ya en UTC (offset 0), que es lo que Npgsql exige para «timestamp with time
+        // zone»; el ToUniversalTime() lo deja explícito y a prueba de futuros cambios.
+        var inicioVentana = new DateTimeOffset(primerMes.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero).ToUniversalTime();
 
         var citas = await _contexto.Citas
             .Where(c => c.EmpresaId == empresaId && c.Inicio >= inicioVentana)
