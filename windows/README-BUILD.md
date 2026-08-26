@@ -72,20 +72,33 @@ El script `windows/scripts/empaquetar.sh` hace exactamente esto de un solo paso.
 
 - **PostgreSQL portable**: por defecto NO se empaqueta. El lanzador lo descarga en el
   primer arranque (zip oficial "binaries only" de EnterpriseDB, win-x64) y lo extrae en
-  `postgres/`. Si prefieres incluirlo, descarga ese zip y déjalo dentro de `postgres/`
-  del paquete antes de comprimir (el lanzador detecta un zip o unos binarios ya presentes
-  y no vuelve a descargar). La versión objetivo está en `scripts/comun.ps1`
-  (`$VersionPostgres`).
+  la **raíz de datos del usuario** `%LOCALAPPDATA%\ALXOR Vet\postgres\`. Si prefieres evitar
+  la descarga, deja ese zip dentro de esa carpeta `postgres\` (el lanzador detecta un zip o
+  unos binarios ya presentes y no vuelve a descargar). La versión objetivo está en
+  `scripts/comun.ps1` (`$VersionPostgres`).
 
 ## Notas de diseño
 
+- **Carpeta de instalación de SOLO LECTURA**: el ZIP se puede descomprimir en cualquier ruta,
+  incluida `C:\Archivos de programa\`, sin ser administrador. **Nada** se escribe dentro de la
+  carpeta de instalación (solo se leen el `.exe` y su `wwwroot`).
+- **Raíz de datos escribible**: TODO el estado (base de datos, PostgreSQL portable, logs,
+  secretos/config) vive en `%LOCALAPPDATA%\ALXOR Vet\` (`datos\`, `postgres\`, `logs\`,
+  `config\`), que siempre es escribible. Copia de seguridad = copiar `…\ALXOR Vet\datos` (con la
+  app detenida) o `pg_dump`.
 - **Puertos**: la app escucha en `0.0.0.0:8080`; PostgreSQL en `localhost:5433` (5433 para no
-  chocar con un PostgreSQL de sistema en 5432). Se pueden cambiar en `config/alxor.config.json`
-  (creado en la instalación) — el `appsettings.Production.json` de `app/` se regenera desde ahí.
-- **Secretos**: la contraseña de PostgreSQL y `Jwt:ClaveSecreta` se generan con el RNG
-  criptográfico del sistema en el primer arranque. No hay secretos por defecto en el ZIP.
-- **Config de la app**: `app/appsettings.Production.json` (cadena de conexión, JWT, sección
-  Correo con `Habilitado=false`, `Migraciones:AplicarAlArrancar=true`). `ASPNETCORE_ENVIRONMENT`
-  y `ASPNETCORE_URLS` se pasan como variables de entorno del proceso.
+  chocar con un PostgreSQL de sistema en 5432). Se pueden cambiar en
+  `%LOCALAPPDATA%\ALXOR Vet\config\alxor.config.json`, de donde el lanzador toma la config en
+  cada arranque.
+- **Secretos**: la contraseña de PostgreSQL y la clave JWT se generan con el RNG criptográfico
+  del sistema en el primer arranque y se persisten en
+  `%LOCALAPPDATA%\ALXOR Vet\config\alxor.config.json` (se reutilizan; no hay secretos por
+  defecto en el ZIP).
+- **Config de la app por variables de entorno**: el lanzador pasa toda la configuración al
+  proceso del `.exe` como variables de entorno (ASP.NET lee `__` como jerarquía de secciones):
+  `ConnectionStrings__AlxorCore`, `Jwt__ClaveSecreta` (+`Jwt__Emisor`/`Jwt__Audiencia`/
+  `Jwt__MinutosExpiracion`), `ASPNETCORE_ENVIRONMENT=Production`, `ASPNETCORE_URLS`,
+  `Migraciones__AplicarAlArrancar=true` y `Correo__*` (deshabilitado por defecto). **No** se
+  escribe ningún `appsettings.Production.json`.
 - **Migraciones**: la app aplica las migraciones EF Core al arrancar (idempotente).
 ```

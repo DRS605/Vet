@@ -3,38 +3,51 @@
 #  Se carga (dot-source). No se ejecuta solo.
 # =============================================================================
 
-# Escribe app\appsettings.Production.json a partir de la configuracion generada.
-# Contiene la cadena de conexion, el secreto JWT y la seccion Correo (deshabilitada
-# por defecto, con placeholders). ASPNETCORE_* se pasan como variables de entorno.
-function Escribir-AppSettings {
-    param([Parameter(Mandatory=$true)] $Config, [Parameter(Mandatory=$true)] [string]$JwtSecreto)
+# Pasa TODA la configuracion de la app por VARIABLES DE ENTORNO al proceso del
+# .exe (heredadas por el proceso hijo). NO se escribe ningun appsettings dentro
+# de la carpeta de instalacion (es de solo lectura). ASP.NET Core lee las
+# variables con doble subrayado '__' como jerarquia de secciones.
+#
+# La cadena de conexion, el secreto JWT y (opcionalmente) los ajustes de Correo
+# provienen de la config generada bajo la raiz de datos del usuario
+# (%LOCALAPPDATA%\ALXOR Vet\config\alxor.config.json), de modo que son
+# idempotentes y se reutilizan en cada arranque.
+function Aplicar-VariablesEntorno {
+    param([Parameter(Mandatory=$true)] $Config)
 
     $cadena = "Host=localhost;Port=$($Config.PgPuerto);Database=$($Config.BaseDatos);Username=$($Config.PgUsuario);Password=$($Config.PgPassword)"
 
-    $settings = [ordered]@{
-        ConnectionStrings = [ordered]@{ AlxorCore = $cadena }
-        Jwt = [ordered]@{
-            Emisor           = 'alxor-vet'
-            Audiencia        = 'alxor-vet'
-            ClaveSecreta     = $JwtSecreto
-            MinutosExpiracion= 60
-        }
-        Correo = [ordered]@{
-            Habilitado      = $false
-            Host            = ''
-            Puerto          = 587
-            UsarStartTls    = $true
-            Usuario         = ''
-            Clave           = ''
-            Remitente       = 'no-responder@alxor.local'
-            RemitenteNombre = 'ALXOR Vet'
-            BaseUrl         = "http://localhost:$($Config.AppPuerto)"
-        }
-        Migraciones = [ordered]@{ AplicarAlArrancar = $true }
-    }
+    $env:ASPNETCORE_ENVIRONMENT = 'Production'
+    $env:ASPNETCORE_URLS        = "http://0.0.0.0:$($Config.AppPuerto)"
 
-    $settings | ConvertTo-Json -Depth 8 | Set-Content -Path $RutaAppSettings -Encoding UTF8
-    Escribir-Log "Configuracion escrita en app\appsettings.Production.json" 'OK'
+    # Cadena de conexion (seccion ConnectionStrings:AlxorCore).
+    $env:ConnectionStrings__AlxorCore = $cadena
+
+    # JWT (seccion Jwt). El secreto persiste en la config del usuario.
+    $env:Jwt__ClaveSecreta      = $Config.JwtSecreto
+    $env:Jwt__Emisor            = 'alxor-vet'
+    $env:Jwt__Audiencia         = 'alxor-vet'
+    $env:Jwt__MinutosExpiracion = '60'
+
+    # Migraciones: la app aplica la BD sola al arrancar.
+    $env:Migraciones__AplicarAlArrancar = 'true'
+
+    # Correo (seccion Correo). Deshabilitado por defecto. Se puede activar
+    # editando la seccion "Correo" del fichero de config bajo la raiz de datos.
+    $correo = $null
+    if ($Config.PSObject.Properties.Name -contains 'Correo') { $correo = $Config.Correo }
+
+    $env:Correo__Habilitado      = (& { if ($correo -and $correo.Habilitado) { 'true' } else { 'false' } })
+    $env:Correo__Host            = (& { if ($correo) { [string]$correo.Host } else { '' } })
+    $env:Correo__Puerto          = (& { if ($correo -and $correo.Puerto) { [string]$correo.Puerto } else { '587' } })
+    $env:Correo__UsarStartTls    = (& { if ($correo -and ($correo.UsarStartTls -eq $false)) { 'false' } else { 'true' } })
+    $env:Correo__Usuario         = (& { if ($correo) { [string]$correo.Usuario } else { '' } })
+    $env:Correo__Clave           = (& { if ($correo) { [string]$correo.Clave } else { '' } })
+    $env:Correo__Remitente       = (& { if ($correo -and $correo.Remitente) { [string]$correo.Remitente } else { 'no-responder@alxor.local' } })
+    $env:Correo__RemitenteNombre = (& { if ($correo -and $correo.RemitenteNombre) { [string]$correo.RemitenteNombre } else { 'ALXOR Vet' } })
+    $env:Correo__BaseUrl         = "http://localhost:$($Config.AppPuerto)"
+
+    Escribir-Log "Configuracion de la app pasada por variables de entorno (nada se escribe en la carpeta de instalacion)." 'OK'
 }
 
 # Devuelve los procesos vivos cuyo ejecutable es NUESTRO exe (robusto ante
@@ -53,7 +66,8 @@ function App-EnMarcha {
 }
 
 function Arrancar-App {
-    param([int]$Puerto)
+    param([Parameter(Mandatory=$true)] $Config)
+    $Puerto = $Config.AppPuerto
     if (App-EnMarcha) {
         Escribir-Log 'La aplicacion ya estaba en marcha.' 'OK'
         return $true
@@ -63,9 +77,9 @@ function Arrancar-App {
         return $false
     }
 
-    # Variables de entorno del PROCESO (heredadas por el hijo, incluido cmd).
-    $env:ASPNETCORE_ENVIRONMENT = 'Production'
-    $env:ASPNETCORE_URLS        = "http://0.0.0.0:$Puerto"
+    # Toda la configuracion se pasa por variables de entorno del PROCESO
+    # (heredadas por el hijo, incluido cmd). No se escribe nada junto al .exe.
+    Aplicar-VariablesEntorno -Config $Config
 
     Escribir-Log "Arrancando ALXOR Vet en http://0.0.0.0:$Puerto ..."
 

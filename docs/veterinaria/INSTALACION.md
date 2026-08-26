@@ -23,17 +23,27 @@ con `vet.html`), los lanzadores `.bat` y un `LEEME.txt`.
 
 **Pasos en el PC de la clínica (Windows 10/11 64-bit):**
 
-1. Descomprime el ZIP en una carpeta propia, p. ej. `C:\ALXOR-Vet`.
+1. Descomprime el ZIP en **cualquier carpeta**, la que prefieras. Puede ser una carpeta propia
+   (`C:\ALXOR-Vet`) **o incluso `C:\Archivos de programa\ALXOR Vet`**: no hace falta ejecutar como
+   administrador. La carpeta de instalación se trata como de **solo lectura** (solo se lee el `.exe`
+   y su interfaz web); **ningún dato se escribe dentro de ella**.
 2. Doble clic en **`Instalar ALXOR Vet.bat`**. La primera vez:
-   - genera los **secretos** (contraseña de PostgreSQL y `Jwt:ClaveSecreta`, con el RNG del sistema);
-   - escribe la configuración en `app\appsettings.Production.json` (conexión, JWT, sección `Correo`
-     con `Habilitado=false`, `Migraciones:AplicarAlArrancar=true`);
-   - prepara **PostgreSQL portable** en la subcarpeta `datos\` (lo **descarga** de la web oficial la
-     primera vez si no viene incluido en `postgres\`), `initdb`, lo arranca en `localhost:5433` y crea
-     la BD `alxor`;
-   - arranca la app en `http://0.0.0.0:8080` (aplica las migraciones sola) y **abre el navegador** en
-     `http://localhost:8080/vet.html` (el **asistente de primer arranque**: empresa + admin + vacunas);
-   - deja un acceso directo en el **Inicio de Windows** para arrancar al encender.
+   - crea la **raíz de datos** del usuario en **`%LOCALAPPDATA%\ALXOR Vet\`** (p. ej.
+     `C:\Users\<tu-usuario>\AppData\Local\ALXOR Vet\`), que **siempre es escribible**;
+   - genera los **secretos** (contraseña de PostgreSQL y clave JWT, con el RNG del sistema) y los
+     guarda en `config\alxor.config.json` **bajo esa raíz de datos** (se **reutilizan** en cada
+     arranque, no se regeneran);
+   - prepara **PostgreSQL portable** en `%LOCALAPPDATA%\ALXOR Vet\postgres\` (lo **descarga** de la web
+     oficial la primera vez), hace `initdb` en `%LOCALAPPDATA%\ALXOR Vet\datos\`, lo arranca en
+     `localhost:5433` y crea la BD `alxor`;
+   - arranca la app en `http://0.0.0.0:8080` pasándole **toda la configuración por variables de
+     entorno** (`ConnectionStrings__AlxorCore`, `Jwt__ClaveSecreta`, `ASPNETCORE_ENVIRONMENT=Production`,
+     `ASPNETCORE_URLS`, `Migraciones__AplicarAlArrancar=true` y la sección `Correo__*`, deshabilitada
+     por defecto); **no escribe ningún `appsettings` en la carpeta de instalación**. Aplica las
+     migraciones sola y **abre el navegador** en `http://localhost:8080/vet.html` (el **asistente de
+     primer arranque**: empresa + admin + vacunas);
+   - deja un acceso directo en el **Inicio de Windows** (apuntando al `Arrancar ALXOR Vet.bat` de la
+     carpeta de instalación) para arrancar al encender.
 3. Uso diario: **`Arrancar ALXOR Vet.bat`** y **`Detener ALXOR Vet.bat`**.
 
 **Acceso desde otros PCs de la clínica (LAN):** avería la IP con `ipconfig` y entra en
@@ -44,14 +54,28 @@ firewall del puerto 8080 se crea sola; si no, ábrela una vez con:
 netsh advfirewall firewall add rule name="ALXOR Vet (8080)" dir=in action=allow protocol=TCP localport=8080
 ```
 
-**Correo:** desactivado por defecto. Con la app detenida, edita la sección `Correo` de
-`app\appsettings.Production.json` (`"Habilitado": true`, Host/Puerto 587/Usuario/Clave/Remitente) y
-vuelve a arrancar.
+**Dónde viven los datos:** todo el estado (base de datos, PostgreSQL portable, logs, secretos y
+config) vive en **`%LOCALAPPDATA%\ALXOR Vet\`**, **no** en la carpeta de instalación. Así el paquete
+funciona instalado en cualquier ruta, incluida `Archivos de programa`, sin permisos de administrador.
 
-**Copia de seguridad:** detén la app y copia la carpeta `datos\` completa; o usa
-`postgres\pgsql\bin\pg_dump.exe -h localhost -p 5433 -U postgres alxor > copia.sql`.
+**Correo:** desactivado por defecto. Con la app detenida, edita la sección `Correo` del fichero
+`%LOCALAPPDATA%\ALXOR Vet\config\alxor.config.json` (`"Habilitado": true`, `Host`, `Puerto` 587,
+`Usuario`, `Clave`, `Remitente`) y vuelve a arrancar: al arrancar, esos valores se pasan a la app como
+variables de entorno `Correo__*`.
 
-**Si algo falla:** todo queda registrado en `logs\` (`instalacion.log`, `postgres.log`, `app.log`).
+**Copia de seguridad:** detén la app (**`Detener ALXOR Vet.bat`**) y copia la carpeta
+**`%LOCALAPPDATA%\ALXOR Vet\datos`** completa; o, con la app en marcha, usa `pg_dump`:
+
+```powershell
+$cfg = Get-Content "$env:LOCALAPPDATA\ALXOR Vet\config\alxor.config.json" | ConvertFrom-Json
+$env:PGPASSWORD = $cfg.PgPassword
+& "$env:LOCALAPPDATA\ALXOR Vet\postgres\pgsql\bin\pg_dump.exe" -h localhost -p 5433 -U postgres alxor > copia_alxor.sql
+```
+
+Guarda la copia **fuera del PC** (nube, disco externo o unidad de red).
+
+**Si algo falla:** todo queda registrado en **`%LOCALAPPDATA%\ALXOR Vet\logs\`** (`instalacion.log`,
+`postgres.log`, `app.log`).
 
 **Regenerar el paquete** (para el equipo técnico): ver `windows/README-BUILD.md`. En resumen,
 `dotnet publish src/AlxorCore.Api -c Release -r win-x64 --self-contained true

@@ -18,6 +18,12 @@ try {
         Escribir-Log "No hay configuracion. Ejecuta primero 'Instalar ALXOR Vet.bat'." 'ERROR'
         exit 1
     }
+    # Compatibilidad: asegura un secreto JWT persistido (configs antiguas).
+    if (-not ($config.PSObject.Properties.Name -contains 'JwtSecreto') -or [string]::IsNullOrWhiteSpace($config.JwtSecreto)) {
+        $config | Add-Member -NotePropertyName JwtSecreto -NotePropertyValue (Nuevo-Secreto -Bytes 48) -Force
+        Guardar-Config -Config $config
+        Escribir-Log 'Se genero y persistio un secreto JWT que faltaba en la configuracion.' 'AVISO'
+    }
     if (-not (Test-Path $RutaExe)) {
         Escribir-Log "No se encuentra $RutaExe. Descomprime el paquete completo." 'ERROR'
         exit 1
@@ -29,7 +35,7 @@ try {
 
     if (-not (Arrancar-Postgres -Puerto $config.PgPuerto)) { throw 'No se pudo arrancar PostgreSQL.' }
     if (-not (Asegurar-BaseDatos -Puerto $config.PgPuerto -Usuario $config.PgUsuario -Password $config.PgPassword -BaseDatos $config.BaseDatos)) { throw 'No se pudo asegurar la base de datos.' }
-    if (-not (Arrancar-App -Puerto $config.AppPuerto)) { throw 'La aplicacion no arranco correctamente.' }
+    if (-not (Arrancar-App -Config $config)) { throw 'La aplicacion no arranco correctamente.' }
 
     $url = "http://localhost:$($config.AppPuerto)/vet.html"
     Escribir-Log "Abriendo el navegador en $url" 'OK'

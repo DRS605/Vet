@@ -60,6 +60,9 @@ try {
     }
 
     # 2) Configuracion + secretos (solo la primera vez).
+    #    TODO (incluido el secreto JWT) se guarda bajo la raiz de datos del
+    #    usuario (%LOCALAPPDATA%\ALXOR Vet\config\alxor.config.json), NUNCA en la
+    #    carpeta de instalacion. Los secretos se reutilizan en cada arranque.
     $config = Leer-Config
     if ($null -eq $config) {
         Escribir-Log 'Generando configuracion y secretos (contrasena de PostgreSQL y clave JWT)...'
@@ -69,16 +72,28 @@ try {
             PgUsuario  = 'postgres'
             PgPassword = (Nueva-Password -Longitud 32)
             BaseDatos  = 'alxor'
+            JwtSecreto = (Nuevo-Secreto -Bytes 48)   # >= 32 caracteres, base64 de 48 bytes
+            Correo     = [ordered]@{
+                Habilitado      = $false
+                Host            = ''
+                Puerto          = 587
+                UsarStartTls    = $true
+                Usuario         = ''
+                Clave           = ''
+                Remitente       = 'no-responder@alxor.local'
+                RemitenteNombre = 'ALXOR Vet'
+            }
         }
         Guardar-Config -Config $config
-        $jwt = (Nuevo-Secreto -Bytes 48)   # >= 32 caracteres, base64 de 48 bytes
-        Escribir-AppSettings -Config $config -JwtSecreto $jwt
-        Escribir-Log 'Secretos generados y guardados (config\alxor.config.json + app\appsettings.Production.json).' 'OK'
+        Escribir-Log 'Secretos generados y guardados en la raiz de datos del usuario (config\alxor.config.json).' 'OK'
     } else {
         Escribir-Log 'Ya existia configuracion previa; se reutiliza (no se regeneran secretos).' 'OK'
-        if (-not (Test-Path $RutaAppSettings)) {
-            $jwt = (Nuevo-Secreto -Bytes 48)
-            Escribir-AppSettings -Config $config -JwtSecreto $jwt
+        # Compatibilidad: si la config es de una version antigua sin JwtSecreto,
+        # se genera uno y se persiste para reutilizarlo (idempotente).
+        if (-not ($config.PSObject.Properties.Name -contains 'JwtSecreto') -or [string]::IsNullOrWhiteSpace($config.JwtSecreto)) {
+            $config | Add-Member -NotePropertyName JwtSecreto -NotePropertyValue (Nuevo-Secreto -Bytes 48) -Force
+            Guardar-Config -Config $config
+            Escribir-Log 'Se genero y persistio un secreto JWT que faltaba en la configuracion previa.' 'OK'
         }
     }
 
@@ -95,7 +110,7 @@ try {
     Crear-AccesoInicio
 
     # 6) Arrancar la aplicacion (migra la BD sola al arrancar).
-    if (-not (Arrancar-App -Puerto $config.AppPuerto)) { throw 'La aplicacion no arranco correctamente.' }
+    if (-not (Arrancar-App -Config $config)) { throw 'La aplicacion no arranco correctamente.' }
 
     # 7) Abrir el navegador en el asistente de primer arranque.
     $url = "http://localhost:$($config.AppPuerto)/vet.html"

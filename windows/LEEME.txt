@@ -13,12 +13,14 @@ a internet (solo si el paquete no trae ya la carpeta "postgres").
   PASOS (primera vez)
 ------------------------------------------------------------------------
 
-1. Descomprime este ZIP en una carpeta del PC, por ejemplo:
-       C:\ALXOR-Vet
-   (Evita el Escritorio o "Archivos de programa"; usa una carpeta propia.)
+1. Descomprime este ZIP en CUALQUIER carpeta del PC, la que prefieras.
+   Puede ser una carpeta propia (por ejemplo C:\ALXOR-Vet) o incluso
+   "C:\Archivos de programa\ALXOR Vet": NO necesitas ser administrador.
+   Los DATOS no se guardan aqui, sino en tu perfil de usuario (ver abajo).
 
 2. Doble clic en:  "Instalar ALXOR Vet.bat"
-   - Prepara la base de datos dentro de la carpeta "datos".
+   - Crea la carpeta de datos en tu perfil de usuario (ver "DONDE VIVEN
+     TUS DATOS", mas abajo) y prepara ahi la base de datos.
    - Arranca la aplicacion.
    - Abre el navegador solo en el ASISTENTE de primer arranque.
    Espera a que termine (unos minutos la primera vez). No cierres la ventana.
@@ -71,13 +73,14 @@ a internet (solo si el paquete no trae ya la carpeta "postgres").
 ------------------------------------------------------------------------
 
 Por defecto el correo esta DESACTIVADO. Para activarlo, con la aplicacion
-detenida, edita el fichero:
-       app\appsettings.Production.json
+detenida, edita este fichero de tu carpeta de datos:
+       %LOCALAPPDATA%\ALXOR Vet\config\alxor.config.json
 En la seccion "Correo" pon:
        "Habilitado": true
 y rellena Host, Puerto (587), Usuario, Clave y Remitente con los datos
 del SMTP de tu clinica (en Gmail/Workspace usa una "contrasena de
-aplicacion"). Guarda y vuelve a arrancar con "Arrancar ALXOR Vet.bat".
+aplicacion"). Guarda y vuelve a arrancar con "Arrancar ALXOR Vet.bat":
+esos valores se le pasan a la aplicacion como variables de entorno.
 Nota: se usa el puerto 587 con STARTTLS (el 465 no esta soportado).
 
 
@@ -85,15 +88,18 @@ Nota: se usa el puerto 587 con STARTTLS (el 465 no esta soportado).
   COPIA DE SEGURIDAD
 ------------------------------------------------------------------------
 
-Todos los datos viven en la carpeta "datos". Dos formas:
+Todos los datos viven en tu carpeta de datos de usuario:
+       %LOCALAPPDATA%\ALXOR Vet\
+(base de datos, PostgreSQL portable, logs y configuracion). Dos formas:
 
 A) Sencilla (con la app DETENIDA): "Detener ALXOR Vet.bat" y luego copia
-   la carpeta "datos" completa a un disco externo o unidad de red.
+   la carpeta "%LOCALAPPDATA%\ALXOR Vet\datos" completa a un disco externo
+   o unidad de red.
 
-B) Con pg_dump (la app puede seguir en marcha), desde esta carpeta en
-   PowerShell:
-       $env:PGPASSWORD = (Get-Content config\alxor.config.json | ConvertFrom-Json).PgPassword
-       postgres\pgsql\bin\pg_dump.exe -h localhost -p 5433 -U postgres alxor > copia_alxor.sql
+B) Con pg_dump (la app puede seguir en marcha), en PowerShell:
+       $cfg = Get-Content "$env:LOCALAPPDATA\ALXOR Vet\config\alxor.config.json" | ConvertFrom-Json
+       $env:PGPASSWORD = $cfg.PgPassword
+       & "$env:LOCALAPPDATA\ALXOR Vet\postgres\pgsql\bin\pg_dump.exe" -h localhost -p 5433 -U postgres alxor > copia_alxor.sql
 
 Guarda la copia FUERA del PC (nube, disco externo, unidad de red).
 
@@ -102,7 +108,7 @@ Guarda la copia FUERA del PC (nube, disco externo, unidad de red).
   SI ALGO FALLA
 ------------------------------------------------------------------------
 
-Mira la carpeta "logs":
+Mira la carpeta de logs en tu perfil:  %LOCALAPPDATA%\ALXOR Vet\logs
    - instalacion.log  -> el paso a paso de la instalacion/arranque.
    - postgres.log     -> mensajes de la base de datos.
    - app.log          -> mensajes de la aplicacion.
@@ -119,12 +125,28 @@ Errores tipicos:
   QUE HAY EN ESTA CARPETA
 ------------------------------------------------------------------------
 
+Esta carpeta (la de instalacion, solo lectura; se puede poner en
+"Archivos de programa"):
+
    Instalar ALXOR Vet.bat   -> instala y arranca la primera vez
    Arrancar ALXOR Vet.bat   -> arranca en el dia a dia
    Detener ALXOR Vet.bat    -> para todo de forma limpia
    app\                     -> la aplicacion (no la muevas)
    scripts\                 -> automatizacion interna
-   datos\                   -> tu base de datos (COPIA DE SEGURIDAD aqui)
-   config\                  -> configuracion y contrasenas generadas
-   logs\                    -> registros
-   postgres\                -> PostgreSQL portable (se crea/descarga solo)
+
+
+------------------------------------------------------------------------
+  DONDE VIVEN TUS DATOS
+------------------------------------------------------------------------
+
+Todos los datos y la configuracion se guardan en tu perfil de usuario,
+NO en la carpeta de instalacion (por eso funciona en "Archivos de
+programa" sin ser administrador):
+
+   %LOCALAPPDATA%\ALXOR Vet\
+      datos\      -> tu base de datos (COPIA DE SEGURIDAD aqui)
+      config\     -> configuracion y contrasenas generadas
+      logs\       -> registros (instalacion, postgres, app)
+      postgres\   -> PostgreSQL portable (se crea/descarga solo)
+
+(%LOCALAPPDATA% suele ser C:\Users\TU-USUARIO\AppData\Local)

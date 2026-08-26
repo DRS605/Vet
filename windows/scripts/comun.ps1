@@ -3,18 +3,32 @@
 #  Este fichero lo cargan (dot-source) el resto de scripts. No se ejecuta solo.
 # =============================================================================
 
-# --- Rutas del paquete -------------------------------------------------------
+# --- Carpeta de INSTALACION (SOLO LECTURA) -----------------------------------
 # La carpeta del paquete es la carpeta PADRE de \scripts (donde estan los .bat).
+# IMPORTANTE: se trata como de SOLO LECTURA. Solo se LEE de aqui: el ejecutable
+# self-contained y su wwwroot. NADA se escribe dentro (funciona instalada en
+# 'C:\Archivos de programa', que no es escribible sin administrador).
 $Global:RaizPaquete = Split-Path -Parent $PSScriptRoot
 $Global:DirApp      = Join-Path $RaizPaquete 'app'
-$Global:DirDatos    = Join-Path $RaizPaquete 'datos'
-$Global:DirLogs     = Join-Path $RaizPaquete 'logs'
-$Global:DirConfig   = Join-Path $RaizPaquete 'config'
-$Global:DirPostgres = Join-Path $RaizPaquete 'postgres'
+$Global:RutaExe     = Join-Path $DirApp 'AlxorCore.Api.exe'
 
-$Global:RutaExe        = Join-Path $DirApp 'AlxorCore.Api.exe'
+# --- Raiz de DATOS escribible (perfil del usuario) ---------------------------
+# TODO el estado escribible (base de datos, binarios de PostgreSQL portable,
+# logs, secretos/config) vive AQUI, en el perfil del usuario, que SIEMPRE es
+# escribible. Asi el paquete se puede instalar en cualquier carpeta, incluida
+# 'Archivos de programa', sin pedir permisos de administrador.
+$baseLocal = $env:LOCALAPPDATA
+if ([string]::IsNullOrWhiteSpace($baseLocal)) {
+    # Muy raro (LOCALAPPDATA no definido); caemos al perfil del usuario.
+    $baseLocal = Join-Path $env:USERPROFILE 'AppData\Local'
+}
+$Global:RaizDatos   = Join-Path $baseLocal 'ALXOR Vet'
+$Global:DirDatos    = Join-Path $RaizDatos 'datos'
+$Global:DirLogs     = Join-Path $RaizDatos 'logs'
+$Global:DirConfig   = Join-Path $RaizDatos 'config'
+$Global:DirPostgres = Join-Path $RaizDatos 'postgres'
+
 $Global:RutaConfig     = Join-Path $DirConfig 'alxor.config.json'
-$Global:RutaAppSettings= Join-Path $DirApp 'appsettings.Production.json'
 $Global:LogInstalacion = Join-Path $DirLogs 'instalacion.log'
 $Global:LogApp         = Join-Path $DirLogs 'app.log'
 $Global:LogPostgres    = Join-Path $DirLogs 'postgres.log'
@@ -36,7 +50,9 @@ $Global:PgPuertoDefecto  = 5433
 $Global:AppPuertoDefecto = 8080
 
 function Asegurar-Carpetas {
-    foreach ($d in @($DirApp, $DirDatos, $DirLogs, $DirConfig, $DirPostgres)) {
+    # Solo se crean carpetas bajo la raiz de datos escribible (perfil del
+    # usuario). NUNCA se crea nada en la carpeta de instalacion.
+    foreach ($d in @($RaizDatos, $DirDatos, $DirLogs, $DirConfig, $DirPostgres)) {
         if (-not (Test-Path $d)) { New-Item -ItemType Directory -Path $d -Force | Out-Null }
     }
 }
