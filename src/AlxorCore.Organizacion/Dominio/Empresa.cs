@@ -79,20 +79,33 @@ public sealed class Empresa : RaizAgregado<Guid>
         return Resultado.Ok(empresa);
     }
 
-    public void ActualizarDatos(string? razonSocial, Direccion direccion, RegimenIva regimenIva, IReloj reloj)
+    /// <summary>
+    /// Actualiza los datos maestros de la empresa (NIF, razón social, dirección y régimen de IVA).
+    /// No afecta a documentos ya congelados (facturas): solo cambia los datos de la empresa para el futuro.
+    /// </summary>
+    public Resultado ActualizarDatos(Nif nif, string? razonSocial, Direccion direccion, RegimenIva regimenIva, IReloj reloj)
     {
+        ArgumentNullException.ThrowIfNull(nif);
         ArgumentNullException.ThrowIfNull(direccion);
         ArgumentNullException.ThrowIfNull(reloj);
 
         var nombre = (razonSocial ?? string.Empty).Trim();
-        if (nombre.Length > 0)
+        if (nombre.Length == 0)
         {
-            RazonSocial = nombre;
+            return Resultado.Fallo(Error.Validacion("empresa.razon_social_vacia", "La razón social es obligatoria."));
         }
 
+        if (nombre.Length > LongitudMaximaRazonSocial)
+        {
+            return Resultado.Fallo(Error.Validacion("empresa.razon_social_larga", "La razón social es demasiado larga."));
+        }
+
+        Nif = nif;
+        RazonSocial = nombre;
         Direccion = direccion;
         RegimenIva = regimenIva;
         ActualizadoEn = reloj.AhoraUtc;
+        return Resultado.Ok();
     }
 
     /// <summary>Fija los datos de cobro por domiciliación (IBAN de ingreso e identificador del acreedor SEPA).</summary>

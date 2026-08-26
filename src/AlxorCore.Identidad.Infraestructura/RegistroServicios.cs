@@ -72,6 +72,8 @@ public static class RegistroServicios
         servicios.AddScoped<RegistrarUsuario>();
         servicios.AddScoped<IniciarSesion>();
         servicios.AddScoped<ObtenerPerfil>();
+        servicios.AddScoped<ActualizarPerfil>();
+        servicios.AddScoped<CambiarContrasena>();
         servicios.AddScoped<VerificarEmail>();
         servicios.AddScoped<RecuperarContrasena>();
         servicios.AddScoped<RestablecerContrasena>();

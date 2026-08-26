@@ -23,6 +23,10 @@ public sealed class OrganizacionEndpointsTests : IClassFixture<FabricaApiPruebas
 
     private sealed record EmpresaDto(Guid Id, string Nif, string RazonSocial);
 
+    private sealed record EmpresaCompletaDto(
+        Guid Id, string Nif, string RazonSocial, string RegimenIva,
+        string Calle, string CodigoPostal, string Poblacion, string Provincia);
+
     private sealed record EmpresaResumen(Guid Id, string Nif, string RazonSocial, string RolCodigo);
 
     private sealed record SeleccionRespuesta(string Token, Guid EmpresaId, string RolCodigo, IReadOnlyList<string> Permisos);
@@ -95,6 +99,38 @@ public sealed class OrganizacionEndpointsTests : IClassFixture<FabricaApiPruebas
 
         var series = await cliente.GetFromJsonAsync<List<SerieDto>>("/series");
         series.Should().ContainSingle(s => s.Prefijo == "FB" && s.Ejercicio == 2026);
+    }
+
+    [Fact]
+    public async Task Actualizar_empresa_y_leerla()
+    {
+        var cliente = await ClienteAutenticadoAsync();
+        var crear = await cliente.PostAsJsonAsync("/empresas", new CrearEmpresaPeticion(GenerarNif(), "Clínica Vieja SL"));
+        var empresa = await crear.Content.ReadFromJsonAsync<EmpresaDto>();
+        var seleccion = await cliente.PostAsync(new Uri($"/empresas/{empresa!.Id}/seleccionar", UriKind.Relative), content: null);
+        var alcance = await seleccion.Content.ReadFromJsonAsync<SeleccionRespuesta>();
+        cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", alcance!.Token);
+        alcance.Permisos.Should().Contain("empresa.ajustes");
+
+        var nuevoNif = GenerarNif();
+        var actualizar = await cliente.PutAsJsonAsync("/empresas/actual", new
+        {
+            Nif = nuevoNif,
+            RazonSocial = "Clínica Nueva SL",
+            Calle = "Calle Mayor 1",
+            CodigoPostal = "28013",
+            Poblacion = "Madrid",
+            Provincia = "Madrid",
+            RegimenIva = "RecargoEquivalencia",
+        });
+        actualizar.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var leida = await cliente.GetFromJsonAsync<EmpresaCompletaDto>("/empresas/actual");
+        leida!.RazonSocial.Should().Be("Clínica Nueva SL");
+        leida.Nif.Should().Be(nuevoNif);
+        leida.RegimenIva.Should().Be("RecargoEquivalencia");
+        leida.Calle.Should().Be("Calle Mayor 1");
+        leida.Poblacion.Should().Be("Madrid");
     }
 
     [Fact]

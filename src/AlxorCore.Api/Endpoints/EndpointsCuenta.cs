@@ -1,4 +1,6 @@
 using AlxorCore.Api.Comun;
+using AlxorCore.Api.Contratos;
+using AlxorCore.Identidad.Aplicacion.CasosDeUso;
 using AlxorCore.Catalogo.Aplicacion;
 using AlxorCore.Facturacion.Aplicacion;
 using AlxorCore.Gastos.Aplicacion;
@@ -36,6 +38,14 @@ public static class EndpointsCuenta
 
         var cuenta = rutas.MapGroup("/cuenta").WithTags("Cuenta / RGPD");
 
+        cuenta.MapPut("/perfil", ActualizarPerfilAsync)
+            .WithSummary("Actualiza el perfil del usuario autenticado (nombre y sexo).")
+            .RequireAuthorization();
+
+        cuenta.MapPost("/cambiar-clave", CambiarClaveAsync)
+            .WithSummary("Cambia la contraseña del usuario autenticado (requiere la contraseña actual).")
+            .RequireAuthorization();
+
         cuenta.MapGet("/exportar", ExportarAsync)
             .WithSummary("Exporta todos los datos de la empresa activa (RGPD: acceso y portabilidad).")
             .RequierePermiso(Permisos.DatosExportar);
@@ -45,6 +55,42 @@ public static class EndpointsCuenta
             .RequierePermiso(Permisos.UsuarioGestionar);
 
         return rutas;
+    }
+
+    private static async Task<IResult> ActualizarPerfilAsync(
+        ActualizarPerfilPeticion peticion,
+        System.Security.Claims.ClaimsPrincipal usuario,
+        ActualizarPerfil casoDeUso,
+        CancellationToken ct)
+    {
+        var usuarioId = usuario.ObtenerUsuarioId();
+        if (usuarioId is null)
+        {
+            return ResultadosHttp.AProblema(Error.NoAutenticado("auth.token_invalido", "El token no identifica al usuario."));
+        }
+
+        var resultado = await casoDeUso
+            .EjecutarAsync(usuarioId.Value, new ActualizarPerfilComando(peticion.Nombre, peticion.Sexo), ct)
+            .ConfigureAwait(false);
+        return resultado.AOk();
+    }
+
+    private static async Task<IResult> CambiarClaveAsync(
+        CambiarClavePeticion peticion,
+        System.Security.Claims.ClaimsPrincipal usuario,
+        CambiarContrasena casoDeUso,
+        CancellationToken ct)
+    {
+        var usuarioId = usuario.ObtenerUsuarioId();
+        if (usuarioId is null)
+        {
+            return ResultadosHttp.AProblema(Error.NoAutenticado("auth.token_invalido", "El token no identifica al usuario."));
+        }
+
+        var resultado = await casoDeUso
+            .EjecutarAsync(usuarioId.Value, new CambiarContrasenaComando(peticion.ClaveActual, peticion.NuevaClave), ct)
+            .ConfigureAwait(false);
+        return resultado.ASinContenido();
     }
 
     private static async Task<IResult> ExportarAsync(

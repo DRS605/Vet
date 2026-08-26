@@ -42,6 +42,7 @@ public static class RegistroServicios
         servicios.AddScoped<CrearEmpresa>();
         servicios.AddScoped<ConsultarEstadoInstalacion>();
         servicios.AddScoped<ActualizarDatosCobro>();
+        servicios.AddScoped<ActualizarEmpresa>();
         servicios.AddScoped<ListarMisEmpresas>();
         servicios.AddScoped<ObtenerEmpresa>();
         servicios.AddScoped<SeleccionarEmpresa>();

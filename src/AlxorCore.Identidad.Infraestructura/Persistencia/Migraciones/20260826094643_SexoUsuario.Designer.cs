@@ -3,6 +3,7 @@ using System;
 using AlxorCore.Identidad.Infraestructura.Persistencia;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AlxorCore.Identidad.Infraestructura.Persistencia.Migraciones
 {
     [DbContext(typeof(IdentidadDbContext))]
-    partial class IdentidadDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826094643_SexoUsuario")]
+    partial class SexoUsuario
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

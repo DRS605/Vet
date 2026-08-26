@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#2e1b0e" />
-  <title>Cartilla Viva</title>
+  <title>Cartilla Viva · Vetis</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='88'%3E%F0%9F%90%BE%3C/text%3E%3C/svg%3E" />
   <style>
     :root{
@@ -15,7 +15,7 @@
       --grad-honey:linear-gradient(135deg,#ffcb3e,#f0a500);
       --vet:#5e7f2e; --vet-soft:#eef4df;
       --pos:#5e7f2e; --neg:#c0492f; --warn:#c9871a;
-      --honey-soft:#ffefc4; --honey-ink:#9a6b0f;
+      --honey:#f5a800; --honey-soft:#ffefc4; --honey-ink:#9a6b0f;
       --shadow:0 1px 2px rgba(46,27,14,.06),0 10px 26px rgba(46,27,14,.10);
       --radius:16px;
     }
@@ -36,8 +36,8 @@
     /* Cabecera */
     .top{padding:22px 16px 12px; max-width:460px; margin:0 auto;}
     .brand{display:flex; align-items:center; gap:9px; color:var(--muted); font-weight:700; font-size:12.5px; letter-spacing:.02em;}
-    .mark{width:30px;height:30px;border-radius:10px;background:var(--grad);position:relative;flex:none;box-shadow:0 6px 16px rgba(46,27,14,.28);}
-    .mark::before{content:"🐾";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:13px;}
+    .mark{width:30px;height:30px;border-radius:10px;background:var(--grad);flex:none;box-shadow:0 6px 16px rgba(46,27,14,.28);display:grid;place-items:center;}
+    .mark svg{width:19px;height:19px;display:block;}
     .clinic{color:var(--ink);}
 
     .hero{display:flex; align-items:center; gap:14px; margin-top:16px;}
@@ -118,7 +118,7 @@
 
   <main id="app" class="hidden">
     <header class="top">
-      <div class="brand"><span class="mark"></span> <span>Cartilla Viva · <span class="clinic" id="clinic">—</span></span></div>
+      <div class="brand"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span>Cartilla Viva · <span class="clinic" id="clinic">—</span></span></div>
       <div class="hero">
         <div class="avatar" id="avatar">🐾</div>
         <div>
@@ -133,7 +133,7 @@
 
     <div class="wrap" id="content"></div>
 
-    <div class="foot">ALXOR Vet · Cartilla Viva. Tus datos, en tu bolsillo.</div>
+    <div class="foot">Vetis by Alxor · Cartilla Viva. Tus datos, en tu bolsillo.</div>
   </main>
 
   <div id="toast" class="toast"></div>

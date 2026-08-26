@@ -38,6 +38,10 @@ public static class EndpointsOrganizacion
             .WithSummary("Devuelve la empresa activa.")
             .RequireAuthorization();
 
+        empresas.MapPut("/actual", ActualizarAsync)
+            .WithSummary("Actualiza los datos maestros de la empresa activa (NIF, razón social, dirección e IVA).")
+            .RequierePermiso(Permisos.EmpresaAjustes);
+
         empresas.MapPut("/actual/cobro", DatosCobroAsync)
             .WithSummary("Fija los datos de cobro por domiciliación (IBAN e identificador del acreedor SEPA).")
             .RequierePermiso(Permisos.EmpresaAjustes);
@@ -109,6 +113,21 @@ public static class EndpointsOrganizacion
         }
 
         var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, ct).ConfigureAwait(false);
+        return resultado.AOk();
+    }
+
+    private static async Task<IResult> ActualizarAsync(ActualizarEmpresaPeticion peticion, IContextoEmpresa contexto, ActualizarEmpresa caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var comando = new ActualizarEmpresaComando(
+            peticion.Nif, peticion.RazonSocial,
+            peticion.Calle, peticion.CodigoPostal, peticion.Poblacion, peticion.Provincia, peticion.RegimenIva);
+
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, comando, ct).ConfigureAwait(false);
         return resultado.AOk();
     }
 

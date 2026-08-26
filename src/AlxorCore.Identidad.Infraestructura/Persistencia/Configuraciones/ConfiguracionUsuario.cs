@@ -48,6 +48,13 @@ internal sealed class ConfiguracionUsuario : IEntityTypeConfiguration<Usuario>
             .HasColumnName("email_verificado")
             .IsRequired();
 
+        builder.Property(u => u.Sexo)
+            .HasColumnName("sexo")
+            .HasMaxLength(20)
+            .HasConversion<string>()
+            .HasDefaultValue(SexoUsuario.NoIndicado)
+            .IsRequired();
+
         builder.Property(u => u.CreadoEn)
             .HasColumnName("creado_en")
             .IsRequired();

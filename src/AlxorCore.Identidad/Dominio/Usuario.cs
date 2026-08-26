@@ -31,6 +31,7 @@ public sealed class Usuario : RaizAgregado<Guid>
         HashContrasena = hash;
         Estado = EstadoUsuario.Activo;
         EmailVerificado = false;
+        Sexo = SexoUsuario.NoIndicado;
         CreadoEn = ahora;
         ActualizadoEn = ahora;
     }
@@ -40,6 +41,9 @@ public sealed class Usuario : RaizAgregado<Guid>
 
     /// <summary>Nombre visible del usuario.</summary>
     public string Nombre { get; private set; }
+
+    /// <summary>Sexo del usuario (dato de perfil opcional; por defecto <see cref="SexoUsuario.NoIndicado"/>).</summary>
+    public SexoUsuario Sexo { get; private set; }
 
     /// <summary>Contraseña cifrada.</summary>
     public HashContrasena HashContrasena { get; private set; }
@@ -84,6 +88,31 @@ public sealed class Usuario : RaizAgregado<Guid>
         var usuario = new Usuario(Guid.NewGuid(), email, nombreNormalizado, hash, reloj.AhoraUtc);
         usuario.RegistrarEvento(new UsuarioRegistrado(usuario.Id, email.Valor, reloj.AhoraUtc));
         return Resultado.Ok(usuario);
+    }
+
+    /// <summary>
+    /// Actualiza los datos de perfil editables por el propio usuario: nombre visible y sexo.
+    /// Aplica las mismas reglas de validación del nombre que en el alta.
+    /// </summary>
+    public Resultado ActualizarPerfil(string? nombre, SexoUsuario sexo, IReloj reloj)
+    {
+        ArgumentNullException.ThrowIfNull(reloj);
+
+        var nombreNormalizado = (nombre ?? string.Empty).Trim();
+        if (nombreNormalizado.Length == 0)
+        {
+            return Resultado.Fallo(Error.Validacion("usuario.nombre_vacio", "El nombre es obligatorio."));
+        }
+
+        if (nombreNormalizado.Length > LongitudMaximaNombre)
+        {
+            return Resultado.Fallo(Error.Validacion("usuario.nombre_largo", "El nombre es demasiado largo."));
+        }
+
+        Nombre = nombreNormalizado;
+        Sexo = sexo;
+        Tocar(reloj);
+        return Resultado.Ok();
     }
 
     /// <summary>Marca el correo como verificado. Idempotente.</summary>

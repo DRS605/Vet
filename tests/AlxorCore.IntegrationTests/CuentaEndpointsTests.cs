@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using Xunit;
@@ -12,12 +13,73 @@ public sealed class CuentaEndpointsTests : IClassFixture<FabricaApiPruebas>
 
     public CuentaEndpointsTests(FabricaApiPruebas fabrica) => _fabrica = fabrica;
 
-    private sealed record PerfilResp(Guid Id, string Email, string Nombre, bool EmailVerificado);
+    private sealed record PerfilResp(Guid Id, string Email, string Nombre, bool EmailVerificado, string Sexo);
     private sealed record RegistroResp(PerfilResp Perfil, string TokenVerificacion);
     private sealed record LoginResp(string Token, PerfilResp Usuario);
     private sealed record RecuperarResp(string Mensaje, string? Token);
 
     private static string Email() => $"u{Guid.NewGuid():N}@ejemplo.com";
+
+    /// <summary>Registra e inicia sesión, devolviendo un cliente autenticado y su correo.</summary>
+    private async Task<(HttpClient Cliente, string Correo)> ClienteAutenticadoAsync()
+    {
+        var cliente = _fabrica.CreateClient();
+        var email = Email();
+        await cliente.PostAsJsonAsync("/auth/registro", new { Email = email, Nombre = "Ana", Contrasena = "contrasena123" });
+        var login = await (await cliente.PostAsJsonAsync("/auth/login", new { Email = email, Contrasena = "contrasena123" }))
+            .Content.ReadFromJsonAsync<LoginResp>();
+        cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login!.Token);
+        return (cliente, email);
+    }
+
+    [Fact]
+    public async Task Actualizar_perfil_cambia_nombre_y_sexo_y_lo_refleja_el_me()
+    {
+        var (cliente, _) = await ClienteAutenticadoAsync();
+
+        var actualizar = await cliente.PutAsJsonAsync("/cuenta/perfil", new { Nombre = "Ana Vet", Sexo = "Mujer" });
+        actualizar.StatusCode.Should().Be(HttpStatusCode.OK);
+        var devuelto = await actualizar.Content.ReadFromJsonAsync<PerfilResp>();
+        devuelto!.Nombre.Should().Be("Ana Vet");
+        devuelto.Sexo.Should().Be("Mujer");
+
+        // El "me" (/auth/perfil) refleja el nuevo nombre y sexo.
+        var me = await cliente.GetFromJsonAsync<PerfilResp>("/auth/perfil");
+        me!.Nombre.Should().Be("Ana Vet");
+        me.Sexo.Should().Be("Mujer");
+    }
+
+    [Fact]
+    public async Task Sexo_por_defecto_es_no_indicado()
+    {
+        var (cliente, _) = await ClienteAutenticadoAsync();
+        var me = await cliente.GetFromJsonAsync<PerfilResp>("/auth/perfil");
+        me!.Sexo.Should().Be("NoIndicado");
+    }
+
+    [Fact]
+    public async Task Cambiar_contrasena_permite_entrar_con_la_nueva()
+    {
+        var (cliente, email) = await ClienteAutenticadoAsync();
+
+        var cambio = await cliente.PostAsJsonAsync("/cuenta/cambiar-clave", new { ClaveActual = "contrasena123", NuevaClave = "nueva-clave-123" });
+        cambio.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        var viejo = await cliente.PostAsJsonAsync("/auth/login", new { Email = email, Contrasena = "contrasena123" });
+        viejo.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        var nuevo = await cliente.PostAsJsonAsync("/auth/login", new { Email = email, Contrasena = "nueva-clave-123" });
+        nuevo.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task Cambiar_contrasena_con_actual_incorrecta_falla()
+    {
+        var (cliente, _) = await ClienteAutenticadoAsync();
+
+        var cambio = await cliente.PostAsJsonAsync("/cuenta/cambiar-clave", new { ClaveActual = "no-es-la-actual", NuevaClave = "nueva-clave-123" });
+        cambio.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 
     [Fact]
     public async Task Verificar_email_con_el_token_del_registro()
