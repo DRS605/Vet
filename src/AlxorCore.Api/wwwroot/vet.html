@@ -589,15 +589,16 @@ const ICON = {
   plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
   especies:'<svg viewBox="0 0 24 24"><path d="M4.5 12.5c0-2 1.5-3 2.5-2s.5 3-1 3-1.5-1-1.5-1M17 12.5c0-2 1.5-3 2.5-2s.5 3-1 3-1.5-1-1.5-1M9 8c0-2 1.2-3 2-2s.5 3-.8 3M15 8c0-2-1.2-3-2-2s-.5 3 .8 3M12 12c-2.5 0-4 2-4 4s1.5 3 4 3 4-1.5 4-3-1.5-4-4-4z"/></svg>',
   conceptos:'<svg viewBox="0 0 24 24"><path d="M20 12l-8 8-8-8V4h8z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>',
-  campos:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>'
+  campos:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  usuarios:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17.5" cy="9" r="2.4"/><path d="M16 15c3 .2 5 1.9 5 5"/></svg>'
 };
 const NAV = [
   ["inicio","Inicio"],["agenda","Agenda"],["clientes","Clientes"],
   ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["facturacion","Facturación"],
   ["especies","Especies"],["conceptos","Servicios / Conceptos"],["campos","Campos personalizados"],
-  ["ajustes","Ajustes"]
+  ["usuarios","Usuarios"],["ajustes","Ajustes"]
 ];
-const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",ajustes:"Ajustes"};
+const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",usuarios:"Usuarios",ajustes:"Ajustes"};
 
 /* ---------- fetch con Bearer ---------- */
 async function api(path, opts={}){
@@ -718,7 +719,7 @@ function ir(k, params){
   closeMenu(); vista=k; ctx=Object.assign({}, params||{});
   document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes")));
   $("viewTitle").textContent=TITULOS[k]||k;
-  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,ajustes:vAjustes}[k];
+  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,usuarios:vUsuarios,ajustes:vAjustes}[k];
   (fn||vInicio)();
 }
 const view = h => $("view").innerHTML=h;
@@ -1389,6 +1390,63 @@ function darBajaCampo(id, etiqueta){
     await api("/campos-personalizados/"+id,{method:"DELETE"});
     toast("Campo dado de baja.","ok"); vCampos();
   }, "Dar de baja");
+}
+
+/* ---------- USUARIOS DE LA EMPRESA ---------- */
+const ROLES=[["propietario","Propietario"],["usuario","Usuario"],["solo_lectura","Solo lectura"]];
+function rolNombre(c){ const r=ROLES.find(x=>x[0]===c); return r?r[1]:c; }
+async function vUsuarios(){ cargando(); await conError(async()=>{
+  let miembros;
+  try{ miembros=await api("/usuarios"); }
+  catch(e){ view(vacio("🔒","Sin acceso","La gestión de usuarios es solo para el rol Propietario. Pide a la persona propietaria de la clínica que gestione los accesos.")); return; }
+  const filas=miembros.map(m=>{
+    const rolSel=ROLES.map(([v,l])=>`<option value="${v}" ${m.rol===v?"selected":""}>${l}</option>`).join("");
+    const estado=m.estado&&m.estado.toLowerCase()!=="activa"?` <span class="pill b">${esc(m.estado)}</span>`:"";
+    const verif=m.emailVerificado?"":' <span class="pill info" title="Aún no ha establecido su contraseña">pendiente</span>';
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:10px"><span class="avatar mini">${esc(iniciales(m.nombre||m.email))}</span><div><b>${esc(m.nombre||"—")}</b>${m.esYo?' <span class="pill b">Tú</span>':""}${estado}<br><span class="muted">${esc(m.email)}</span>${verif}</div></div></td>
+      <td>${m.esYo?rolNombre(m.rol):`<select onchange="cambiarRolUsuario('${m.usuarioId}',this.value)">${rolSel}</select>`}</td>
+      <td class="num">${m.esYo?'<span class="muted">—</span>':`<button class="btn tiny line" onclick="revocarUsuario('${m.usuarioId}',${esc(JSON.stringify(m.nombre||m.email))})">Revocar acceso</button>`}</td>
+    </tr>`;
+  }).join("");
+  const tabla=`<table><thead><tr><th>Usuario</th><th>Rol</th><th class="num">Acciones</th></tr></thead><tbody>${filas}</tbody></table>`;
+  view(`
+    <h3 class="sec">Usuarios</h3>
+    <p class="subt">Las personas que pueden entrar en la clínica y con qué rol. <b>Propietario</b>: acceso total. <b>Usuario</b>: operativa diaria (sin ajustes ni usuarios). <b>Solo lectura</b>: consulta.</p>
+    ${panel("Equipo de la clínica", tabla, `<button class="btn v small" onclick="modalInvitarUsuario()">${ICON.plus} Invitar usuario</button>`)}`);
+}); }
+function modalInvitarUsuario(){
+  const rolOpc=ROLES.map(([v,l])=>`<option value="${v}" ${v==="usuario"?"selected":""}>${l}</option>`).join("");
+  abrir("Invitar usuario", `
+    <label>Correo *</label><input id="u_email" type="email" placeholder="persona@clinica.com"/>
+    <label>Nombre</label><input id="u_nombre" placeholder="Nombre y apellidos"/>
+    <label>Rol</label><select id="u_rol">${rolOpc}</select>
+    <p class="muted" style="margin:10px 0 0;font-size:12.5px">Se creará el usuario y su acceso a la clínica. Para poder entrar deberá establecer su contraseña con el enlace que se genere (o el que reciba por correo si está configurado el envío).</p>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      if(!val("u_email")) throw new Error("El correo es obligatorio.");
+      const r=await api("/usuarios/invitar",{method:"POST",body:JSON.stringify({email:val("u_email"), nombre:val("u_nombre")||null, rol:val("u_rol")})});
+      if(r&&r.enlaceContrasena){
+        toast("Usuario invitado.","ok");
+        abrir("Usuario invitado", `<p>Comparte este enlace con la persona para que establezca su contraseña:</p>
+          <input readonly value="${esc(r.enlaceContrasena)}" onclick="this.select()" style="font-size:12px"/>
+          <p class="muted" style="margin-top:8px">Válido una sola vez.</p>`, null, "Cerrar");
+        vUsuarios();
+      } else {
+        toast(r&&r.creado?"Usuario invitado. Debe establecer su contraseña para entrar.":"Usuario añadido a la clínica.","ok");
+        vUsuarios();
+      }
+    }, "Invitar");
+}
+async function cambiarRolUsuario(id, rol){
+  try{ await api(`/usuarios/${id}/rol`,{method:"POST",body:JSON.stringify({rol})}); toast("Rol actualizado.","ok"); }
+  catch(e){ toast(e.message,"err"); vUsuarios(); }
+}
+function revocarUsuario(id, nombre){
+  abrir("Revocar acceso", `<p>¿Seguro que quieres revocar el acceso de «${esc(nombre)}» a esta clínica? Podrás volver a invitarle más adelante.</p><div class="error" id="modalErr"></div>`, async()=>{
+    await api(`/usuarios/${id}/revocar`,{method:"POST"});
+    toast("Acceso revocado.","ok"); vUsuarios();
+  }, "Revocar");
 }
 
 /* ---------- RECORDATORIOS ---------- */
