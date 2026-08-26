@@ -228,6 +228,13 @@
     .cp-row .cp-k{color:var(--muted);font-weight:600;}
     .cp-row .cp-v{color:var(--ink);font-weight:600;text-align:right;word-break:break-word;}
 
+    /* Multiselección de animales en la nueva cita. */
+    .cita-pets{border:1px solid var(--line);border-radius:12px;padding:6px;max-height:190px;overflow:auto;background:#fff;}
+    .cita-pets .muted{display:block;padding:10px 8px;}
+    .cita-pet{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;cursor:pointer;}
+    .cita-pet:hover{background:var(--accent-soft);}
+    .cita-pet input{width:auto;margin:0;flex:none;}
+
     .rem{display:flex;gap:13px;padding:13px 18px;border-bottom:1px solid #f4efe7;align-items:flex-start;}
     .rem:last-child{border-bottom:none;}
     .rem .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;font-size:17px;}
@@ -576,11 +583,15 @@ const ICON = {
   facturacion:'<svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/></svg>',
   ajustes:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
   check:'<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>',
-  plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'
+  plus:'<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>',
+  especies:'<svg viewBox="0 0 24 24"><path d="M4.5 12.5c0-2 1.5-3 2.5-2s.5 3-1 3-1.5-1-1.5-1M17 12.5c0-2 1.5-3 2.5-2s.5 3-1 3-1.5-1-1.5-1M9 8c0-2 1.2-3 2-2s.5 3-.8 3M15 8c0-2-1.2-3-2-2s-.5 3 .8 3M12 12c-2.5 0-4 2-4 4s1.5 3 4 3 4-1.5 4-3-1.5-4-4-4z"/></svg>',
+  conceptos:'<svg viewBox="0 0 24 24"><path d="M20 12l-8 8-8-8V4h8z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>',
+  campos:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>'
 };
 const NAV = [
   ["inicio","Inicio"],["agenda","Agenda"],["clientes","Clientes"],
   ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["facturacion","Facturación"],
+  ["especies","Especies"],["conceptos","Servicios / Conceptos"],["campos","Campos personalizados"],
   ["ajustes","Ajustes"]
 ];
 const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",ajustes:"Ajustes"};
@@ -702,7 +713,7 @@ function toggleMenu(){ const s=document.querySelector(".sidebar"),b=$("backdrop"
 function closeMenu(){ document.querySelector(".sidebar").classList.remove("open"); $("backdrop").classList.remove("show"); }
 function ir(k, params){
   closeMenu(); vista=k; ctx=Object.assign({}, params||{});
-  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes") || (k==="especies"&&a.dataset.k==="vacunas") || (k==="conceptos"&&a.dataset.k==="facturacion") || (k==="campos"&&a.dataset.k==="ajustes")));
+  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes")));
   $("viewTitle").textContent=TITULOS[k]||k;
   const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,ajustes:vAjustes}[k];
   (fn||vInicio)();
@@ -821,7 +832,7 @@ async function vClientes(){ cargando(); await conError(async()=>{
     <td class="muted">${esc(c.email||"—")}</td>
     <td class="muted">${esc([c.poblacion,c.provincia].filter(Boolean).join(", ")||"—")}</td>
     <td class="num"><button class="btn tiny line" onclick="event.stopPropagation();modalCliente(window._clientesById['${c.id}'])">Editar</button>
-      <button class="btn tiny line" onclick="event.stopPropagation();darBajaCliente('${c.id}',${JSON.stringify(c.nombre)})">Dar de baja</button></td></tr>`;
+      <button class="btn tiny line" onclick="event.stopPropagation();darBajaCliente(${esc(JSON.stringify(c.id))},${esc(JSON.stringify(c.nombre))})">Dar de baja</button></td></tr>`;
   const render = lista => {
     const cuerpo = lista.length
       ? `<table><thead><tr><th>Cliente</th><th>NIF</th><th>Correo</th><th>Población</th><th class="num">Acciones</th></tr></thead><tbody>${lista.map(filas).join("")}</tbody></table>`
@@ -910,7 +921,7 @@ async function vCliente(){ cargando(); await conError(async()=>{
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn line" onclick="modalCliente(window._clientesById['${id}'])">Editar ficha</button>
-        <button class="btn line" onclick="darBajaCliente('${id}',${JSON.stringify(c.nombre)})">Dar de baja</button>
+        <button class="btn line" onclick="darBajaCliente(${esc(JSON.stringify(id))},${esc(JSON.stringify(c.nombre))})">Dar de baja</button>
         <button class="btn v" onclick="modalNuevoAnimal('${id}')">${ICON.plus} Añadir animal</button>
       </div>
     </div>
@@ -1021,7 +1032,7 @@ async function vAnimal(){ cargando(); await conError(async()=>{
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn line" onclick="modalAnimal('${a.clienteId}',window._animalActual)">Editar ficha</button>
-        <button class="btn line" onclick="darBajaAnimal('${a.id}',${JSON.stringify(a.nombre)},'${a.clienteId}')">Dar de baja</button>
+        <button class="btn line" onclick="darBajaAnimal(${esc(JSON.stringify(a.id))},${esc(JSON.stringify(a.nombre))},${esc(JSON.stringify(a.clienteId))})">Dar de baja</button>
       </div>
     </div>
     <div class="toolbar">
@@ -1212,7 +1223,7 @@ async function vVacunas(){ cargando(); await conError(async()=>{
         <td class="num muted">${p.edadInicioSemanas!=null?p.edadInicioSemanas+" sem":"—"}</td>
         <td class="num muted">${p.periodicidadRefuerzoMeses!=null?"cada "+p.periodicidadRefuerzoMeses+" m":"—"}</td>
         <td class="num"><button class="btn tiny line" onclick="modalPauta(null,window._pautasById['${p.id}'])">Editar</button>
-          <button class="btn tiny line" onclick="darBajaPauta('${p.id}',${JSON.stringify(p.nombre)},${JSON.stringify(p.especie)})">Dar de baja</button></td></tr>`).join("")}</tbody></table>`
+          <button class="btn tiny line" onclick="darBajaPauta(${esc(JSON.stringify(p.id))},${esc(JSON.stringify(p.nombre))},${esc(JSON.stringify(p.especie))})">Dar de baja</button></td></tr>`).join("")}</tbody></table>`
     : vacio("💉","Sin pautas","No hay pautas para "+especie+" todavía.", `<button class="btn v" onclick="modalNuevaPauta('${especie}')">${ICON.plus} Nueva pauta</button>`);
   view(`
     <h3 class="sec">Calendario vacunal</h3>
@@ -1457,11 +1468,15 @@ async function atenderCita(citaId, animalId, motivo){
   }catch(e){ toast(e.message,"err"); }
 }
 async function modalNuevaCita(){
-  let animales=window._animalesCache; if(!animales){ animales=await api("/animales"); }
-  const opts=animales.map(a=>`<option value="${a.id}">${esc(a.nombre)} · ${esc(a.raza||a.especie)}</option>`).join("");
-  if(!opts){ toast("Crea antes un animal.","err"); return; }
+  const clientes=await api("/clientes");
+  if(!clientes.length){ toast("Crea antes un cliente y su animal.","err"); return; }
+  // Si venimos de una ficha (ctx.clienteId), ese cliente sale preseleccionado.
+  const cliSel=ctx.clienteId||clientes[0].id;
+  const optsCli=clientes.map(c=>`<option value="${esc(c.id)}" ${c.id===cliSel?"selected":""}>${esc(c.nombre)}</option>`).join("");
   abrir("Nueva cita", `
-    <label>Animal *</label><select id="t_animal">${opts}</select>
+    <label>Cliente *</label><select id="t_cliente" onchange="citaCargarAnimales(this.value)">${optsCli}</select>
+    <label>Animales * <span class="muted" style="font-weight:400">(puedes marcar varios)</span></label>
+    <div id="t_animales" class="cita-pets"><span class="muted">Cargando…</span></div>
     <div class="grid-2"><div><label>Día *</label><input id="t_dia" type="date" value="${ctx.dia||hoyISO()}"/></div><div><label>Hora *</label><input id="t_hora" type="time" value="09:30"/></div></div>
     <div class="grid-2">
       <div><label>Duración (min)</label><input id="t_dur" inputmode="numeric" value="30"/></div>
@@ -1471,14 +1486,29 @@ async function modalNuevaCita(){
     <label>Veterinario/a</label><input id="t_vet" value="${esc(usuario?.nombre||"")}"/>
     <div class="error" id="modalErr"></div>`,
     async()=>{
+      const ids=[...document.querySelectorAll('#t_animales input[type="checkbox"]:checked')].map(el=>el.value);
+      if(!ids.length) throw new Error("Selecciona al menos un animal.");
       if(!val("t_dia")||!val("t_hora")) throw new Error("Indica día y hora.");
       const inicio=`${val("t_dia")}T${val("t_hora")}:00${tz()}`;
-      await api(`/citas`,{method:"POST",body:JSON.stringify({
-        animalId:val("t_animal"), inicio, duracionMinutos:num("t_dur")||30, tipo:val("t_tipo"),
-        motivo:val("t_motivo")||null, veterinario:val("t_vet")||null
-      })});
-      toast("Cita creada.","ok"); ir("agenda",{dia:val("t_dia")});
+      const base={ inicio, duracionMinutos:num("t_dur")||30, tipo:val("t_tipo"), motivo:val("t_motivo")||null, veterinario:val("t_vet")||null };
+      // Una cita por animal seleccionado, en la misma franja.
+      for(const animalId of ids){
+        await api(`/citas`,{method:"POST",body:JSON.stringify(Object.assign({animalId}, base))});
+      }
+      toast(ids.length>1?`${ids.length} citas creadas.`:"Cita creada.","ok");
+      ir("agenda",{dia:val("t_dia")});
     });
+  await citaCargarAnimales(cliSel);
+}
+/* Rellena la lista (multiselección con casillas) de animales del cliente elegido en la nueva cita. */
+async function citaCargarAnimales(clienteId){
+  const cont=$("t_animales"); if(!cont) return;
+  cont.innerHTML='<span class="muted">Cargando…</span>';
+  try{
+    const animales=await api(`/clientes/${clienteId}/animales`);
+    if(!animales.length){ cont.innerHTML='<span class="muted">Este cliente no tiene animales. Añádele uno primero desde su ficha.</span>'; return; }
+    cont.innerHTML=animales.map((a,i)=>`<label class="cita-pet"><input type="checkbox" value="${esc(a.id)}" ${i===0?"checked":""}/><span>${emojiEspecie(a.especie)} <b>${esc(a.nombre)}</b> <span class="muted">· ${esc(a.raza||a.especie)}</span></span></label>`).join("");
+  }catch{ cont.innerHTML='<span class="muted">No se pudieron cargar los animales del cliente.</span>'; }
 }
 
 /* ---------- FACTURACIÓN ---------- */
@@ -1679,21 +1709,6 @@ async function vAjustes(){ cargando(); await conError(async()=>{
           </div>
           <div class="error" id="c_err"></div>
           <div class="form-actions"><button class="btn line" id="btnClave" onclick="guardarClave()">Cambiar contraseña</button></div>
-        </div>`)}
-      ${panel("Especies", `
-        <div class="form">
-          <p class="muted" style="margin:0 0 14px">Gestiona el maestro de especies de tu clínica: da de alta, edita o da de baja las especies que usan los animales y las pautas de vacunas.</p>
-          <div class="form-actions"><button class="btn v" onclick="ir('especies')">${ICON.plus} Gestionar especies</button></div>
-        </div>`)}
-      ${panel("Servicios / Conceptos", `
-        <div class="form">
-          <p class="muted" style="margin:0 0 14px">El maestro de conceptos facturables con su importe prefijado (Consulta, Vacunación, Cirugía…). Se reutiliza al registrar actos y al emitir facturas.</p>
-          <div class="form-actions"><button class="btn v" onclick="ir('conceptos')">${ICON.plus} Gestionar conceptos</button></div>
-        </div>`)}
-      ${panel("Campos personalizados", `
-        <div class="form">
-          <p class="muted" style="margin:0 0 14px">Añade a las fichas de <b>clientes</b> y de <b>mascotas</b> los campos que necesites (nº de chip aseguradora, alergias, consentimiento firmado…). Tú decides el nombre y el tipo; aparecerán en el formulario de alta y edición.</p>
-          <div class="form-actions"><button class="btn v" onclick="ir('campos')">${ICON.plus} Gestionar campos</button></div>
         </div>`)}
     </div>`);
 }); }
