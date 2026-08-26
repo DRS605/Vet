@@ -3,6 +3,7 @@ using System;
 using AlxorCore.Terceros.Infraestructura;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AlxorCore.Terceros.Infraestructura.Persistencia.Migraciones
 {
     [DbContext(typeof(TercerosDbContext))]
-    partial class TercerosDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826170335_AgregarTelefonoCliente")]
+    partial class AgregarTelefonoCliente
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

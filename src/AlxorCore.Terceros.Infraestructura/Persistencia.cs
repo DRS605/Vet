@@ -43,6 +43,7 @@ internal sealed class ConfiguracionCliente : IEntityTypeConfiguration<Cliente>
         builder.Property(c => c.Nombre).HasColumnName("nombre").HasMaxLength(Cliente.LongitudMaximaNombre).IsRequired();
         builder.Property(c => c.NifFiscal).HasColumnName("nif_fiscal").HasMaxLength(20);
         builder.Property(c => c.Email).HasColumnName("email").HasMaxLength(254);
+        builder.Property(c => c.Telefono).HasColumnName("telefono").HasMaxLength(Cliente.LongitudMaximaTelefono);
         builder.OwnsOne(c => c.Direccion, d =>
         {
             d.Property(p => p.Calle).HasColumnName("direccion_calle").HasMaxLength(200);

@@ -49,6 +49,8 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<NotaFactura> NotasFactura => Set<NotaFactura>();
 
+    public DbSet<Adjunto> Adjuntos => Set<Adjunto>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Esquema);
@@ -1172,6 +1174,62 @@ internal sealed class RepositorioFacturacionClinica : IRepositorioNotasFactura, 
     }
 
     private sealed record AnimalEspecieRaza(Guid Id, string Especie, string? Raza);
+}
+
+internal sealed class ConfiguracionAdjunto : IEntityTypeConfiguration<Adjunto>
+{
+    public void Configure(EntityTypeBuilder<Adjunto> builder)
+    {
+        builder.ToTable("adjunto");
+        builder.HasKey(a => a.Id);
+        builder.Property(a => a.Id).HasColumnName("id");
+        builder.Property(a => a.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(a => a.AnimalId).HasColumnName("animal_id").IsRequired();
+        builder.Property(a => a.NombreArchivo).HasColumnName("nombre_archivo").HasMaxLength(Adjunto.LongitudMaximaNombre).IsRequired();
+        builder.Property(a => a.TipoMime).HasColumnName("tipo_mime").HasMaxLength(Adjunto.LongitudMaximaTipoMime).IsRequired();
+        builder.Property(a => a.Tamano).HasColumnName("tamano").IsRequired();
+        builder.Property(a => a.Datos).HasColumnName("datos").HasColumnType("bytea").IsRequired();
+        builder.Property(a => a.CreadoEn).HasColumnName("creado_en").IsRequired();
+
+        builder.HasIndex(a => new { a.EmpresaId, a.AnimalId }).HasDatabaseName("ix_adjunto_empresa_animal");
+        builder.Ignore(a => a.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioAdjuntos : IRepositorioAdjuntos, IConsultaAdjuntos
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioAdjuntos(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<Adjunto?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.Adjuntos.SingleOrDefaultAsync(a => a.Id == id, ct);
+
+    public void Agregar(Adjunto adjunto) => _contexto.Adjuntos.Add(adjunto);
+
+    public void Eliminar(Adjunto adjunto) => _contexto.Adjuntos.Remove(adjunto);
+
+    public async Task<IReadOnlyList<AdjuntoDto>> ListarPorAnimalAsync(Guid animalId, CancellationToken ct = default)
+    {
+        // Proyección sin el binario: el listado no debe cargar los bytes de cada fichero.
+        var adjuntos = await _contexto.Adjuntos
+            .Where(a => a.AnimalId == animalId)
+            .OrderByDescending(a => a.CreadoEn)
+            .Select(a => new AdjuntoDto(a.Id, a.AnimalId, a.NombreArchivo, a.TipoMime, a.Tamano, a.TipoMime.StartsWith("image/"), a.CreadoEn))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return adjuntos;
+    }
+
+    public async Task<ContenidoAdjunto?> ObtenerContenidoAsync(Guid id, CancellationToken ct = default)
+    {
+        var a = await _contexto.Adjuntos
+            .Where(x => x.Id == id)
+            .Select(x => new ContenidoAdjunto(x.Datos, x.TipoMime, x.NombreArchivo))
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+        return a;
+    }
 }
 
 /// <summary>Factoría en tiempo de diseño para migraciones.</summary>

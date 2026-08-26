@@ -47,6 +47,15 @@ public static class RegistroServicios
         servicios.AddScoped<ListarFacturacionClinica>();
         servicios.AddScoped<GuardarNotaFactura>();
 
+        // Adjuntos (fotos/documentos) de la ficha del animal.
+        servicios.AddScoped<RepositorioAdjuntos>();
+        servicios.AddScoped<IRepositorioAdjuntos>(sp => sp.GetRequiredService<RepositorioAdjuntos>());
+        servicios.AddScoped<IConsultaAdjuntos>(sp => sp.GetRequiredService<RepositorioAdjuntos>());
+        servicios.AddScoped<SubirAdjunto>();
+        servicios.AddScoped<ListarAdjuntosDeAnimal>();
+        servicios.AddScoped<DescargarAdjunto>();
+        servicios.AddScoped<EliminarAdjunto>();
+
         servicios.AddScoped<CrearEspecie>();
         servicios.AddScoped<ActualizarEspecie>();
         servicios.AddScoped<DesactivarEspecie>();

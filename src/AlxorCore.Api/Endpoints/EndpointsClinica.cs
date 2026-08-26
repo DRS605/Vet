@@ -88,6 +88,25 @@ public static class EndpointsClinica
             .WithSummary("Guarda la nota interna (no fiscal) de una factura.")
             .RequierePermiso(Permisos.FacturaEmitir);
 
+        animales.MapGet("/{animalId:guid}/adjuntos", ListarAdjuntosAsync)
+            .WithSummary("Lista los adjuntos (fotos/documentos) de un animal.")
+            .RequierePermiso(Permisos.AnimalLeer);
+
+        animales.MapPost("/{animalId:guid}/adjuntos", SubirAdjuntoAsync)
+            .WithSummary("Sube un adjunto (foto o PDF) a la ficha de un animal.")
+            .RequierePermiso(Permisos.AnimalGestionar)
+            .DisableAntiforgery();
+
+        var adjuntos = rutas.MapGroup("/adjuntos").WithTags("Adjuntos");
+
+        adjuntos.MapGet("/{id:guid}", DescargarAdjuntoAsync)
+            .WithSummary("Descarga el contenido de un adjunto.")
+            .RequierePermiso(Permisos.AnimalLeer);
+
+        adjuntos.MapDelete("/{id:guid}", EliminarAdjuntoAsync)
+            .WithSummary("Elimina un adjunto.")
+            .RequierePermiso(Permisos.AnimalGestionar);
+
         var campos = rutas.MapGroup("/campos-personalizados").WithTags("Campos personalizados");
 
         campos.MapGet("", ListarCamposAsync)
@@ -455,6 +474,39 @@ public static class EndpointsClinica
 
         return (await caso.EjecutarAsync(contexto.EmpresaId.Value, facturaId, datos ?? new DatosNotaFactura(null), ct).ConfigureAwait(false)).ASinContenido();
     }
+
+    private static async Task<IResult> ListarAdjuntosAsync(Guid animalId, ListarAdjuntosDeAnimal caso, CancellationToken ct) =>
+        Results.Ok(await caso.EjecutarAsync(animalId, ct).ConfigureAwait(false));
+
+    private static async Task<IResult> SubirAdjuntoAsync(Guid animalId, IFormFile archivo, IContextoEmpresa contexto, SubirAdjunto caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        if (archivo is null || archivo.Length == 0)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("adjunto.vacio", "No se ha recibido ningún fichero."));
+        }
+
+        using var ms = new MemoryStream();
+        await archivo.CopyToAsync(ms, ct).ConfigureAwait(false);
+        var datos = new DatosAdjunto(archivo.FileName, archivo.ContentType, ms.ToArray());
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, animalId, datos, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/adjuntos/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> DescargarAdjuntoAsync(Guid id, DescargarAdjunto caso, CancellationToken ct)
+    {
+        var contenido = await caso.EjecutarAsync(id, ct).ConfigureAwait(false);
+        return contenido is null
+            ? ResultadosHttp.AProblema(Error.NoEncontrado("adjunto.no_encontrado", "El adjunto no existe."))
+            : Results.File(contenido.Datos, contenido.TipoMime, contenido.NombreArchivo);
+    }
+
+    private static async Task<IResult> EliminarAdjuntoAsync(Guid id, EliminarAdjunto caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
 
     private static async Task<IResult> ListarCamposAsync(string entidad, bool? incluirInactivos, IContextoEmpresa contexto, ListarCamposPersonalizados caso, CancellationToken ct)
     {

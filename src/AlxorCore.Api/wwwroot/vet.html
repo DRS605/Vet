@@ -253,6 +253,16 @@
     .inf-bar{background:var(--accent-soft);border-radius:7px;height:12px;overflow:hidden;}
     .inf-bar span{display:block;height:100%;background:var(--grad-honey);}
 
+    /* Adjuntos (fotos/documentos). */
+    .adj-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px;padding:14px 18px;}
+    .adj-item{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#fff;}
+    .adj-media{height:110px;display:grid;place-items:center;background:var(--accent-soft);cursor:pointer;overflow:hidden;}
+    .adj-thumb{width:100%;height:100%;object-fit:cover;display:block;}
+    .adj-doc{font-size:40px;}
+    .adj-info{display:flex;align-items:center;gap:6px;padding:7px 9px;font-size:11.5px;}
+    .adj-info span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);}
+    .adj-del{border:none;background:transparent;color:var(--neg);cursor:pointer;font-size:13px;padding:0 2px;}
+
     .rem{display:flex;gap:13px;padding:13px 18px;border-bottom:1px solid #f4efe7;align-items:flex-start;}
     .rem:last-child{border-bottom:none;}
     .rem .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;font-size:17px;}
@@ -647,6 +657,11 @@ async function descargarPdf(path, nombre){
   }catch(e){ toast(e.message||"No se pudo abrir el PDF.","err"); }
 }
 
+/* Enlace a WhatsApp Web con mensaje ya escrito. Limpia el teléfono a solo dígitos (wa.me lo exige con
+   prefijo de país; si el usuario guarda "+34 600…" queda "34600…"). Devuelve "" si no hay teléfono. */
+function waNumero(tel){ return String(tel||"").replace(/[^0-9]/g,""); }
+function waHref(tel, msg){ const n=waNumero(tel); if(!n) return ""; return `https://wa.me/${n}${msg?`?text=${encodeURIComponent(msg)}`:""}`; }
+
 /* ---------- toast + modal ---------- */
 let _toastT=null;
 function toast(msg, tipo){ const t=$("toast"); t.textContent=msg; t.className="toast show"+(tipo?" "+tipo:""); clearTimeout(_toastT); _toastT=setTimeout(()=>t.className="toast",2600); }
@@ -898,7 +913,8 @@ async function modalCliente(c){
   const campos = await cpCargar("Cliente", c&&c.id);
   abrir(editar?"Editar cliente":"Nuevo cliente", `
     <label>Nombre *</label><input id="c_nombre" placeholder="Nombre y apellidos" value="${esc(c&&c.nombre||"")}"/>
-    <div class="grid-2"><div><label>NIF / DNI</label><input id="c_nif" value="${esc(c&&c.nifFiscal||"")}"/></div><div><label>Correo</label><input id="c_email" type="email" value="${esc(c&&c.email||"")}"/></div></div>
+    <div class="grid-2"><div><label>NIF / DNI</label><input id="c_nif" value="${esc(c&&c.nifFiscal||"")}"/></div><div><label>Teléfono</label><input id="c_tel" inputmode="tel" placeholder="+34 600 000 000" value="${esc(c&&c.telefono||"")}"/></div></div>
+    <label>Correo</label><input id="c_email" type="email" value="${esc(c&&c.email||"")}"/>
     <label>Dirección</label><input id="c_calle" placeholder="Calle y número" value="${esc(c&&c.calle||"")}"/>
     <div class="grid-2"><div><label>Población</label><input id="c_pob" value="${esc(c&&c.poblacion||"")}"/></div><div><label>Provincia</label><input id="c_prov" value="${esc(c&&c.provincia||"")}"/></div></div>
     <div class="grid-2"><div><label>Código postal</label><input id="c_cp" value="${esc(c&&c.codigoPostal||"")}"/></div><div><label>IRPF (%)</label><input id="c_irpf" inputmode="decimal" value="${c&&c.porcentajeIrpfDefecto!=null?c.porcentajeIrpfDefecto:""}" placeholder="0"/></div></div>
@@ -908,7 +924,7 @@ async function modalCliente(c){
       if(!val("c_nombre")) throw new Error("El nombre es obligatorio.");
       const cpVals=cpRecoger(campos);
       const cuerpo={
-        nombre:val("c_nombre"), nifFiscal:val("c_nif")||null, email:val("c_email")||null,
+        nombre:val("c_nombre"), nifFiscal:val("c_nif")||null, email:val("c_email")||null, telefono:val("c_tel")||null,
         calle:val("c_calle")||null, codigoPostal:val("c_cp")||null, poblacion:val("c_pob")||null, provincia:val("c_prov")||null,
         porcentajeIrpfDefecto:num("c_irpf")||0
       };
@@ -954,7 +970,7 @@ async function vCliente(){ cargando(); await conError(async()=>{
     <div class="clienthead">
       <div class="big">${esc(iniciales(c.nombre))}</div>
       <div style="flex:1"><h3>${esc(c.nombre)}</h3>
-        <div class="meta">${c.email?`<span>✉️ ${esc(c.email)}</span>`:""}${c.nifFiscal?`<span>🪪 ${esc(c.nifFiscal)}</span>`:""}${[c.calle,c.poblacion].filter(Boolean).length?`<span>📍 ${esc([c.calle,c.poblacion].filter(Boolean).join(", "))}</span>`:""}</div>
+        <div class="meta">${c.telefono?`<span>📞 ${esc(c.telefono)} <a href="${waHref(c.telefono,'Hola '+c.nombre+', te escribimos de la clínica veterinaria.')}" target="_blank" rel="noopener" title="Escribir por WhatsApp" style="text-decoration:none">🟢</a></span>`:""}${c.email?`<span>✉️ ${esc(c.email)}</span>`:""}${c.nifFiscal?`<span>🪪 ${esc(c.nifFiscal)}</span>`:""}${[c.calle,c.poblacion].filter(Boolean).length?`<span>📍 ${esc([c.calle,c.poblacion].filter(Boolean).join(", "))}</span>`:""}</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn line" onclick="modalCliente(window._clientesById['${id}'])">Editar ficha</button>
@@ -1034,10 +1050,11 @@ function darBajaAnimal(id, nombre, clienteId){
 /* ---------- FICHA ANIMAL + HISTORIAL ---------- */
 async function vAnimal(){ cargando(); await conError(async()=>{
   const id=ctx.animalId;
-  const [a, consultas, vacunas, cirugias, actos, camposAni]=await Promise.all([
+  const [a, consultas, vacunas, cirugias, actos, camposAni, adjuntos]=await Promise.all([
     api("/animales/"+id),
     api(`/animales/${id}/consultas`), api(`/animales/${id}/vacunas`),
-    api(`/animales/${id}/cirugias`), api(`/animales/${id}/actos`), cpCargar("Animal", id)
+    api(`/animales/${id}/cirugias`), api(`/animales/${id}/actos`), cpCargar("Animal", id),
+    api(`/animales/${id}/adjuntos`).catch(()=>[])
   ]);
   ctx.clienteId = ctx.clienteId || a.clienteId;
   let cliente=null; try{ cliente=await api("/clientes/"+a.clienteId); }catch{}
@@ -1092,11 +1109,79 @@ async function vAnimal(){ cargando(); await conError(async()=>{
       <button class="btn line" onclick="modalActo('${a.id}')">Registrar acto</button>
     </div>
     ${cpPanelVista(camposAni)}
+    ${pesoChartPanel(a, consultas)}
+    ${adjuntosPanel(a.id, adjuntos)}
     <div class="grid2">
       ${panel("Historial", tl, `<span class="sp">Consultas · vacunas · cirugías · actos</span>`)}
       ${panel("Vacunas", vacTabla)}
     </div>`);
+  // Cargar las miniaturas de las imágenes (requieren el token, no se pueden poner en <img src> directo).
+  (adjuntos||[]).filter(x=>x.esImagen).forEach(x=>cargarMiniatura(x.id));
 }); }
+/* Gráfica de evolución de peso a partir de los pesos registrados en las consultas (+ peso actual). */
+function pesoChartPanel(a, consultas){
+  const puntos=[];
+  (consultas||[]).filter(c=>c.pesoKg!=null && c.activo!==false).forEach(c=>puntos.push({f:String(c.fecha).slice(0,10), p:Number(c.pesoKg)}));
+  if(a.pesoKg!=null) puntos.push({f:hoyISO(), p:Number(a.pesoKg)});
+  const uniq={}; puntos.forEach(x=>{ uniq[x.f]=x.p; }); // un punto por fecha (el último gana)
+  const serie=Object.keys(uniq).sort().map(f=>({f,p:uniq[f]}));
+  if(serie.length<2) return "";
+  const W=680,H=170,pad=30;
+  const min=Math.min(...serie.map(s=>s.p)), max=Math.max(...serie.map(s=>s.p));
+  const span=(max-min)||1;
+  const x=i=>pad+(serie.length===1?0:i*(W-2*pad)/(serie.length-1));
+  const y=p=>H-pad-((p-min)/span)*(H-2*pad);
+  const linea=serie.map((s,i)=>`${i?"L":"M"}${x(i).toFixed(1)},${y(s.p).toFixed(1)}`).join(" ");
+  const puntosSvg=serie.map((s,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(s.p).toFixed(1)}" r="3.5" fill="var(--accent)"/><title>${s.f}: ${s.p} kg</title>`).join("");
+  const etiqs=serie.map((s,i)=>`<text x="${x(i).toFixed(1)}" y="${(y(s.p)-8).toFixed(1)}" font-size="10" text-anchor="middle" fill="var(--ink)">${s.p}</text>`).join("");
+  const svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;max-height:200px" preserveAspectRatio="xMidYMid meet">
+    <line x1="${pad}" y1="${H-pad}" x2="${W-pad}" y2="${H-pad}" stroke="var(--line)"/>
+    <path d="${linea}" fill="none" stroke="var(--accent)" stroke-width="2.5"/>${puntosSvg}${etiqs}
+  </svg><div class="muted" style="font-size:11px;text-align:center">Peso (kg) por fecha de consulta</div>`;
+  return panel("Evolución de peso", svg);
+}
+/* Panel de adjuntos (fotos/documentos) de la ficha del animal. */
+function adjuntosPanel(animalId, adjuntos){
+  const items=(adjuntos||[]).map(x=>{
+    const cuerpo = x.esImagen
+      ? `<img id="adj_img_${x.id}" alt="${esc(x.nombreArchivo)}" class="adj-thumb"/>`
+      : `<div class="adj-doc">📄</div>`;
+    return `<div class="adj-item">
+      <div class="adj-media" onclick="descargarPdf('/adjuntos/${x.id}',${esc(JSON.stringify(x.nombreArchivo))})" title="Abrir / descargar">${cuerpo}</div>
+      <div class="adj-info"><span title="${esc(x.nombreArchivo)}">${esc(x.nombreArchivo)}</span>
+        <button class="adj-del" title="Eliminar" onclick="eliminarAdjunto('${x.id}')">✕</button></div>
+    </div>`;
+  }).join("");
+  const cuerpo = adjuntos&&adjuntos.length
+    ? `<div class="adj-grid">${items}</div>`
+    : `<div class="loading" style="padding:14px 18px">Sin fotos ni documentos. Sube el primero.</div>`;
+  return panel("Fotos y documentos", cuerpo, `<label class="btn v small" style="margin:0;cursor:pointer">${ICON.plus} Subir<input type="file" accept="image/*,application/pdf" style="display:none" onchange="subirAdjunto('${animalId}',this)"/></label>`);
+}
+async function cargarMiniatura(id){
+  try{
+    const h={}; if(token) h["Authorization"]="Bearer "+token;
+    const r=await fetch(API+`/adjuntos/${id}`,{headers:h}); if(!r.ok) return;
+    const blob=await r.blob(); const el=$("adj_img_"+id); if(el) el.src=URL.createObjectURL(blob);
+  }catch{}
+}
+async function subirAdjunto(animalId, input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  if(f.size>15*1024*1024){ toast("El fichero supera 15 MB.","err"); input.value=""; return; }
+  try{
+    const fd=new FormData(); fd.append("archivo", f, f.name);
+    const h={}; if(token) h["Authorization"]="Bearer "+token;
+    const r=await fetch(API+`/animales/${animalId}/adjuntos`,{method:"POST",headers:h,body:fd});
+    if(!r.ok){ let m=""; try{ const j=await r.json(); m=j.detail||j.title||""; }catch{} throw new Error(m||("Error "+r.status)); }
+    toast("Adjunto subido.","ok"); vAnimal();
+  }catch(e){ toast(e.message||"No se pudo subir el fichero.","err"); }
+  finally{ input.value=""; }
+}
+function eliminarAdjunto(id){
+  abrir("Eliminar adjunto", `<p>¿Eliminar este fichero de la ficha? No se puede deshacer.</p><div class="error" id="modalErr"></div>`, async()=>{
+    await api("/adjuntos/"+id,{method:"DELETE"});
+    toast("Adjunto eliminado.","ok"); vAnimal();
+  }, "Eliminar");
+}
 
 function modalConsulta(animalId, opts){
   opts=opts||{};
@@ -1771,14 +1856,22 @@ function infRender(){
 
 /* ---------- RECORDATORIOS ---------- */
 async function vRecordatorios(){ cargando(); await conError(async()=>{
-  const [rec, animales]=await Promise.all([api(`/recordatorios?estado=Pendiente`), api(`/animales`)]);
+  const [rec, animales, clientes]=await Promise.all([api(`/recordatorios?estado=Pendiente`), api(`/animales`), api(`/clientes`).catch(()=>[])]);
   const porId={}; animales.forEach(a=>porId[a.id]=a);
+  const cliId={}; (clientes||[]).forEach(c=>cliId[c.id]=c);
   const icoTipo=t=>t==="Vacuna"?["vac","💉"]:t==="Revision"||t==="Cirugia"?["rev","🩺"]:["tra","🔔"];
   const filas = rec.length ? rec.map(r=>{
     const a=porId[r.animalId]; const [cls,em]=icoTipo(r.tipo);
+    const cli=a?cliId[a.clienteId]:null;
+    const emailBtn=`<button class="btn tiny v" onclick="enviarRecordatorio('${r.id}')" title="Enviar por correo">Enviar</button>`;
+    let waBtn="";
+    if(cli&&cli.telefono){
+      const msg=`Hola ${cli.nombre}: te recordamos de la clínica que ${a?a.nombre:"tu mascota"} tiene ${r.titulo} el ${fdate(r.fechaObjetivo)}. ¿Reservamos cita?`;
+      waBtn=`<a class="btn tiny line" href="${waHref(cli.telefono,msg)}" target="_blank" rel="noopener" title="Avisar por WhatsApp">🟢 WhatsApp</a>`;
+    }
     return `<div class="rem"><div class="ic ${cls}">${em}</div>
-      <div class="info"><b>${esc(r.titulo)}</b><p>${a?esc(a.nombre)+" · "+esc(a.raza||a.especie)+" — ":""}${fdate(r.fechaObjetivo)}${r.notas?" · "+esc(r.notas):""}</p></div>
-      <div class="act"><button class="btn tiny v" onclick="enviarRecordatorio('${r.id}')">Enviar</button></div></div>`;
+      <div class="info"><b>${esc(r.titulo)}</b><p>${a?esc(a.nombre)+" · "+esc(a.raza||a.especie)+" — ":""}${fdate(r.fechaObjetivo)}${cli&&cli.telefono?" · 📞 "+esc(cli.telefono):""}${r.notas?" · "+esc(r.notas):""}</p></div>
+      <div class="act">${waBtn}${emailBtn}</div></div>`;
   }).join("") : vacio("🔔","Nada pendiente","No hay recordatorios pendientes. Genéralos a partir de las vacunas y revisiones próximas.", `<button class="btn v" onclick="generarRecordatorios()">Generar (30 días)</button>`);
   view(`
     <div class="toolbar">

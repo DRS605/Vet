@@ -112,6 +112,23 @@ function Resolver-Postgres {
     return $true
 }
 
+function Crear-TareaBackup {
+    # Tarea programada diaria de copia de seguridad (usuario actual). Best-effort: si falla, se avisa.
+    try {
+        $script = Join-Path $PSScriptRoot 'backup.ps1'
+        if (-not (Test-Path $script)) { return }
+        $accion = "powershell -NoProfile -ExecutionPolicy Bypass -File `"$script`""
+        schtasks /Create /TN "ALXOR Vet - Copia diaria" /TR $accion /SC DAILY /ST 22:00 /F 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Escribir-Log 'Copia de seguridad diaria programada (22:00) en el Programador de tareas de Windows.' 'OK'
+        } else {
+            Escribir-Log 'No se pudo programar la copia diaria automática; puedes lanzarla a mano con "Copia de seguridad ALXOR Vet.bat".' 'AVISO'
+        }
+    } catch {
+        Escribir-Log "No se pudo programar la copia diaria: $_" 'AVISO'
+    }
+}
+
 function Crear-AccesoInicio {
     try {
         $carpetaInicio = [Environment]::GetFolderPath('Startup')
@@ -212,6 +229,9 @@ try {
 
     # 5) Acceso directo en el Inicio de Windows (arranca al encender).
     Crear-AccesoInicio
+
+    # 5.5) Copia de seguridad diaria automática (Programador de tareas).
+    Crear-TareaBackup
 
     # 6) Arrancar la aplicacion (migra la BD sola al arrancar).
     if (-not (Arrancar-App -Config $config)) { throw 'La aplicacion no arranco correctamente.' }

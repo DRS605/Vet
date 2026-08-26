@@ -16,6 +16,7 @@ public sealed record ClienteCreado(Guid ClienteId, Guid EmpresaId, DateTimeOffse
 public sealed class Cliente : RaizAgregadoEmpresa<Guid>
 {
     public const int LongitudMaximaNombre = 200;
+    public const int LongitudMaximaTelefono = 30;
     public const decimal IrpfMaximo = 60m;
 
     private Cliente(Guid id)
@@ -25,12 +26,13 @@ public sealed class Cliente : RaizAgregadoEmpresa<Guid>
         Direccion = Direccion.Vacia;
     }
 
-    private Cliente(Guid id, Guid empresaId, string nombre, string? nifFiscal, string? email, Direccion direccion, decimal irpf, bool recargoEquivalencia, string? iban, string? mandatoReferencia, DateOnly? mandatoFecha, DateTimeOffset ahora)
+    private Cliente(Guid id, Guid empresaId, string nombre, string? nifFiscal, string? email, string? telefono, Direccion direccion, decimal irpf, bool recargoEquivalencia, string? iban, string? mandatoReferencia, DateOnly? mandatoFecha, DateTimeOffset ahora)
         : base(id, empresaId)
     {
         Nombre = nombre;
         NifFiscal = nifFiscal;
         Email = email;
+        Telefono = telefono;
         Direccion = direccion;
         PorcentajeIrpfDefecto = irpf;
         RecargoEquivalencia = recargoEquivalencia;
@@ -47,6 +49,9 @@ public sealed class Cliente : RaizAgregadoEmpresa<Guid>
     public string? NifFiscal { get; private set; }
 
     public string? Email { get; private set; }
+
+    /// <summary>Teléfono de contacto del cliente. Opcional. Se usa, p. ej., para avisos por WhatsApp.</summary>
+    public string? Telefono { get; private set; }
 
     public Direccion Direccion { get; private set; }
 
@@ -85,29 +90,30 @@ public sealed class Cliente : RaizAgregadoEmpresa<Guid>
         bool recargoEquivalencia = false,
         string? iban = null,
         string? mandatoReferencia = null,
-        DateOnly? mandatoFecha = null)
+        DateOnly? mandatoFecha = null,
+        string? telefono = null)
     {
         ArgumentNullException.ThrowIfNull(direccion);
         ArgumentNullException.ThrowIfNull(reloj);
 
-        var error = Validar(nombre, porcentajeIrpfDefecto);
+        var error = Validar(nombre, porcentajeIrpfDefecto, telefono);
         if (error is not null)
         {
             return Resultado.Fallo<Cliente>(error);
         }
 
         var cliente = new Cliente(
-            Guid.NewGuid(), empresaId, nombre!.Trim(), Normalizar(nifFiscal), Normalizar(email), direccion, porcentajeIrpfDefecto, recargoEquivalencia, iban, mandatoReferencia, mandatoFecha, reloj.AhoraUtc);
+            Guid.NewGuid(), empresaId, nombre!.Trim(), Normalizar(nifFiscal), Normalizar(email), Normalizar(telefono), direccion, porcentajeIrpfDefecto, recargoEquivalencia, iban, mandatoReferencia, mandatoFecha, reloj.AhoraUtc);
         cliente.RegistrarEvento(new ClienteCreado(cliente.Id, empresaId, reloj.AhoraUtc));
         return Resultado.Ok(cliente);
     }
 
-    public Resultado Actualizar(string? nombre, string? nifFiscal, string? email, Direccion direccion, decimal porcentajeIrpfDefecto, IReloj reloj, bool recargoEquivalencia = false, string? iban = null, string? mandatoReferencia = null, DateOnly? mandatoFecha = null)
+    public Resultado Actualizar(string? nombre, string? nifFiscal, string? email, Direccion direccion, decimal porcentajeIrpfDefecto, IReloj reloj, bool recargoEquivalencia = false, string? iban = null, string? mandatoReferencia = null, DateOnly? mandatoFecha = null, string? telefono = null)
     {
         ArgumentNullException.ThrowIfNull(direccion);
         ArgumentNullException.ThrowIfNull(reloj);
 
-        var error = Validar(nombre, porcentajeIrpfDefecto);
+        var error = Validar(nombre, porcentajeIrpfDefecto, telefono);
         if (error is not null)
         {
             return Resultado.Fallo(error);
@@ -116,6 +122,7 @@ public sealed class Cliente : RaizAgregadoEmpresa<Guid>
         Nombre = nombre!.Trim();
         NifFiscal = Normalizar(nifFiscal);
         Email = Normalizar(email);
+        Telefono = Normalizar(telefono);
         Direccion = direccion;
         PorcentajeIrpfDefecto = porcentajeIrpfDefecto;
         RecargoEquivalencia = recargoEquivalencia;
@@ -132,7 +139,7 @@ public sealed class Cliente : RaizAgregadoEmpresa<Guid>
         ActualizadoEn = reloj.AhoraUtc;
     }
 
-    private static Error? Validar(string? nombre, decimal irpf)
+    private static Error? Validar(string? nombre, decimal irpf, string? telefono)
     {
         if (string.IsNullOrWhiteSpace(nombre))
         {
@@ -147,6 +154,11 @@ public sealed class Cliente : RaizAgregadoEmpresa<Guid>
         if (irpf is < 0 or > IrpfMaximo)
         {
             return Error.Validacion("cliente.irpf_invalido", "El porcentaje de IRPF no es válido.");
+        }
+
+        if (telefono is not null && telefono.Trim().Length > LongitudMaximaTelefono)
+        {
+            return Error.Validacion("cliente.telefono_largo", "El teléfono es demasiado largo.");
         }
 
         return null;

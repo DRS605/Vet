@@ -23,7 +23,8 @@ mkdir -p "$STAGE/app"
 
 # Fuentes del paquete (este repo).
 cp "$WIN/Instalar ALXOR Vet.bat" "$WIN/Arrancar ALXOR Vet.bat" \
-   "$WIN/Detener ALXOR Vet.bat" "$WIN/LEEME.txt" "$STAGE/"
+   "$WIN/Detener ALXOR Vet.bat" "$WIN/Copia de seguridad ALXOR Vet.bat" \
+   "$WIN/Restaurar ALXOR Vet.bat" "$WIN/LEEME.txt" "$STAGE/"
 mkdir -p "$STAGE/scripts"
 # Solo los .ps1 (el .sh de empaquetado no va en el paquete de cliente).
 cp "$WIN/scripts/"*.ps1 "$STAGE/scripts/"
