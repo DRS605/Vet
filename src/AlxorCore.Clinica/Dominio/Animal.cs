@@ -7,31 +7,6 @@ namespace AlxorCore.Clinica.Dominio;
 /// <summary>Se ha creado un animal (mascota).</summary>
 public sealed record AnimalCreado(Guid AnimalId, Guid EmpresaId, Guid ClienteId, DateTimeOffset OcurridoEn) : IEventoDominio;
 
-/// <summary>Especie de un animal atendido en la clínica.</summary>
-public enum EspecieAnimal
-{
-    /// <summary>Perro.</summary>
-    Perro,
-
-    /// <summary>Gato.</summary>
-    Gato,
-
-    /// <summary>Conejo.</summary>
-    Conejo,
-
-    /// <summary>Ave.</summary>
-    Ave,
-
-    /// <summary>Hurón.</summary>
-    Huron,
-
-    /// <summary>Reptil.</summary>
-    Reptil,
-
-    /// <summary>Otra especie.</summary>
-    Otro,
-}
-
 /// <summary>Sexo de un animal.</summary>
 public enum SexoAnimal
 {
@@ -53,6 +28,7 @@ public enum SexoAnimal
 public sealed class Animal : RaizAgregadoEmpresa<Guid>
 {
     public const int LongitudMaximaNombre = 100;
+    public const int LongitudMaximaEspecie = 60;
     public const int LongitudMaximaRaza = 100;
     public const int LongitudMaximaMicrochip = 20;
     public const int LongitudMaximaNotas = 1000;
@@ -61,6 +37,7 @@ public sealed class Animal : RaizAgregadoEmpresa<Guid>
         : base(id, Guid.Empty)
     {
         Nombre = null!;
+        Especie = null!;
     }
 
     private Animal(
@@ -68,7 +45,7 @@ public sealed class Animal : RaizAgregadoEmpresa<Guid>
         Guid empresaId,
         Guid clienteId,
         string nombre,
-        EspecieAnimal especie,
+        string especie,
         string? raza,
         SexoAnimal sexo,
         DateOnly? fechaNacimiento,
@@ -99,7 +76,8 @@ public sealed class Animal : RaizAgregadoEmpresa<Guid>
 
     public string Nombre { get; private set; }
 
-    public EspecieAnimal Especie { get; private set; }
+    /// <summary>Nombre de la especie (referencia al maestro <see cref="Especie"/> de la empresa). Persistida como texto.</summary>
+    public string Especie { get; private set; }
 
     public string? Raza { get; private set; }
 
@@ -128,7 +106,7 @@ public sealed class Animal : RaizAgregadoEmpresa<Guid>
         Guid empresaId,
         Guid clienteId,
         string? nombre,
-        EspecieAnimal especie,
+        string? especie,
         SexoAnimal sexo,
         IReloj reloj,
         string? raza = null,
@@ -147,7 +125,7 @@ public sealed class Animal : RaizAgregadoEmpresa<Guid>
         }
 
         var animal = new Animal(
-            Guid.NewGuid(), empresaId, clienteId, nombre!.Trim(), especie, Normalizar(raza), sexo,
+            Guid.NewGuid(), empresaId, clienteId, nombre!.Trim(), especie!.Trim(), Normalizar(raza), sexo,
             fechaNacimiento, NormalizarMicrochip(microchip), esterilizado, pesoKg, Normalizar(notas), reloj.AhoraUtc);
         animal.RegistrarEvento(new AnimalCreado(animal.Id, empresaId, clienteId, reloj.AhoraUtc));
         return Resultado.Ok(animal);
@@ -155,7 +133,7 @@ public sealed class Animal : RaizAgregadoEmpresa<Guid>
 
     public Resultado Actualizar(
         string? nombre,
-        EspecieAnimal especie,
+        string? especie,
         SexoAnimal sexo,
         IReloj reloj,
         string? raza = null,
@@ -174,7 +152,7 @@ public sealed class Animal : RaizAgregadoEmpresa<Guid>
         }
 
         Nombre = nombre!.Trim();
-        Especie = especie;
+        Especie = especie!.Trim();
         Raza = Normalizar(raza);
         Sexo = sexo;
         FechaNacimiento = fechaNacimiento;
@@ -210,29 +188,22 @@ public sealed class Animal : RaizAgregadoEmpresa<Guid>
         return meses < 0 ? 0 : meses;
     }
 
-    /// <summary>¿Es cachorro? Requiere fecha de nacimiento y una edad inferior al umbral de su especie.</summary>
-    public bool EsCachorro(DateOnly hoy)
+    /// <summary>
+    /// ¿Es cachorro para un umbral (en meses) dado? Requiere fecha de nacimiento y una edad inferior
+    /// al umbral de su especie. El umbral lo aporta el maestro de especies (<see cref="Especie"/>): el
+    /// dominio no consulta el repositorio, así que quien llama pasa el umbral resuelto de la especie
+    /// del animal (por defecto <see cref="Dominio.Especie.MesesCachorroPorDefecto"/>).
+    /// </summary>
+    public bool EsCachorro(DateOnly hoy, int umbralMeses = Dominio.Especie.MesesCachorroPorDefecto)
     {
         var edad = EdadMeses(hoy);
-        return edad is { } meses && meses < UmbralCachorroMeses(Especie);
+        return edad is { } meses && meses < umbralMeses;
     }
-
-    /// <summary>Umbral (en meses) por debajo del cual un animal se considera cachorro, según su especie.</summary>
-    public static int UmbralCachorroMeses(EspecieAnimal especie) => especie switch
-    {
-        EspecieAnimal.Perro => 12,
-        EspecieAnimal.Gato => 12,
-        EspecieAnimal.Conejo => 6,
-        EspecieAnimal.Huron => 12,
-        EspecieAnimal.Ave => 12,
-        EspecieAnimal.Reptil => 12,
-        _ => 12,
-    };
 
     private static Error? Validar(
         Guid clienteId,
         string? nombre,
-        EspecieAnimal especie,
+        string? especie,
         SexoAnimal sexo,
         string? raza,
         DateOnly? fechaNacimiento,
@@ -256,9 +227,14 @@ public sealed class Animal : RaizAgregadoEmpresa<Guid>
             return Error.Validacion("animal.nombre_largo", "El nombre del animal es demasiado largo.");
         }
 
-        if (!Enum.IsDefined(especie))
+        if (string.IsNullOrWhiteSpace(especie))
         {
-            return Error.Validacion("animal.especie_invalida", "La especie indicada no es válida.");
+            return Error.Validacion("animal.especie_vacia", "La especie del animal es obligatoria.");
+        }
+
+        if (especie.Trim().Length > LongitudMaximaEspecie)
+        {
+            return Error.Validacion("animal.especie_larga", "La especie indicada es demasiado larga.");
         }
 
         if (!Enum.IsDefined(sexo))

@@ -10,7 +10,7 @@ namespace AlxorCore.Clinica.Aplicacion;
 public sealed record DatosAnimal(
     Guid ClienteId,
     string Nombre,
-    EspecieAnimal Especie = EspecieAnimal.Perro,
+    string Especie = "Perro",
     SexoAnimal Sexo = SexoAnimal.Desconocido,
     string? Raza = null,
     DateOnly? FechaNacimiento = null,
@@ -22,7 +22,7 @@ public sealed record DatosAnimal(
 /// <summary>Datos de un animal al actualizar (el propietario no cambia; se toma del animal existente).</summary>
 public sealed record DatosActualizarAnimal(
     string Nombre,
-    EspecieAnimal Especie = EspecieAnimal.Perro,
+    string Especie = "Perro",
     SexoAnimal Sexo = SexoAnimal.Desconocido,
     string? Raza = null,
     DateOnly? FechaNacimiento = null,
@@ -39,13 +39,15 @@ public sealed class CrearAnimal
 {
     private readonly IRepositorioAnimales _animales;
     private readonly IConsultaClientes _clientes;
+    private readonly IConsultaEspecies _especies;
     private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
     private readonly IReloj _reloj;
 
-    public CrearAnimal(IRepositorioAnimales animales, IConsultaClientes clientes, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    public CrearAnimal(IRepositorioAnimales animales, IConsultaClientes clientes, IConsultaEspecies especies, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
     {
         _animales = animales;
         _clientes = clientes;
+        _especies = especies;
         _unidadDeTrabajo = unidadDeTrabajo;
         _reloj = reloj;
     }
@@ -60,6 +62,12 @@ public sealed class CrearAnimal
             return Resultado.Fallo<AnimalDto>(Error.Validacion("animal.cliente_no_encontrado", "El cliente propietario no existe en esta empresa."));
         }
 
+        var especie = await ResolverEspecieActivaAsync(_especies, empresaId, datos.Especie, ct).ConfigureAwait(false);
+        if (especie is null)
+        {
+            return Resultado.Fallo<AnimalDto>(Error.Validacion("animal.especie_no_encontrada", "La especie indicada no existe o está dada de baja en esta empresa."));
+        }
+
         var animal = Animal.Crear(
             empresaId, datos.ClienteId, datos.Nombre, datos.Especie, datos.Sexo, _reloj,
             datos.Raza, datos.FechaNacimiento, datos.Microchip, datos.Esterilizado, datos.PesoKg, datos.Notas);
@@ -71,7 +79,22 @@ public sealed class CrearAnimal
         _animales.Agregar(animal.Valor);
         await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
         var hoy = DateOnly.FromDateTime(_reloj.AhoraUtc.UtcDateTime);
-        return Resultado.Ok(AnimalDto.Desde(animal.Valor, hoy));
+        return Resultado.Ok(AnimalDto.Desde(animal.Valor, hoy, especie.MesesCachorro));
+    }
+
+    /// <summary>
+    /// Resuelve la especie del maestro por su nombre y exige que exista y esté <b>activa</b> en la
+    /// empresa. Devuelve <c>null</c> si no cumple. Compartida por el alta y la actualización de animal.
+    /// </summary>
+    internal static async Task<EspecieDto?> ResolverEspecieActivaAsync(IConsultaEspecies especies, Guid empresaId, string? nombre, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(nombre))
+        {
+            return null;
+        }
+
+        var especie = await especies.ObtenerPorNombreAsync(empresaId, nombre.Trim(), ct).ConfigureAwait(false);
+        return especie is { Activo: true } ? especie : null;
     }
 }
 
@@ -79,12 +102,14 @@ public sealed class CrearAnimal
 public sealed class ActualizarAnimal
 {
     private readonly IRepositorioAnimales _animales;
+    private readonly IConsultaEspecies _especies;
     private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
     private readonly IReloj _reloj;
 
-    public ActualizarAnimal(IRepositorioAnimales animales, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    public ActualizarAnimal(IRepositorioAnimales animales, IConsultaEspecies especies, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
     {
         _animales = animales;
+        _especies = especies;
         _unidadDeTrabajo = unidadDeTrabajo;
         _reloj = reloj;
     }
@@ -99,6 +124,12 @@ public sealed class ActualizarAnimal
             return Resultado.Fallo<AnimalDto>(Error.NoEncontrado("animal.no_encontrado", "El animal no existe."));
         }
 
+        var especie = await CrearAnimal.ResolverEspecieActivaAsync(_especies, animal.EmpresaId, datos.Especie, ct).ConfigureAwait(false);
+        if (especie is null)
+        {
+            return Resultado.Fallo<AnimalDto>(Error.Validacion("animal.especie_no_encontrada", "La especie indicada no existe o está dada de baja en esta empresa."));
+        }
+
         var actualizado = animal.Actualizar(
             datos.Nombre, datos.Especie, datos.Sexo, _reloj,
             datos.Raza, datos.FechaNacimiento, datos.Microchip, datos.Esterilizado, datos.PesoKg, datos.Notas);
@@ -109,7 +140,7 @@ public sealed class ActualizarAnimal
 
         await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
         var hoy = DateOnly.FromDateTime(_reloj.AhoraUtc.UtcDateTime);
-        return Resultado.Ok(AnimalDto.Desde(animal, hoy));
+        return Resultado.Ok(AnimalDto.Desde(animal, hoy, especie.MesesCachorro));
     }
 }
 
@@ -335,7 +366,7 @@ public sealed class AnularConsulta
 
 /// <summary>Datos de una pauta vacunal para crear o actualizar.</summary>
 public sealed record DatosPautaVacunal(
-    EspecieAnimal Especie,
+    string Especie,
     string Nombre,
     CaracterVacuna Caracter = CaracterVacuna.Recomendada,
     int? EdadInicioSemanas = null,
@@ -349,13 +380,15 @@ public sealed class CrearPautaVacunal
 {
     private readonly IRepositorioPautasVacunales _pautas;
     private readonly IConsultaPautasVacunales _consulta;
+    private readonly IConsultaEspecies _especies;
     private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
     private readonly IReloj _reloj;
 
-    public CrearPautaVacunal(IRepositorioPautasVacunales pautas, IConsultaPautasVacunales consulta, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    public CrearPautaVacunal(IRepositorioPautasVacunales pautas, IConsultaPautasVacunales consulta, IConsultaEspecies especies, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
     {
         _pautas = pautas;
         _consulta = consulta;
+        _especies = especies;
         _unidadDeTrabajo = unidadDeTrabajo;
         _reloj = reloj;
     }
@@ -363,6 +396,12 @@ public sealed class CrearPautaVacunal
     public async Task<Resultado<PautaVacunalDto>> EjecutarAsync(Guid empresaId, DatosPautaVacunal datos, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(datos);
+
+        var especie = await CrearAnimal.ResolverEspecieActivaAsync(_especies, empresaId, datos.Especie, ct).ConfigureAwait(false);
+        if (especie is null)
+        {
+            return Resultado.Fallo<PautaVacunalDto>(Error.Validacion("pauta_vacunal.especie_no_encontrada", "La especie indicada no existe o está dada de baja en esta empresa."));
+        }
 
         var pauta = PautaVacunal.Crear(
             empresaId, datos.Especie, datos.Nombre, datos.Caracter, _reloj, datos.EdadInicioSemanas, datos.PeriodicidadRefuerzoMeses);
@@ -389,13 +428,15 @@ public sealed class ActualizarPautaVacunal
 {
     private readonly IRepositorioPautasVacunales _pautas;
     private readonly IConsultaPautasVacunales _consulta;
+    private readonly IConsultaEspecies _especies;
     private readonly IUnidadDeTrabajoClinica _unidadDeTrabajo;
     private readonly IReloj _reloj;
 
-    public ActualizarPautaVacunal(IRepositorioPautasVacunales pautas, IConsultaPautasVacunales consulta, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
+    public ActualizarPautaVacunal(IRepositorioPautasVacunales pautas, IConsultaPautasVacunales consulta, IConsultaEspecies especies, IUnidadDeTrabajoClinica unidadDeTrabajo, IReloj reloj)
     {
         _pautas = pautas;
         _consulta = consulta;
+        _especies = especies;
         _unidadDeTrabajo = unidadDeTrabajo;
         _reloj = reloj;
     }
@@ -408,6 +449,12 @@ public sealed class ActualizarPautaVacunal
         if (pauta is null)
         {
             return Resultado.Fallo<PautaVacunalDto>(Error.NoEncontrado("pauta_vacunal.no_encontrada", "La pauta vacunal no existe."));
+        }
+
+        var especie = await CrearAnimal.ResolverEspecieActivaAsync(_especies, pauta.EmpresaId, datos.Especie, ct).ConfigureAwait(false);
+        if (especie is null)
+        {
+            return Resultado.Fallo<PautaVacunalDto>(Error.Validacion("pauta_vacunal.especie_no_encontrada", "La especie indicada no existe o está dada de baja en esta empresa."));
         }
 
         if (await _consulta.ExisteNombreAsync(pauta.EmpresaId, datos.Especie, datos.Nombre.Trim(), pautaId, ct).ConfigureAwait(false))
@@ -450,9 +497,9 @@ public sealed class ListarPautasVacunales
 
     public ListarPautasVacunales(IConsultaPautasVacunales consulta) => _consulta = consulta;
 
-    public Task<IReadOnlyList<PautaVacunalDto>> EjecutarAsync(Guid empresaId, EspecieAnimal? especie = null, CancellationToken ct = default) =>
-        especie is { } e
-            ? _consulta.ListarPorEspecieAsync(empresaId, e, incluirInactivas: false, ct)
+    public Task<IReadOnlyList<PautaVacunalDto>> EjecutarAsync(Guid empresaId, string? especie = null, CancellationToken ct = default) =>
+        !string.IsNullOrWhiteSpace(especie)
+            ? _consulta.ListarPorEspecieAsync(empresaId, especie.Trim(), incluirInactivas: false, ct)
             : _consulta.ListarAsync(empresaId, incluirInactivas: false, ct);
 }
 
@@ -555,7 +602,7 @@ public sealed class RegistrarVacunacion
                 return Resultado.Fallo<VacunacionDto>(Error.Validacion("vacunacion.pauta_no_encontrada", "La pauta vacunal no existe en esta empresa."));
             }
 
-            if (pauta.Especie != animal.Especie)
+            if (!string.Equals(pauta.Especie, animal.Especie, StringComparison.OrdinalIgnoreCase))
             {
                 return Resultado.Fallo<VacunacionDto>(Error.Validacion("vacunacion.pauta_otra_especie", "La pauta vacunal es de otra especie distinta a la del animal."));
             }

@@ -1,5 +1,6 @@
 using AlxorCore.Api.Comun;
 using AlxorCore.Api.Contratos;
+using AlxorCore.Clinica.Aplicacion;
 using AlxorCore.Nucleo.Autorizacion;
 using AlxorCore.Nucleo.Multiempresa;
 using AlxorCore.Nucleo.Resultados;
@@ -65,7 +66,13 @@ public static class EndpointsOrganizacion
         return Results.Ok(new { inicializada });
     }
 
-    private static async Task<IResult> CrearAsync(CrearEmpresaPeticion peticion, ClaimsPrincipal usuario, CrearEmpresa caso, CancellationToken ct)
+    private static async Task<IResult> CrearAsync(
+        CrearEmpresaPeticion peticion,
+        ClaimsPrincipal usuario,
+        CrearEmpresa caso,
+        SembrarEspeciesPorDefecto sembrarEspecies,
+        IContextoEmpresaMutable contextoEmpresa,
+        CancellationToken ct)
     {
         var usuarioId = usuario.ObtenerUsuarioId();
         if (usuarioId is null)
@@ -78,7 +85,18 @@ public static class EndpointsOrganizacion
             peticion.Calle, peticion.CodigoPostal, peticion.Poblacion, peticion.Provincia, peticion.RegimenIva);
 
         var resultado = await caso.EjecutarAsync(comando, ct).ConfigureAwait(false);
-        return resultado.EsCorrecto ? resultado.ACreado("/empresas/actual") : ResultadosHttp.AProblema(resultado.Error);
+        if (resultado.EsFallo)
+        {
+            return ResultadosHttp.AProblema(resultado.Error);
+        }
+
+        // Toda clínica nueva arranca con el maestro de especies por defecto (Perro, Gato, Conejo, Ave,
+        // Hurón, Reptil, Otro). Se fija el contexto a la empresa recién creada para que el aislamiento
+        // (filtro de EF + RLS) apunte a ella, ya que el usuario aún no la ha «seleccionado».
+        contextoEmpresa.Fijar(resultado.Valor.Id);
+        await sembrarEspecies.EjecutarAsync(resultado.Valor.Id, ct).ConfigureAwait(false);
+
+        return resultado.ACreado("/empresas/actual");
     }
 
     private static async Task<IResult> ListarMiasAsync(ClaimsPrincipal usuario, ListarMisEmpresas caso, CancellationToken ct)

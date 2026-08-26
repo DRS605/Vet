@@ -8,7 +8,7 @@ public sealed record AnimalDto(
     Guid Id,
     Guid ClienteId,
     string Nombre,
-    EspecieAnimal Especie,
+    string Especie,
     string? Raza,
     SexoAnimal Sexo,
     DateOnly? FechaNacimiento,
@@ -20,13 +20,57 @@ public sealed record AnimalDto(
     int? EdadMeses,
     bool EsCachorro)
 {
-    public static AnimalDto Desde(Animal a, DateOnly hoy)
+    /// <summary>
+    /// Construye la vista. El cálculo de «cachorro» vive aquí (no en el dominio): recibe el umbral en
+    /// meses de la especie del animal, resuelto por el repositorio desde el maestro de especies. Si no
+    /// se conoce (especie sin registro), se usa el umbral por defecto.
+    /// </summary>
+    public static AnimalDto Desde(Animal a, DateOnly hoy, int umbralCachorroMeses = AlxorCore.Clinica.Dominio.Especie.MesesCachorroPorDefecto)
     {
         ArgumentNullException.ThrowIfNull(a);
         return new AnimalDto(
             a.Id, a.ClienteId, a.Nombre, a.Especie, a.Raza, a.Sexo, a.FechaNacimiento, a.Microchip,
-            a.Esterilizado, a.PesoKg, a.Notas, a.Activo, a.EdadMeses(hoy), a.EsCachorro(hoy));
+            a.Esterilizado, a.PesoKg, a.Notas, a.Activo, a.EdadMeses(hoy), a.EsCachorro(hoy, umbralCachorroMeses));
     }
+}
+
+/// <summary>Vista de una especie del maestro editable de la empresa.</summary>
+public sealed record EspecieDto(
+    Guid Id,
+    string Nombre,
+    int MesesCachorro,
+    bool Activo)
+{
+    public static EspecieDto Desde(Especie e)
+    {
+        ArgumentNullException.ThrowIfNull(e);
+        return new EspecieDto(e.Id, e.Nombre, e.MesesCachorro, e.Activo);
+    }
+}
+
+/// <summary>Datos de una especie para crear o actualizar.</summary>
+public sealed record DatosEspecie(string Nombre, int MesesCachorro = AlxorCore.Clinica.Dominio.Especie.MesesCachorroPorDefecto);
+
+/// <summary>Repositorio de especies (escritura).</summary>
+public interface IRepositorioEspecies
+{
+    Task<Especie?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default);
+
+    void Agregar(Especie especie);
+}
+
+/// <summary>Consultas de lectura del maestro de especies.</summary>
+public interface IConsultaEspecies
+{
+    Task<EspecieDto?> ObtenerAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>Obtiene una especie por su nombre exacto dentro de la empresa (activa o no), o <c>null</c>.</summary>
+    Task<EspecieDto?> ObtenerPorNombreAsync(Guid empresaId, string nombre, CancellationToken ct = default);
+
+    Task<IReadOnlyList<EspecieDto>> ListarAsync(Guid empresaId, bool incluirInactivas = false, CancellationToken ct = default);
+
+    /// <summary>¿Existe ya una especie con ese nombre en la empresa? Opcionalmente excluye un id (al actualizar).</summary>
+    Task<bool> ExisteNombreAsync(Guid empresaId, string nombre, Guid? excluirId = null, CancellationToken ct = default);
 }
 
 /// <summary>Repositorio de animales (escritura).</summary>
@@ -86,7 +130,7 @@ public interface IConsultaConsultas
 /// <summary>Vista de una pauta vacunal (cuadro maestro de vacunación por especie).</summary>
 public sealed record PautaVacunalDto(
     Guid Id,
-    EspecieAnimal Especie,
+    string Especie,
     string Nombre,
     CaracterVacuna Caracter,
     int? EdadInicioSemanas,
@@ -116,10 +160,10 @@ public interface IConsultaPautasVacunales
 
     Task<IReadOnlyList<PautaVacunalDto>> ListarAsync(Guid empresaId, bool incluirInactivas = false, CancellationToken ct = default);
 
-    Task<IReadOnlyList<PautaVacunalDto>> ListarPorEspecieAsync(Guid empresaId, EspecieAnimal especie, bool incluirInactivas = false, CancellationToken ct = default);
+    Task<IReadOnlyList<PautaVacunalDto>> ListarPorEspecieAsync(Guid empresaId, string especie, bool incluirInactivas = false, CancellationToken ct = default);
 
     /// <summary>¿Existe ya una pauta con ese nombre para la especie en la empresa? Opcionalmente excluye un id (al actualizar).</summary>
-    Task<bool> ExisteNombreAsync(Guid empresaId, EspecieAnimal especie, string nombre, Guid? excluirId = null, CancellationToken ct = default);
+    Task<bool> ExisteNombreAsync(Guid empresaId, string especie, string nombre, Guid? excluirId = null, CancellationToken ct = default);
 }
 
 /// <summary>Vista de una vacunación (dosis aplicada a un animal).</summary>

@@ -13,12 +13,12 @@ public class PautaVacunalTests
     [Fact]
     public void Crear_pauta_valida_emite_evento_y_queda_activa()
     {
-        var pauta = PautaVacunal.Crear(Empresa, EspecieAnimal.Perro, "Polivalente (DHPPi/L)", CaracterVacuna.Recomendada, Reloj, edadInicioSemanas: 6, periodicidadRefuerzoMeses: 12);
+        var pauta = PautaVacunal.Crear(Empresa, "Perro", "Polivalente (DHPPi/L)", CaracterVacuna.Recomendada, Reloj, edadInicioSemanas: 6, periodicidadRefuerzoMeses: 12);
 
         pauta.EsCorrecto.Should().BeTrue();
         pauta.Valor.Activo.Should().BeTrue();
         pauta.Valor.EmpresaId.Should().Be(Empresa);
-        pauta.Valor.Especie.Should().Be(EspecieAnimal.Perro);
+        pauta.Valor.Especie.Should().Be("Perro");
         pauta.Valor.Nombre.Should().Be("Polivalente (DHPPi/L)");
         pauta.Valor.Caracter.Should().Be(CaracterVacuna.Recomendada);
         pauta.Valor.EdadInicioSemanas.Should().Be(6);
@@ -29,7 +29,7 @@ public class PautaVacunalTests
     [Fact]
     public void Crear_recorta_el_nombre()
     {
-        var pauta = PautaVacunal.Crear(Empresa, EspecieAnimal.Gato, "  Rabia  ", CaracterVacuna.Legal, Reloj).Valor;
+        var pauta = PautaVacunal.Crear(Empresa, "Gato", "  Rabia  ", CaracterVacuna.Legal, Reloj).Valor;
         pauta.Nombre.Should().Be("Rabia");
     }
 
@@ -39,38 +39,41 @@ public class PautaVacunalTests
     [InlineData(null)]
     public void Crear_rechaza_nombre_vacio(string? nombre)
     {
-        PautaVacunal.Crear(Empresa, EspecieAnimal.Perro, nombre, CaracterVacuna.Recomendada, Reloj).EsFallo.Should().BeTrue();
+        PautaVacunal.Crear(Empresa, "Perro", nombre, CaracterVacuna.Recomendada, Reloj).EsFallo.Should().BeTrue();
     }
 
     [Fact]
     public void Crear_rechaza_nombre_demasiado_largo()
     {
         var largo = new string('a', PautaVacunal.LongitudMaximaNombre + 1);
-        PautaVacunal.Crear(Empresa, EspecieAnimal.Perro, largo, CaracterVacuna.Recomendada, Reloj).EsFallo.Should().BeTrue();
+        PautaVacunal.Crear(Empresa, "Perro", largo, CaracterVacuna.Recomendada, Reloj).EsFallo.Should().BeTrue();
     }
 
-    [Fact]
-    public void Crear_rechaza_especie_invalida()
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData(null)]
+    public void Crear_rechaza_especie_vacia(string? especie)
     {
-        PautaVacunal.Crear(Empresa, (EspecieAnimal)999, "Vacuna", CaracterVacuna.Recomendada, Reloj).EsFallo.Should().BeTrue();
+        PautaVacunal.Crear(Empresa, especie, "Vacuna", CaracterVacuna.Recomendada, Reloj).EsFallo.Should().BeTrue();
     }
 
     [Fact]
     public void Crear_rechaza_caracter_invalido()
     {
-        PautaVacunal.Crear(Empresa, EspecieAnimal.Perro, "Vacuna", (CaracterVacuna)999, Reloj).EsFallo.Should().BeTrue();
+        PautaVacunal.Crear(Empresa, "Perro", "Vacuna", (CaracterVacuna)999, Reloj).EsFallo.Should().BeTrue();
     }
 
     [Fact]
     public void Crear_rechaza_edad_inicio_negativa()
     {
-        PautaVacunal.Crear(Empresa, EspecieAnimal.Perro, "Vacuna", CaracterVacuna.Recomendada, Reloj, edadInicioSemanas: -1).EsFallo.Should().BeTrue();
+        PautaVacunal.Crear(Empresa, "Perro", "Vacuna", CaracterVacuna.Recomendada, Reloj, edadInicioSemanas: -1).EsFallo.Should().BeTrue();
     }
 
     [Fact]
     public void Crear_acepta_edad_inicio_cero()
     {
-        PautaVacunal.Crear(Empresa, EspecieAnimal.Perro, "Vacuna", CaracterVacuna.Recomendada, Reloj, edadInicioSemanas: 0).EsCorrecto.Should().BeTrue();
+        PautaVacunal.Crear(Empresa, "Perro", "Vacuna", CaracterVacuna.Recomendada, Reloj, edadInicioSemanas: 0).EsCorrecto.Should().BeTrue();
     }
 
     [Theory]
@@ -78,13 +81,13 @@ public class PautaVacunalTests
     [InlineData(-1)]
     public void Crear_rechaza_periodicidad_no_positiva(int periodicidad)
     {
-        PautaVacunal.Crear(Empresa, EspecieAnimal.Perro, "Vacuna", CaracterVacuna.Recomendada, Reloj, periodicidadRefuerzoMeses: periodicidad).EsFallo.Should().BeTrue();
+        PautaVacunal.Crear(Empresa, "Perro", "Vacuna", CaracterVacuna.Recomendada, Reloj, periodicidadRefuerzoMeses: periodicidad).EsFallo.Should().BeTrue();
     }
 
     [Fact]
     public void Crear_acepta_sin_periodicidad_ni_edad()
     {
-        var pauta = PautaVacunal.Crear(Empresa, EspecieAnimal.Perro, "Dosis única", CaracterVacuna.Opcional, Reloj).Valor;
+        var pauta = PautaVacunal.Crear(Empresa, "Perro", "Dosis única", CaracterVacuna.Opcional, Reloj).Valor;
         pauta.PeriodicidadRefuerzoMeses.Should().BeNull();
         pauta.EdadInicioSemanas.Should().BeNull();
     }
@@ -92,12 +95,12 @@ public class PautaVacunalTests
     [Fact]
     public void Actualizar_cambia_los_datos()
     {
-        var pauta = PautaVacunal.Crear(Empresa, EspecieAnimal.Perro, "Antigua", CaracterVacuna.Recomendada, Reloj).Valor;
+        var pauta = PautaVacunal.Crear(Empresa, "Perro", "Antigua", CaracterVacuna.Recomendada, Reloj).Valor;
 
-        var r = pauta.Actualizar(EspecieAnimal.Gato, "Nueva", CaracterVacuna.Legal, Reloj, edadInicioSemanas: 8, periodicidadRefuerzoMeses: 24);
+        var r = pauta.Actualizar("Gato", "Nueva", CaracterVacuna.Legal, Reloj, edadInicioSemanas: 8, periodicidadRefuerzoMeses: 24);
 
         r.EsCorrecto.Should().BeTrue();
-        pauta.Especie.Should().Be(EspecieAnimal.Gato);
+        pauta.Especie.Should().Be("Gato");
         pauta.Nombre.Should().Be("Nueva");
         pauta.Caracter.Should().Be(CaracterVacuna.Legal);
         pauta.EdadInicioSemanas.Should().Be(8);
@@ -107,15 +110,15 @@ public class PautaVacunalTests
     [Fact]
     public void Actualizar_rechaza_datos_invalidos_y_no_muta()
     {
-        var pauta = PautaVacunal.Crear(Empresa, EspecieAnimal.Perro, "Original", CaracterVacuna.Recomendada, Reloj).Valor;
-        pauta.Actualizar(EspecieAnimal.Perro, "", CaracterVacuna.Recomendada, Reloj).EsFallo.Should().BeTrue();
+        var pauta = PautaVacunal.Crear(Empresa, "Perro", "Original", CaracterVacuna.Recomendada, Reloj).Valor;
+        pauta.Actualizar("Perro", "", CaracterVacuna.Recomendada, Reloj).EsFallo.Should().BeTrue();
         pauta.Nombre.Should().Be("Original", "un fallo de validación no debe mutar la pauta");
     }
 
     [Fact]
     public void Desactivar_marca_inactiva()
     {
-        var pauta = PautaVacunal.Crear(Empresa, EspecieAnimal.Perro, "Vacuna", CaracterVacuna.Recomendada, Reloj).Valor;
+        var pauta = PautaVacunal.Crear(Empresa, "Perro", "Vacuna", CaracterVacuna.Recomendada, Reloj).Valor;
         pauta.Desactivar(Reloj);
         pauta.Activo.Should().BeFalse();
     }

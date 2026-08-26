@@ -37,6 +37,28 @@ public static class EndpointsClinica
             .WithSummary("Da de baja (baja lógica) un animal.")
             .RequierePermiso(Permisos.AnimalGestionar);
 
+        var especies = rutas.MapGroup("/especies").WithTags("Especies");
+
+        especies.MapGet("", ListarEspeciesAsync)
+            .WithSummary("Lista las especies del maestro de la empresa (activas por defecto; ?incluirInactivas= para todas).")
+            .RequierePermiso(Permisos.AnimalLeer);
+
+        especies.MapPost("", CrearEspecieAsync)
+            .WithSummary("Crea una especie en el maestro de la empresa.")
+            .RequierePermiso(Permisos.AnimalGestionar);
+
+        especies.MapGet("/{id:guid}", ObtenerEspecieAsync)
+            .WithSummary("Obtiene una especie del maestro.")
+            .RequierePermiso(Permisos.AnimalLeer);
+
+        especies.MapPut("/{id:guid}", ActualizarEspecieAsync)
+            .WithSummary("Actualiza una especie del maestro (nombre y meses de cachorro).")
+            .RequierePermiso(Permisos.AnimalGestionar);
+
+        especies.MapDelete("/{id:guid}", DarDeBajaEspecieAsync)
+            .WithSummary("Da de baja (baja lógica) una especie del maestro.")
+            .RequierePermiso(Permisos.AnimalGestionar);
+
         var clientes = rutas.MapGroup("/clientes").WithTags("Animales");
 
         clientes.MapGet("/{clienteId:guid}/animales", ListarPorClienteAsync)
@@ -302,6 +324,36 @@ public static class EndpointsClinica
     private static async Task<IResult> ListarPorClienteAsync(Guid clienteId, ListarAnimalesDeCliente caso, CancellationToken ct) =>
         Results.Ok(await caso.EjecutarAsync(clienteId, ct).ConfigureAwait(false));
 
+    private static async Task<IResult> ListarEspeciesAsync(bool? incluirInactivas, IContextoEmpresa contexto, ListarEspecies caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, incluirInactivas ?? false, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> CrearEspecieAsync(DatosEspecie datos, IContextoEmpresa contexto, CrearEspecie caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, datos, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/especies/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> ObtenerEspecieAsync(Guid id, ObtenerEspecie caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> ActualizarEspecieAsync(Guid id, DatosEspecie datos, ActualizarEspecie caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> DarDeBajaEspecieAsync(Guid id, DesactivarEspecie caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
     private static async Task<IResult> ListarConsultasAsync(Guid animalId, ListarConsultasDeAnimal caso, CancellationToken ct) =>
         Results.Ok(await caso.EjecutarAsync(animalId, ct).ConfigureAwait(false));
 
@@ -326,7 +378,7 @@ public static class EndpointsClinica
     private static async Task<IResult> AnularConsultaAsync(Guid id, AnularConsulta caso, CancellationToken ct) =>
         (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
 
-    private static async Task<IResult> ListarPautasAsync(EspecieAnimal? especie, IContextoEmpresa contexto, ListarPautasVacunales caso, CancellationToken ct)
+    private static async Task<IResult> ListarPautasAsync(string? especie, IContextoEmpresa contexto, ListarPautasVacunales caso, CancellationToken ct)
     {
         if (contexto.EmpresaId is null)
         {

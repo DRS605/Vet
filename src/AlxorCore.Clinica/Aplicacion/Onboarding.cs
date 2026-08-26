@@ -19,37 +19,37 @@ public static class CuadroVacunalPorDefecto
 {
     /// <summary>Una pauta recomendada del cuadro por defecto.</summary>
     public sealed record Entrada(
-        EspecieAnimal Especie,
+        string Especie,
         string Nombre,
         CaracterVacuna Caracter,
         int? EdadInicioSemanas,
         int? PeriodicidadRefuerzoMeses);
 
     /// <summary>Especies que sí tienen pautas recomendadas por defecto.</summary>
-    public static readonly IReadOnlyList<EspecieAnimal> EspeciesConCuadro = new[]
+    public static readonly IReadOnlyList<string> EspeciesConCuadro = new[]
     {
-        EspecieAnimal.Perro, EspecieAnimal.Gato, EspecieAnimal.Conejo, EspecieAnimal.Huron,
+        "Perro", "Gato", "Conejo", "Huron",
     };
 
     /// <summary>Catálogo completo de pautas recomendadas por defecto, por especie.</summary>
     public static readonly IReadOnlyList<Entrada> Pautas = new[]
     {
-        new Entrada(EspecieAnimal.Perro, "Polivalente (DHPPi/L)", CaracterVacuna.Recomendada, 6, 12),
-        new Entrada(EspecieAnimal.Perro, "Rabia", CaracterVacuna.Legal, 12, 12),
-        new Entrada(EspecieAnimal.Perro, "Tos de las perreras", CaracterVacuna.Opcional, 8, 12),
-        new Entrada(EspecieAnimal.Perro, "Leishmania", CaracterVacuna.Recomendada, 26, 12),
-        new Entrada(EspecieAnimal.Gato, "Trivalente felina", CaracterVacuna.Recomendada, 8, 12),
-        new Entrada(EspecieAnimal.Gato, "Leucemia felina", CaracterVacuna.Recomendada, 8, 12),
-        new Entrada(EspecieAnimal.Gato, "Rabia", CaracterVacuna.Legal, 12, 12),
-        new Entrada(EspecieAnimal.Conejo, "Mixomatosis", CaracterVacuna.Recomendada, 5, 6),
-        new Entrada(EspecieAnimal.Conejo, "RHD/VHD (enfermedad hemorrágica)", CaracterVacuna.Recomendada, 10, 12),
-        new Entrada(EspecieAnimal.Huron, "Moquillo (Distemper)", CaracterVacuna.Recomendada, 8, 12),
-        new Entrada(EspecieAnimal.Huron, "Rabia", CaracterVacuna.Legal, 12, 12),
+        new Entrada("Perro", "Polivalente (DHPPi/L)", CaracterVacuna.Recomendada, 6, 12),
+        new Entrada("Perro", "Rabia", CaracterVacuna.Legal, 12, 12),
+        new Entrada("Perro", "Tos de las perreras", CaracterVacuna.Opcional, 8, 12),
+        new Entrada("Perro", "Leishmania", CaracterVacuna.Recomendada, 26, 12),
+        new Entrada("Gato", "Trivalente felina", CaracterVacuna.Recomendada, 8, 12),
+        new Entrada("Gato", "Leucemia felina", CaracterVacuna.Recomendada, 8, 12),
+        new Entrada("Gato", "Rabia", CaracterVacuna.Legal, 12, 12),
+        new Entrada("Conejo", "Mixomatosis", CaracterVacuna.Recomendada, 5, 6),
+        new Entrada("Conejo", "RHD/VHD (enfermedad hemorrágica)", CaracterVacuna.Recomendada, 10, 12),
+        new Entrada("Huron", "Moquillo (Distemper)", CaracterVacuna.Recomendada, 8, 12),
+        new Entrada("Huron", "Rabia", CaracterVacuna.Legal, 12, 12),
     };
 }
 
 /// <summary>Petición para cargar las pautas recomendadas; si <c>Especies</c> es nulo o vacío, se cargan todas.</summary>
-public sealed record CargarPautasRecomendadasComando(IReadOnlyCollection<EspecieAnimal>? Especies = null);
+public sealed record CargarPautasRecomendadasComando(IReadOnlyCollection<string>? Especies = null);
 
 /// <summary>Resultado de la carga: cuántas se crearon y cuántas ya existían (por idempotencia).</summary>
 public sealed record CargaPautasResultado(int Creadas, int YaExistentes);
@@ -64,11 +64,13 @@ public sealed class CargarPautasRecomendadas
 {
     private readonly CrearPautaVacunal _crear;
     private readonly IConsultaPautasVacunales _consulta;
+    private readonly SembrarEspeciesPorDefecto _sembrarEspecies;
 
-    public CargarPautasRecomendadas(CrearPautaVacunal crear, IConsultaPautasVacunales consulta)
+    public CargarPautasRecomendadas(CrearPautaVacunal crear, IConsultaPautasVacunales consulta, SembrarEspeciesPorDefecto sembrarEspecies)
     {
         _crear = crear;
         _consulta = consulta;
+        _sembrarEspecies = sembrarEspecies;
     }
 
     public async Task<Resultado<CargaPautasResultado>> EjecutarAsync(
@@ -76,8 +78,16 @@ public sealed class CargarPautasRecomendadas
     {
         ArgumentNullException.ThrowIfNull(comando);
 
+        // El cuadro de pautas referencia especies del maestro; nos aseguramos de que existen (idempotente)
+        // antes de crear las pautas, para que el alta de cada pauta no falle por especie inexistente.
+        var siembra = await _sembrarEspecies.EjecutarAsync(empresaId, ct).ConfigureAwait(false);
+        if (siembra.EsFallo)
+        {
+            return Resultado.Fallo<CargaPautasResultado>(siembra.Error);
+        }
+
         var especies = comando.Especies is { Count: > 0 }
-            ? new HashSet<EspecieAnimal>(comando.Especies)
+            ? new HashSet<string>(comando.Especies, StringComparer.OrdinalIgnoreCase)
             : null;
 
         var creadas = 0;

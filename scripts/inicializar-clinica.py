@@ -176,6 +176,16 @@ def main():
         paso(f"creada «{emp['razonSocial']}»")
     _token = llamar("POST", f"/empresas/{emp['id']}/seleccionar")["token"]
 
+    # 2.5) Maestro de especies: al crear la empresa se siembran las especies por defecto (Perro,
+    # Gato, Conejo, Ave, Hurón, Reptil, Otro). Aquí solo verificamos que existen; son editables
+    # después desde Ajustes → Especies (dar de alta/editar/baja).
+    print("Especies")
+    especies = llamar("GET", "/especies")
+    if especies:
+        paso(f"maestro con {len(especies)} especie(s): " + ", ".join(e["nombre"] for e in especies))
+    else:
+        paso("el maestro de especies está vacío (revisa la instalación)")
+
     # 3) Cuadro vacunal por especie: crear solo las pautas que falten (idempotente).
     print("Cuadro vacunal")
     existentes = {(p.get("especie"), p.get("nombre")) for p in llamar("GET", "/vacunas/pautas")}

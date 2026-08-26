@@ -20,7 +20,8 @@ sobre la que se construirán las historias clínicas, las visitas y las vacunas.
 
 ```
 AlxorCore.Clinica/                   # puro, sin frameworks
-  Dominio/        Animal, EspecieAnimal, SexoAnimal, AnimalCreado (evento);
+  Dominio/        Animal, SexoAnimal, AnimalCreado (evento);
+                  Especie, EspecieCreada (evento)  — maestro editable de especies por empresa;
                   Consulta, ConsultaRegistrada (evento);
                   PautaVacunal, CaracterVacuna, PautaVacunalCreada (evento);
                   Vacunacion, VacunacionRegistrada (evento);
@@ -58,7 +59,7 @@ Raíz de agregado multiempresa (`RaizAgregadoEmpresa<Guid>`). Esquema `clinica`,
 |---|---|---|
 | `ClienteId` | `Guid` | Propietario (cliente de Terceros). Obligatorio. Índice `(empresa_id, cliente_id)`. |
 | `Nombre` | `string` | Obligatorio, máx. 100. |
-| `Especie` | `EspecieAnimal` | `Perro`, `Gato`, `Conejo`, `Ave`, `Huron`, `Reptil`, `Otro`. Persistido como texto. |
+| `Especie` | `string` | Nombre de una especie del **maestro editable** (`Especie`) de la empresa. Persistido como texto (máx. 60). Debe existir y estar **activa** al crear/actualizar. |
 | `Raza` | `string?` | Máx. 100. |
 | `Sexo` | `SexoAnimal` | `Macho`, `Hembra`, `Desconocido`. Persistido como texto. |
 | `FechaNacimiento` | `DateOnly?` | Opcional. **No puede ser futura** (se valida con `IReloj`). |
@@ -69,8 +70,25 @@ Raíz de agregado multiempresa (`RaizAgregadoEmpresa<Guid>`). Esquema `clinica`,
 | `Activo` | `bool` | Baja lógica. |
 | `CreadoEn` / `ActualizadoEn` | `DateTimeOffset` | |
 
-Métodos derivados (no columnas): `int? EdadMeses(DateOnly hoy)` y `bool EsCachorro(DateOnly hoy)`.
+Métodos derivados (no columnas): `int? EdadMeses(DateOnly hoy)` y `bool EsCachorro(DateOnly hoy, int umbralMeses)`.
 Al crear un animal se emite el evento de dominio `AnimalCreado`.
+
+## Agregado `Especie` (maestro editable)
+
+Sustituye al antiguo enumerado fijo `EspecieAnimal`. Es un **maestro por empresa**: cada clínica da de
+alta, edita y da de baja sus propias especies. Raíz de agregado multiempresa. Esquema `clinica`, tabla
+`especie`, índice único `(empresa_id, nombre)`.
+
+| Campo | Tipo | Notas |
+|---|---|---|
+| `Nombre` | `string` | Obligatorio, único por empresa, máx. 60. Es la clave que referencian `Animal` y `PautaVacunal`. |
+| `MesesCachorro` | `int` | Umbral (en meses) por debajo del cual un animal de esta especie es cachorro. **> 0**, por defecto 12. |
+| `Activo` | `bool` | Baja lógica. |
+| `CreadoEn` / `ActualizadoEn` | `DateTimeOffset` | |
+
+Al crearla se emite `EspecieCreada`. Validaciones: `especie.nombre_vacio`, `especie.nombre_largo`,
+`especie.meses_invalido`; unicidad de negocio `especie.duplicada`. Cada empresa nueva se **siembra** con
+las 7 especies por defecto (Perro, Gato, Conejo=6, Ave, Huron, Reptil, Otro; el resto con umbral 12).
 
 ## Cachorro
 
@@ -78,15 +96,10 @@ Un animal es **cachorro** si tiene fecha de nacimiento y su edad (en meses compl
 al umbral de su especie. Sin fecha de nacimiento, `EsCachorro` es siempre `false`. El umbral se compara
 de forma **estricta**: justo en el umbral el animal ya deja de ser cachorro.
 
-| Especie | Umbral (meses) |
-|---|---|
-| Perro | 12 |
-| Gato | 12 |
-| Conejo | 6 |
-| Hurón | 12 |
-| Ave | 12 |
-| Reptil | 12 |
-| Otro | 12 |
+El umbral **ya no está cableado por especie**: viene del maestro (`Especie.MesesCachorro`). Como el
+dominio `Animal` no consulta el repositorio, el cálculo de `EsCachorro` se hace al **construir el
+`AnimalDto`** (`AnimalDto.Desde(animal, hoy, umbralCachorroMeses)`): el repositorio resuelve el umbral de
+la especie del animal desde el maestro (por defecto 12 si la especie no tuviera registro).
 
 ## API
 
@@ -100,6 +113,14 @@ Todas las rutas requieren empresa activa. Lectura → `animal.leer`; alta/edici�
 | `PUT` | `/animales/{id}` | `animal.gestionar` | Actualiza un animal. |
 | `DELETE` | `/animales/{id}` | `animal.gestionar` | Baja lógica del animal (**204**). |
 | `GET` | `/clientes/{clienteId}/animales` | `animal.leer` | Lista los animales de un cliente. |
+| `GET` | `/especies` | `animal.leer` | Lista las especies del maestro (activas; `?incluirInactivas=` para todas). |
+| `POST` | `/especies` | `animal.gestionar` | Crea una especie. Devuelve **201**. |
+| `GET` | `/especies/{id}` | `animal.leer` | Obtiene una especie. |
+| `PUT` | `/especies/{id}` | `animal.gestionar` | Actualiza una especie (nombre y meses de cachorro). |
+| `DELETE` | `/especies/{id}` | `animal.gestionar` | Baja lógica de la especie (**204**). |
+
+El filtro `GET /vacunas/pautas?especie=` y el maestro usan el **nombre** de especie. Las especies
+reutilizan los permisos `animal.leer` / `animal.gestionar`.
 
 Los errores se devuelven como `ProblemDetails` (RFC 7807) con un `codigo` estable, mapeados desde el
 `Resultado` del dominio: validación → 400, no encontrado → 404.
@@ -109,7 +130,8 @@ Los errores se devuelven como `ProblemDetails` (RFC 7807) con un `codigo` establ
 - El **propietario debe existir** en la empresa al crear el animal; si no, se devuelve
   `animal.cliente_no_encontrado` (400). La comprobación usa el contrato `IConsultaClientes` de
   Terceros (mismo patrón de composición entre módulos que emplea Facturación).
-- El **nombre** es obligatorio (máx. 100). La **especie** y el **sexo** deben ser valores válidos.
+- El **nombre** es obligatorio (máx. 100). La **especie** debe **existir y estar activa** en el maestro
+  de la empresa (si no, `animal.especie_no_encontrada`, 400); el **sexo** debe ser un valor válido.
 - La **fecha de nacimiento** no puede ser futura.
 - El **peso**, si se indica, debe ser mayor que cero.
 - El **microchip** se normaliza (sin espacios y en mayúsculas) y se limita a 20 caracteres.
@@ -119,10 +141,15 @@ Los errores se devuelven como `ProblemDetails` (RFC 7807) con un `codigo` establ
 ## Persistencia
 
 - Esquema **`clinica`**, tabla **`animal`**. Índice `(empresa_id, cliente_id)`.
-- Enumerados `especie` y `sexo` persistidos como **texto** (`HasConversion<string>`).
+- La **especie** se guarda como **texto** (el nombre del maestro `Especie`, máx. 60); el `sexo` como
+  texto vía `HasConversion<string>`.
+- Tabla **`especie`** (maestro): índice único `(empresa_id, nombre)`, RLS por empresa.
 - `ClinicaDbContext` actúa como **Unidad de Trabajo**: al guardar, confirma y publica los eventos
   de dominio.
 - Migración inicial: `MigracionInicialClinica` (activa la RLS por empresa sobre `animal`).
+- Migración `AgregarEspecies`: crea la tabla `especie` (con RLS) y **siembra** por cada empresa las 7
+  especies por defecto más cualquier valor de especie ya en uso en `animal`/`pauta_vacunal`, de modo
+  que ningún dato existente quede apuntando a una especie inexistente en el maestro.
 
 ## Agregado `Consulta` (historial clínico)
 
@@ -183,7 +210,7 @@ animal son `Vacunacion`. Raíz de agregado multiempresa (`RaizAgregadoEmpresa<Gu
 
 | Campo | Tipo | Notas |
 |---|---|---|
-| `Especie` | `EspecieAnimal` | Especie a la que aplica. Persistida como texto. |
+| `Especie` | `string` | Nombre de la especie del maestro a la que aplica. Persistida como texto (máx. 60); debe existir y estar activa. |
 | `Nombre` | `string` | Obligatorio, máx. 120. |
 | `Caracter` | `CaracterVacuna` | `Legal`, `Recomendada`, `Opcional`. Persistido como texto. |
 | `EdadInicioSemanas` | `int?` | Edad recomendada de inicio, en semanas. Si se indica, ≥ 0. |

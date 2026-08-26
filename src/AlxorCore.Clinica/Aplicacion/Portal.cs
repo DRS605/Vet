@@ -99,7 +99,7 @@ public sealed record CartillaCitaDto(
 public sealed record CartillaAnimalDto(
     Guid Id,
     string Nombre,
-    EspecieAnimal Especie,
+    string Especie,
     string EspecieTexto,
     int? EdadMeses,
     string? EdadTexto,
@@ -171,17 +171,6 @@ public static class PlanCrecimiento
 /// <summary>Textos de presentación en español para los enumerados de la cartilla.</summary>
 internal static class TextosCartilla
 {
-    public static string Especie(EspecieAnimal especie) => especie switch
-    {
-        EspecieAnimal.Perro => "Perro",
-        EspecieAnimal.Gato => "Gato",
-        EspecieAnimal.Conejo => "Conejo",
-        EspecieAnimal.Ave => "Ave",
-        EspecieAnimal.Huron => "Hurón",
-        EspecieAnimal.Reptil => "Reptil",
-        _ => "Otro",
-    };
-
     public static string EstadoCita(EstadoCita estado) => estado switch
     {
         Dominio.EstadoCita.Solicitada => "Por confirmar",
@@ -437,7 +426,7 @@ public sealed class ObtenerCartillaPorToken
                 animal.Id,
                 animal.Nombre,
                 animal.Especie,
-                TextosCartilla.Especie(animal.Especie),
+                animal.Especie,
                 animal.EdadMeses,
                 TextosCartilla.Edad(animal.EdadMeses),
                 animal.EsCachorro,

@@ -29,17 +29,19 @@ public enum CaracterVacuna
 public sealed class PautaVacunal : RaizAgregadoEmpresa<Guid>
 {
     public const int LongitudMaximaNombre = 120;
+    public const int LongitudMaximaEspecie = 60;
 
     private PautaVacunal(Guid id)
         : base(id, Guid.Empty)
     {
         Nombre = null!;
+        Especie = null!;
     }
 
     private PautaVacunal(
         Guid id,
         Guid empresaId,
-        EspecieAnimal especie,
+        string especie,
         string nombre,
         CaracterVacuna caracter,
         int? edadInicioSemanas,
@@ -57,8 +59,8 @@ public sealed class PautaVacunal : RaizAgregadoEmpresa<Guid>
         ActualizadoEn = ahora;
     }
 
-    /// <summary>Especie a la que aplica la pauta. Persistida como texto.</summary>
-    public EspecieAnimal Especie { get; private set; }
+    /// <summary>Especie a la que aplica la pauta (nombre del maestro <see cref="Especie"/>). Persistida como texto.</summary>
+    public string Especie { get; private set; }
 
     /// <summary>Nombre de la vacuna (obligatorio, máx. 120).</summary>
     public string Nombre { get; private set; }
@@ -81,7 +83,7 @@ public sealed class PautaVacunal : RaizAgregadoEmpresa<Guid>
 
     public static Resultado<PautaVacunal> Crear(
         Guid empresaId,
-        EspecieAnimal especie,
+        string? especie,
         string? nombre,
         CaracterVacuna caracter,
         IReloj reloj,
@@ -97,14 +99,14 @@ public sealed class PautaVacunal : RaizAgregadoEmpresa<Guid>
         }
 
         var pauta = new PautaVacunal(
-            Guid.NewGuid(), empresaId, especie, nombre!.Trim(), caracter,
+            Guid.NewGuid(), empresaId, especie!.Trim(), nombre!.Trim(), caracter,
             edadInicioSemanas, periodicidadRefuerzoMeses, reloj.AhoraUtc);
         pauta.RegistrarEvento(new PautaVacunalCreada(pauta.Id, empresaId, reloj.AhoraUtc));
         return Resultado.Ok(pauta);
     }
 
     public Resultado Actualizar(
-        EspecieAnimal especie,
+        string? especie,
         string? nombre,
         CaracterVacuna caracter,
         IReloj reloj,
@@ -119,7 +121,7 @@ public sealed class PautaVacunal : RaizAgregadoEmpresa<Guid>
             return Resultado.Fallo(error);
         }
 
-        Especie = especie;
+        Especie = especie!.Trim();
         Nombre = nombre!.Trim();
         Caracter = caracter;
         EdadInicioSemanas = edadInicioSemanas;
@@ -144,7 +146,7 @@ public sealed class PautaVacunal : RaizAgregadoEmpresa<Guid>
         periodicidadMeses is { } meses && meses > 0 ? fechaAplicacion.AddMonths(meses) : null;
 
     private static Error? Validar(
-        EspecieAnimal especie,
+        string? especie,
         string? nombre,
         CaracterVacuna caracter,
         int? edadInicioSemanas,
@@ -160,9 +162,14 @@ public sealed class PautaVacunal : RaizAgregadoEmpresa<Guid>
             return Error.Validacion("pauta_vacunal.nombre_largo", "El nombre de la vacuna es demasiado largo.");
         }
 
-        if (!Enum.IsDefined(especie))
+        if (string.IsNullOrWhiteSpace(especie))
         {
-            return Error.Validacion("pauta_vacunal.especie_invalida", "La especie indicada no es válida.");
+            return Error.Validacion("pauta_vacunal.especie_vacia", "La especie de la pauta es obligatoria.");
+        }
+
+        if (especie.Trim().Length > LongitudMaximaEspecie)
+        {
+            return Error.Validacion("pauta_vacunal.especie_larga", "La especie indicada es demasiado larga.");
         }
 
         if (!Enum.IsDefined(caracter))

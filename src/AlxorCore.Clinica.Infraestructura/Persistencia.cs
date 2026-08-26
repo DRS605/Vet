@@ -23,6 +23,8 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<Animal> Animales => Set<Animal>();
 
+    public DbSet<Especie> Especies => Set<Especie>();
+
     public DbSet<Consulta> Consultas => Set<Consulta>();
 
     public DbSet<PautaVacunal> PautasVacunales => Set<PautaVacunal>();
@@ -57,7 +59,7 @@ internal sealed class ConfiguracionAnimal : IEntityTypeConfiguration<Animal>
         builder.Property(a => a.EmpresaId).HasColumnName("empresa_id").IsRequired();
         builder.Property(a => a.ClienteId).HasColumnName("cliente_id").IsRequired();
         builder.Property(a => a.Nombre).HasColumnName("nombre").HasMaxLength(Animal.LongitudMaximaNombre).IsRequired();
-        builder.Property(a => a.Especie).HasColumnName("especie").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(a => a.Especie).HasColumnName("especie").HasMaxLength(Animal.LongitudMaximaEspecie).IsRequired();
         builder.Property(a => a.Raza).HasColumnName("raza").HasMaxLength(Animal.LongitudMaximaRaza);
         builder.Property(a => a.Sexo).HasColumnName("sexo").HasMaxLength(20).HasConversion<string>().IsRequired();
         builder.Property(a => a.FechaNacimiento).HasColumnName("fecha_nacimiento");
@@ -93,7 +95,17 @@ internal sealed class RepositorioAnimales : IRepositorioAnimales, IConsultaAnima
     public async Task<AnimalDto?> ObtenerAsync(Guid animalId, CancellationToken ct = default)
     {
         var animal = await _contexto.Animales.SingleOrDefaultAsync(a => a.Id == animalId, ct).ConfigureAwait(false);
-        return animal is null ? null : AnimalDto.Desde(animal, Hoy);
+        if (animal is null)
+        {
+            return null;
+        }
+
+        var umbral = await _contexto.Especies
+            .Where(e => e.EmpresaId == animal.EmpresaId && e.Nombre == animal.Especie)
+            .Select(e => (int?)e.MesesCachorro)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+        return AnimalDto.Desde(animal, Hoy, umbral ?? Especie.MesesCachorroPorDefecto);
     }
 
     public async Task<IReadOnlyList<AnimalDto>> ListarAsync(Guid empresaId, bool incluirInactivos = false, CancellationToken ct = default)
@@ -105,7 +117,8 @@ internal sealed class RepositorioAnimales : IRepositorioAnimales, IConsultaAnima
         }
 
         var animales = await consulta.OrderBy(a => a.Nombre).ToListAsync(ct).ConfigureAwait(false);
-        return animales.Select(a => AnimalDto.Desde(a, Hoy)).ToList();
+        var umbrales = await UmbralesAsync(empresaId, ct).ConfigureAwait(false);
+        return animales.Select(a => AnimalDto.Desde(a, Hoy, UmbralDe(umbrales, a.Especie))).ToList();
     }
 
     public async Task<IReadOnlyList<AnimalDto>> ListarPorClienteAsync(Guid clienteId, bool incluirInactivos = false, CancellationToken ct = default)
@@ -117,8 +130,29 @@ internal sealed class RepositorioAnimales : IRepositorioAnimales, IConsultaAnima
         }
 
         var animales = await consulta.OrderBy(a => a.Nombre).ToListAsync(ct).ConfigureAwait(false);
-        return animales.Select(a => AnimalDto.Desde(a, Hoy)).ToList();
+        if (animales.Count == 0)
+        {
+            return Array.Empty<AnimalDto>();
+        }
+
+        var umbrales = await UmbralesAsync(animales[0].EmpresaId, ct).ConfigureAwait(false);
+        return animales.Select(a => AnimalDto.Desde(a, Hoy, UmbralDe(umbrales, a.Especie))).ToList();
     }
+
+    // Umbrales de «cachorro» por nombre de especie del maestro de la empresa. Se carga de una vez para
+    // evitar una consulta por animal al construir los DTO de un listado.
+    private async Task<Dictionary<string, int>> UmbralesAsync(Guid empresaId, CancellationToken ct)
+    {
+        var especies = await _contexto.Especies
+            .Where(e => e.EmpresaId == empresaId)
+            .Select(e => new { e.Nombre, e.MesesCachorro })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        return especies.ToDictionary(e => e.Nombre, e => e.MesesCachorro, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static int UmbralDe(Dictionary<string, int> umbrales, string especie) =>
+        umbrales.TryGetValue(especie, out var meses) ? meses : Especie.MesesCachorroPorDefecto;
 
     private DateOnly Hoy => DateOnly.FromDateTime(_reloj.AhoraUtc.UtcDateTime);
 }
@@ -189,7 +223,7 @@ internal sealed class ConfiguracionPautaVacunal : IEntityTypeConfiguration<Pauta
         builder.HasKey(p => p.Id);
         builder.Property(p => p.Id).HasColumnName("id");
         builder.Property(p => p.EmpresaId).HasColumnName("empresa_id").IsRequired();
-        builder.Property(p => p.Especie).HasColumnName("especie").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(p => p.Especie).HasColumnName("especie").HasMaxLength(PautaVacunal.LongitudMaximaEspecie).IsRequired();
         builder.Property(p => p.Nombre).HasColumnName("nombre").HasMaxLength(PautaVacunal.LongitudMaximaNombre).IsRequired();
         builder.Property(p => p.Caracter).HasColumnName("caracter").HasMaxLength(20).HasConversion<string>().IsRequired();
         builder.Property(p => p.EdadInicioSemanas).HasColumnName("edad_inicio_semanas");
@@ -234,7 +268,7 @@ internal sealed class RepositorioPautasVacunales : IRepositorioPautasVacunales, 
         return pautas.Select(PautaVacunalDto.Desde).ToList();
     }
 
-    public async Task<IReadOnlyList<PautaVacunalDto>> ListarPorEspecieAsync(Guid empresaId, EspecieAnimal especie, bool incluirInactivas = false, CancellationToken ct = default)
+    public async Task<IReadOnlyList<PautaVacunalDto>> ListarPorEspecieAsync(Guid empresaId, string especie, bool incluirInactivas = false, CancellationToken ct = default)
     {
         var consulta = _contexto.PautasVacunales.Where(p => p.EmpresaId == empresaId && p.Especie == especie);
         if (!incluirInactivas)
@@ -246,9 +280,75 @@ internal sealed class RepositorioPautasVacunales : IRepositorioPautasVacunales, 
         return pautas.Select(PautaVacunalDto.Desde).ToList();
     }
 
-    public Task<bool> ExisteNombreAsync(Guid empresaId, EspecieAnimal especie, string nombre, Guid? excluirId = null, CancellationToken ct = default) =>
+    public Task<bool> ExisteNombreAsync(Guid empresaId, string especie, string nombre, Guid? excluirId = null, CancellationToken ct = default) =>
         _contexto.PautasVacunales.AnyAsync(
             p => p.EmpresaId == empresaId && p.Especie == especie && p.Nombre == nombre && (excluirId == null || p.Id != excluirId),
+            ct);
+}
+
+internal sealed class ConfiguracionEspecie : IEntityTypeConfiguration<Especie>
+{
+    public void Configure(EntityTypeBuilder<Especie> builder)
+    {
+        builder.ToTable("especie");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Id).HasColumnName("id");
+        builder.Property(e => e.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(e => e.Nombre).HasColumnName("nombre").HasMaxLength(Especie.LongitudMaximaNombre).IsRequired();
+        builder.Property(e => e.MesesCachorro).HasColumnName("meses_cachorro").IsRequired();
+        builder.Property(e => e.Activo).HasColumnName("activo").IsRequired();
+        builder.Property(e => e.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(e => e.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        // El nombre es único por empresa: es la clave que referencian animales y pautas.
+        builder.HasIndex(e => new { e.EmpresaId, e.Nombre })
+            .HasDatabaseName("ux_especie_empresa_nombre")
+            .IsUnique();
+        builder.Ignore(e => e.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioEspecies : IRepositorioEspecies, IConsultaEspecies
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioEspecies(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<Especie?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.Especies.SingleOrDefaultAsync(e => e.Id == id, ct);
+
+    public void Agregar(Especie especie) => _contexto.Especies.Add(especie);
+
+    public async Task<EspecieDto?> ObtenerAsync(Guid id, CancellationToken ct = default)
+    {
+        var especie = await _contexto.Especies.SingleOrDefaultAsync(e => e.Id == id, ct).ConfigureAwait(false);
+        return especie is null ? null : EspecieDto.Desde(especie);
+    }
+
+    public async Task<EspecieDto?> ObtenerPorNombreAsync(Guid empresaId, string nombre, CancellationToken ct = default)
+    {
+        var especie = await _contexto.Especies
+            .Where(e => e.EmpresaId == empresaId && e.Nombre == nombre)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+        return especie is null ? null : EspecieDto.Desde(especie);
+    }
+
+    public async Task<IReadOnlyList<EspecieDto>> ListarAsync(Guid empresaId, bool incluirInactivas = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.Especies.Where(e => e.EmpresaId == empresaId);
+        if (!incluirInactivas)
+        {
+            consulta = consulta.Where(e => e.Activo);
+        }
+
+        var especies = await consulta.OrderBy(e => e.Nombre).ToListAsync(ct).ConfigureAwait(false);
+        return especies.Select(EspecieDto.Desde).ToList();
+    }
+
+    public Task<bool> ExisteNombreAsync(Guid empresaId, string nombre, Guid? excluirId = null, CancellationToken ct = default) =>
+        _contexto.Especies.AnyAsync(
+            e => e.EmpresaId == empresaId && e.Nombre == nombre && (excluirId == null || e.Id != excluirId),
             ct);
 }
 

@@ -27,6 +27,18 @@ public static class RegistroServicios
                 .AddInterceptors(sp.GetRequiredService<InterceptorEmpresa>()));
 
         servicios.AddScoped<IUnidadDeTrabajoClinica>(sp => sp.GetRequiredService<ClinicaDbContext>());
+
+        servicios.AddScoped<RepositorioEspecies>();
+        servicios.AddScoped<IRepositorioEspecies>(sp => sp.GetRequiredService<RepositorioEspecies>());
+        servicios.AddScoped<IConsultaEspecies>(sp => sp.GetRequiredService<RepositorioEspecies>());
+
+        servicios.AddScoped<CrearEspecie>();
+        servicios.AddScoped<ActualizarEspecie>();
+        servicios.AddScoped<DesactivarEspecie>();
+        servicios.AddScoped<ObtenerEspecie>();
+        servicios.AddScoped<ListarEspecies>();
+        servicios.AddScoped<SembrarEspeciesPorDefecto>();
+
         servicios.AddScoped<RepositorioAnimales>();
         servicios.AddScoped<IRepositorioAnimales>(sp => sp.GetRequiredService<RepositorioAnimales>());
         servicios.AddScoped<IConsultaAnimales>(sp => sp.GetRequiredService<RepositorioAnimales>());

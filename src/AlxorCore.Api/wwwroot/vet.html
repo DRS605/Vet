@@ -36,8 +36,10 @@
     .mark{width:36px;height:36px;border-radius:12px;background:var(--grad);position:relative;flex:none;box-shadow:0 6px 16px rgba(46,27,14,.28);display:grid;place-items:center;}
     .mark svg{width:22px;height:22px;display:block;}
     .wordmark{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:-.01em;}
+    .wordmark .stack{display:flex;flex-direction:column;align-items:flex-start;line-height:1;}
     .wordmark .name{line-height:1;}
-    .by{font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--honey-ink);background:var(--honey-soft);padding:3px 8px;border-radius:999px;align-self:center;}
+    .by{font-size:.58em;font-weight:600;letter-spacing:.02em;color:var(--muted);line-height:1;margin-top:3px;}
+    .promo .by{color:rgba(255,255,255,.72);}
     .tag{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--ink);background:var(--grad-honey);padding:4px 9px;border-radius:999px;}
 
     /* Login */
@@ -322,7 +324,7 @@
   <!-- LOGIN -->
   <div id="login" class="login" style="display:none">
     <div class="promo">
-      <div class="wordmark"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span class="name">Vetis</span> <span class="by">by Alxor</span></div>
+      <div class="wordmark"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span class="stack"><span class="name">Vetis</span><span class="by">by Alxor</span></span></div>
       <h2>La clínica, en la palma de la mano.</h2>
       <p class="lead">Agenda, historiales, vacunas y recordatorios que se convierten en citas confirmadas. Cálido con los dueños, riguroso con la clínica.</p>
       <ul>
@@ -334,7 +336,7 @@
     </div>
     <div class="panel-login">
       <div class="login-card">
-        <div class="wordmark" style="margin-bottom:26px"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span class="name">Vetis</span> <span class="by">by Alxor</span></div>
+        <div class="wordmark" style="margin-bottom:26px"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span class="stack"><span class="name">Vetis</span><span class="by">by Alxor</span></span></div>
         <h1>Bienvenido a la clínica</h1>
         <p class="sub">Entra para gestionar tu día.</p>
         <label>Correo electrónico</label>
@@ -353,7 +355,7 @@
   <div id="wizard" class="wizard">
     <div class="wiz-shell">
       <div class="wiz-brand">
-        <div class="wordmark"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span class="name">Vetis</span> <span class="by">by Alxor</span></div>
+        <div class="wordmark"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span class="stack"><span class="name">Vetis</span><span class="by">by Alxor</span></span></div>
         <button type="button" class="lnk" onclick="mostrarLogin()">Ya tengo cuenta → Iniciar sesión</button>
       </div>
       <div class="wiz-steps" id="wizSteps"></div>
@@ -365,7 +367,7 @@
   <div id="empresaSel" class="login" style="display:none;grid-template-columns:1fr">
     <div class="panel-login">
       <div class="login-card" style="max-width:420px">
-        <div class="wordmark" style="margin-bottom:20px"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span class="name">Vetis</span> <span class="by">by Alxor</span></div>
+        <div class="wordmark" style="margin-bottom:20px"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span class="stack"><span class="name">Vetis</span><span class="by">by Alxor</span></span></div>
         <h1>Elige la clínica</h1>
         <p class="sub">Tu usuario tiene acceso a varias empresas.</p>
         <div id="empresaLista"></div>
@@ -376,7 +378,7 @@
   <!-- APP -->
   <div id="app" class="app">
     <aside class="sidebar">
-      <div class="head"><div class="wordmark" style="font-size:17px"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span class="name">Vetis</span></div><span class="by">by Alxor</span></div>
+      <div class="head"><div class="wordmark" style="font-size:17px"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span class="stack"><span class="name">Vetis</span><span class="by">by Alxor</span></span></div></div>
       <div class="navlabel">Clínica</div>
       <nav id="nav"></nav>
       <div class="spacer"></div>
@@ -469,8 +471,15 @@ function hoyISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.get
 function inicioMesISO(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-01`; }
 function diaDesde(dstr){ return dstr+"T00:00:00"+tz(); }
 function diaHasta(dstr){ return dstr+"T23:59:59"+tz(); }
-const ESPECIES = [["Perro","🐕"],["Gato","🐈"],["Conejo","🐇"],["Ave","🦜"],["Huron","🦡"]];
+/* Maestro de especies (editable por empresa). Se carga de /especies al entrar y se refresca al
+   gestionarlo. Los selectores de especie (alta de animal, pautas, filtro de vacunas) salen de aquí. */
+let especiesCache = [];
+async function cargarEspecies(){ try{ especiesCache = await api("/especies"); }catch{ especiesCache = []; } }
 function emojiEspecie(e){ const m={Perro:"🐕",Gato:"🐈",Conejo:"🐇",Ave:"🦜",Huron:"🦡"}; return m[e]||"🐾"; }
+function opcionesEspecie(sel){
+  if(!especiesCache.length) return `<option value="${esc(sel||"")}">${esc(sel||"—")}</option>`;
+  return especiesCache.map(e=>`<option value="${esc(e.nombre)}" ${e.nombre===sel?"selected":""}>${emojiEspecie(e.nombre)} ${esc(e.nombre)}</option>`).join("");
+}
 function edadTexto(a){ if(a.edadMeses==null) return "Edad desconocida"; const m=a.edadMeses; if(m<12) return `${m} mes${m===1?"":"es"}`; const y=Math.floor(m/12); return `${y} año${y===1?"":"s"}`; }
 
 const ICON = {
@@ -490,7 +499,7 @@ const NAV = [
   ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["facturacion","Facturación"],
   ["ajustes","Ajustes"]
 ];
-const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",recordatorios:"Recordatorios",facturacion:"Facturación",ajustes:"Ajustes"};
+const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",ajustes:"Ajustes"};
 
 /* ---------- fetch con Bearer ---------- */
 async function api(path, opts={}){
@@ -588,13 +597,14 @@ async function activarEmpresa(emp){
   const sel=await api("/empresas/"+emp.id+"/seleccionar",{method:"POST"});
   token=sel.token; empresa=emp; arrancar();
 }
-function arrancar(){
+async function arrancar(){
   $("login").style.display="none"; $("empresaSel").style.display="none"; $("app").style.display="grid";
   pintarAvatares();
   $("sideNombre").textContent=usuario?.nombre||"Usuario";
   $("sideEmpresa").textContent=empresa.razonSocial;
   $("empresaChip").innerHTML=`🏥 <span class="cname">${esc(empresa.razonSocial)}</span>`;
   $("nav").innerHTML=NAV.map(([k,l])=>`<a data-k="${k}" onclick="ir('${k}')">${ICON[k]}<span>${l}</span></a>`).join("");
+  await cargarEspecies();
   ir("inicio");
 }
 
@@ -603,9 +613,9 @@ function toggleMenu(){ const s=document.querySelector(".sidebar"),b=$("backdrop"
 function closeMenu(){ document.querySelector(".sidebar").classList.remove("open"); $("backdrop").classList.remove("show"); }
 function ir(k, params){
   closeMenu(); vista=k; ctx=Object.assign({}, params||{});
-  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes")));
+  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes") || (k==="especies"&&a.dataset.k==="vacunas")));
   $("viewTitle").textContent=TITULOS[k]||k;
-  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,recordatorios:vRecordatorios,facturacion:vFacturacion,ajustes:vAjustes}[k];
+  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,ajustes:vAjustes}[k];
   (fn||vInicio)();
 }
 const view = h => $("view").innerHTML=h;
@@ -787,7 +797,7 @@ function modalNuevoAnimal(clienteId){
   abrir("Nuevo animal", `
     <label>Nombre *</label><input id="a_nombre"/>
     <div class="grid-2">
-      <div><label>Especie</label><select id="a_especie">${ESPECIES.map(([v,e])=>`<option value="${v}">${e} ${v}</option>`).join("")}</select></div>
+      <div><label>Especie</label><select id="a_especie">${opcionesEspecie()}</select></div>
       <div><label>Sexo</label><select id="a_sexo"><option value="Desconocido">—</option><option value="Macho">Macho</option><option value="Hembra">Hembra</option></select></div>
     </div>
     <div class="grid-2"><div><label>Raza</label><input id="a_raza"/></div><div><label>Fecha de nacimiento</label><input id="a_fnac" type="date"/></div></div>
@@ -957,9 +967,10 @@ function modalActo(animalId){
 
 /* ---------- VACUNAS ---------- */
 async function vVacunas(){ cargando(); await conError(async()=>{
-  const especie=ctx.especie||"Perro";
+  if(!especiesCache.length) await cargarEspecies();
+  const especie=ctx.especie || (especiesCache[0] && especiesCache[0].nombre) || "Perro";
   const pautas=await api(`/vacunas/pautas?especie=${encodeURIComponent(especie)}`);
-  const tabs=ESPECIES.map(([v,e])=>`<span class="sp ${v===especie?"on":""}" onclick="ir('vacunas',{especie:'${v}'})"><span class="e">${e}</span> ${v}</span>`).join("");
+  const tabs=especiesCache.map(e=>`<span class="sp ${e.nombre===especie?"on":""}" onclick="ir('vacunas',{especie:'${esc(e.nombre)}'})"><span class="e">${emojiEspecie(e.nombre)}</span> ${esc(e.nombre)}</span>`).join("");
   const caracterPill = c => c==="Legal"?'<span class="pill neg">Legal</span>':c==="Recomendada"?'<span class="pill vet">Recomendada</span>':'<span class="pill b">Opcional</span>';
   const cuerpo = pautas.length
     ? `<table><thead><tr><th>Vacuna</th><th>Carácter</th><th class="num">Inicio</th><th class="num">Refuerzo</th></tr></thead><tbody>${pautas.map(p=>`
@@ -969,13 +980,13 @@ async function vVacunas(){ cargando(); await conError(async()=>{
     : vacio("💉","Sin pautas","No hay pautas para "+especie+" todavía.", `<button class="btn v" onclick="modalNuevaPauta('${especie}')">${ICON.plus} Nueva pauta</button>`);
   view(`
     <h3 class="sec">Calendario vacunal</h3>
-    <p class="subt">Define una vez las pautas por especie. Al vacunar, el programa copia el nombre y calcula la próxima dosis.</p>
+    <p class="subt">Define una vez las pautas por especie. Al vacunar, el programa copia el nombre y calcula la próxima dosis. <a onclick="ir('especies')" style="cursor:pointer">Gestionar especies →</a></p>
     <div class="species-tabs">${tabs}</div>
-    ${panel(`Pautas · ${especie}`, cuerpo, `<button class="btn v small" onclick="modalNuevaPauta('${especie}')">${ICON.plus} Nueva pauta</button>`)}`);
+    ${panel(`Pautas · ${esc(especie)}`, cuerpo, `<button class="btn v small" onclick="modalNuevaPauta('${esc(especie)}')">${ICON.plus} Nueva pauta</button>`)}`);
 }); }
 function modalNuevaPauta(especie){
   abrir("Nueva pauta vacunal", `
-    <label>Especie</label><select id="p_especie">${ESPECIES.map(([v,e])=>`<option value="${v}" ${v===especie?"selected":""}>${e} ${v}</option>`).join("")}</select>
+    <label>Especie</label><select id="p_especie">${opcionesEspecie(especie)}</select>
     <label>Nombre *</label><input id="p_nombre" placeholder="p. ej. Rabia"/>
     <label>Carácter</label><select id="p_caracter"><option value="Recomendada">Recomendada</option><option value="Legal">Legal (obligatoria)</option><option value="Opcional">Opcional</option></select>
     <div class="grid-2"><div><label>Edad de inicio (semanas)</label><input id="p_inicio" inputmode="numeric"/></div><div><label>Refuerzo (meses)</label><input id="p_refuerzo" inputmode="numeric"/></div></div>
@@ -988,6 +999,57 @@ function modalNuevaPauta(especie){
       })});
       toast("Pauta creada.","ok"); ir("vacunas",{especie:val("p_especie")});
     });
+}
+
+/* ---------- ESPECIES (maestro editable) ---------- */
+async function vEspecies(){ cargando(); await conError(async()=>{
+  const especies=await api(`/especies?incluirInactivas=true`);
+  especiesCache = especies.filter(e=>e.activo);
+  const filas = especies.map(e=>`
+    <tr class="${e.activo?"":"muted"}">
+      <td><b>${emojiEspecie(e.nombre)} ${esc(e.nombre)}</b>${e.activo?"":' <span class="pill b">De baja</span>'}</td>
+      <td class="num muted">${e.mesesCachorro} m</td>
+      <td class="num">
+        ${e.activo?`<button class="btn tiny line" onclick='modalEditarEspecie(${JSON.stringify(e.id)},${JSON.stringify(e.nombre)},${e.mesesCachorro})'>Editar</button>
+        <button class="btn tiny line" onclick='darBajaEspecie(${JSON.stringify(e.id)},${JSON.stringify(e.nombre)})'>Dar de baja</button>`:""}
+      </td>
+    </tr>`).join("");
+  const cuerpo = especies.length
+    ? `<table><thead><tr><th>Especie</th><th class="num">Cachorro hasta</th><th class="num">Acciones</th></tr></thead><tbody>${filas}</tbody></table>`
+    : vacio("🐾","Sin especies","Aún no hay especies. Añade la primera para poder dar de alta animales.", `<button class="btn v" onclick="modalNuevaEspecie()">${ICON.plus} Nueva especie</button>`);
+  view(`
+    <div style="margin-bottom:12px"><a onclick="ir('vacunas')" class="muted">← Vacunas</a></div>
+    <h3 class="sec">Especies</h3>
+    <p class="subt">El maestro de especies de tu clínica. Da de alta, edita o da de baja especies; el umbral «cachorro» (en meses) marca hasta cuándo se considera cachorro a un animal de esa especie.</p>
+    ${panel("Maestro de especies", cuerpo, `<button class="btn v small" onclick="modalNuevaEspecie()">${ICON.plus} Nueva especie</button>`)}`);
+}); }
+function _camposEspecie(nombre, meses){
+  return `
+    <label>Nombre *</label><input id="e_nombre" value="${esc(nombre||"")}" placeholder="p. ej. Tortuga"/>
+    <label>Cachorro hasta (meses)</label><input id="e_meses" inputmode="numeric" value="${meses!=null?meses:12}"/>
+    <div class="error" id="modalErr"></div>`;
+}
+function modalNuevaEspecie(){
+  abrir("Nueva especie", _camposEspecie("", 12), async()=>{
+    if(!val("e_nombre")) throw new Error("El nombre es obligatorio.");
+    const meses=num("e_meses"); if(meses==null || meses<=0) throw new Error("El umbral de cachorro debe ser mayor que cero.");
+    await api("/especies",{method:"POST",body:JSON.stringify({nombre:val("e_nombre"), mesesCachorro:meses})});
+    toast("Especie creada.","ok"); await cargarEspecies(); vEspecies();
+  }, "Crear");
+}
+function modalEditarEspecie(id, nombre, meses){
+  abrir("Editar especie", _camposEspecie(nombre, meses), async()=>{
+    if(!val("e_nombre")) throw new Error("El nombre es obligatorio.");
+    const m=num("e_meses"); if(m==null || m<=0) throw new Error("El umbral de cachorro debe ser mayor que cero.");
+    await api("/especies/"+id,{method:"PUT",body:JSON.stringify({nombre:val("e_nombre"), mesesCachorro:m})});
+    toast("Especie actualizada.","ok"); await cargarEspecies(); vEspecies();
+  }, "Guardar");
+}
+function darBajaEspecie(id, nombre){
+  abrir("Dar de baja especie", `<p>¿Seguro que quieres dar de baja «${esc(nombre)}»? Dejará de ofrecerse en los selectores, pero los animales existentes conservan su especie.</p><div class="error" id="modalErr"></div>`, async()=>{
+    await api("/especies/"+id,{method:"DELETE"});
+    toast("Especie dada de baja.","ok"); await cargarEspecies(); vEspecies();
+  }, "Dar de baja");
 }
 
 /* ---------- RECORDATORIOS ---------- */
@@ -1185,6 +1247,11 @@ async function vAjustes(){ cargando(); await conError(async()=>{
           </div>
           <div class="error" id="c_err"></div>
           <div class="form-actions"><button class="btn line" id="btnClave" onclick="guardarClave()">Cambiar contraseña</button></div>
+        </div>`)}
+      ${panel("Especies", `
+        <div class="form">
+          <p class="muted" style="margin:0 0 14px">Gestiona el maestro de especies de tu clínica: da de alta, edita o da de baja las especies que usan los animales y las pautas de vacunas.</p>
+          <div class="form-actions"><button class="btn v" onclick="ir('especies')">${ICON.plus} Gestionar especies</button></div>
         </div>`)}
     </div>`);
 }); }
