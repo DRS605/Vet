@@ -38,7 +38,7 @@ public sealed class ImportarClientes
         {
             var d = fila.Datos;
             var direccion = Direccion.Crear(d.Calle, d.CodigoPostal, d.Poblacion, d.Provincia, d.Pais);
-            var cliente = Cliente.Crear(empresaId, d.Nombre, d.NifFiscal, d.Email, direccion, d.PorcentajeIrpfDefecto, _reloj);
+            var cliente = Cliente.Crear(empresaId, d.Nombre, d.NifFiscal, d.Email, direccion, d.PorcentajeIrpfDefecto, _reloj, telefono: d.Telefono);
             if (cliente.EsFallo)
             {
                 errores.Add(new ErrorFila(fila.Fila, cliente.Error.Mensaje));

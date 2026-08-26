@@ -263,6 +263,12 @@
     .adj-info span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);}
     .adj-del{border:none;background:transparent;color:var(--neg);cursor:pointer;font-size:13px;padding:0 2px;}
     .inv-avisos{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px 0;}
+    .avisos{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 16px;}
+    .aviso{display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;}
+    .aviso.warn{background:#fbeecd;color:var(--warn);} .aviso.neg{background:#f7e3dd;color:var(--neg);}
+    .aviso.wait{background:var(--honey-soft);color:var(--honey-ink);} .aviso.vet{background:var(--vet-soft);color:var(--vet);}
+    .aviso:hover{filter:brightness(.97);}
+    .imp-res{background:var(--accent-soft);border-radius:10px;padding:10px 13px;}
     /* Vista semanal de agenda. */
     .sem-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
     .sem-dia{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden;min-height:90px;}
@@ -788,13 +794,14 @@ const vacio = (emoji,titulo,texto,accion="") => `<div class="empty"><div class="
 /* ---------- INICIO / PANEL ---------- */
 async function vInicio(){ cargando(); await conError(async()=>{
   const desdeMes=diaDesde(inicioMesISO()), hastaHoy=diaHasta(hoyISO());
-  const [kpi, mensual, agendaHoy, proximas, animales, rec] = await Promise.all([
+  const [kpi, mensual, agendaHoy, proximas, animales, rec, inventario] = await Promise.all([
     api(`/citas/kpi?desde=${encodeURIComponent(desdeMes)}&hasta=${encodeURIComponent(hastaHoy)}`),
     api(`/citas/kpi/confirmacion-mensual?meses=6`),
     api(`/agenda?desde=${encodeURIComponent(diaDesde(hoyISO()))}&hasta=${encodeURIComponent(hastaHoy)}`),
     api(`/vacunas/proximas?dias=7`),
     api(`/animales`),
-    api(`/recordatorios?estado=Pendiente`)
+    api(`/recordatorios?estado=Pendiente`),
+    api(`/inventario`).catch(()=>[])
   ]);
   const cachorros = animales.filter(a=>a.esCachorro).length;
   const animalesPorId = {}; animales.forEach(a=>animalesPorId[a.id]=a);
@@ -838,9 +845,22 @@ async function vInicio(){ cargando(); await conError(async()=>{
       <div class="act"><button class="btn tiny v" onclick="enviarRecordatorioInicio('${r.id}')">Enviar</button></div></div>`;
   }).join("") : vacio("✅","Todo al día","No hay recordatorios pendientes por enviar.", `<button class="btn v" onclick="ir('recordatorios')">Ir a recordatorios</button>`);
 
+  // Avisos operativos: citas por confirmar hoy, stock bajo y caducidades próximas.
+  const porConfirmar=agendaHoy.filter(c=>c.estado==="Solicitada").length;
+  const stockBajo=(inventario||[]).filter(x=>x.bajoStock).length;
+  const caducan=(inventario||[]).filter(x=>caducaPronto(x.caducidad)).length;
+  const avisos=[
+    porConfirmar?`<span class="aviso warn" onclick="ir('agenda')">🗓️ ${porConfirmar} cita${porConfirmar===1?"":"s"} por confirmar hoy</span>`:"",
+    stockBajo?`<span class="aviso neg" onclick="ir('inventario')">📦 ${stockBajo} artículo${stockBajo===1?"":"s"} con stock bajo</span>`:"",
+    caducan?`<span class="aviso wait" onclick="ir('inventario')">⏳ ${caducan} artículo${caducan===1?"":"s"} caduca${caducan===1?"":"n"} pronto</span>`:"",
+    proximas.length?`<span class="aviso vet" onclick="ir('vacunas')">💉 ${proximas.length} vacuna${proximas.length===1?"":"s"} esta semana</span>`:""
+  ].filter(Boolean).join("");
+  const avisosHtml = avisos ? `<div class="avisos">${avisos}</div>` : "";
+
   view(`
     <h3 class="sec">${saludo}, ${esc(nombre||"equipo")} 👋</h3>
     <p class="subt">${fecha.charAt(0).toUpperCase()+fecha.slice(1)} · ${agendaHoy.length} cita${agendaHoy.length===1?"":"s"} hoy, ${confirmadasHoy} confirmada${confirmadasHoy===1?"":"s"}.</p>
+    ${avisosHtml}
     ${kpis}
     <div class="grid2">
       ${panel("Agenda de hoy", agHtml, `<a onclick="ir('agenda')">Ver agenda →</a>`)}
@@ -905,6 +925,7 @@ async function vClientes(){ cargando(); await conError(async()=>{
   view(`
     <div class="toolbar">
       <input id="buscaCliente" class="grow" placeholder="Buscar por nombre, NIF o correo…" oninput="filtrarClientes()"/>
+      <button class="btn line" onclick="modalImportarClientes()">⬆️ Importar CSV</button>
       <button class="btn v" onclick="modalNuevoCliente()">${ICON.plus} Nuevo cliente</button>
     </div>
     ${panel(`Clientes`, `<div id="clientesBody"></div>`, `<span class="sp">${clientes.length} ficha${clientes.length===1?"":"s"}</span>`)}`);
@@ -951,6 +972,37 @@ async function modalCliente(c){
 }
 /* Alias por compatibilidad con los puntos de entrada de alta. */
 function modalNuevoCliente(){ modalCliente(); }
+/* Importación de clientes desde CSV: previsualiza (valida sin crear) y confirma. */
+function modalImportarClientes(){
+  abrir("Importar clientes (CSV)", `
+    <p class="muted" style="margin:0 0 8px;font-size:12.5px">Pega el CSV o elige un fichero. La primera fila son los <b>nombres de columna</b>. Reconocidas: <b>nombre</b> (obligatoria), nif, email, telefono, direccion, cp, poblacion, provincia. Separador coma o punto y coma.</p>
+    <input type="file" accept=".csv,text/csv,text/plain" onchange="cargarCsvFichero(this)" style="margin-bottom:8px"/>
+    <textarea id="imp_csv" rows="7" placeholder="nombre;telefono;email&#10;María López;600123456;maria@correo.es&#10;Juan Pérez;600987654;juan@correo.es"></textarea>
+    <div id="imp_res" style="margin-top:10px"></div>
+    <div class="error" id="modalErr"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button type="button" class="btn line" style="flex:1" onclick="importarClientes(true)">Previsualizar</button>
+      <button type="button" class="btn v" style="flex:1" onclick="importarClientes(false)">Importar</button>
+    </div>`, null, "Cerrar");
+}
+function cargarCsvFichero(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  const r=new FileReader(); r.onload=()=>{ const t=$("imp_csv"); if(t) t.value=r.result; }; r.readAsText(f,"utf-8");
+}
+async function importarClientes(previsualizar){
+  const contenido=$("imp_csv").value||""; const res=$("imp_res"); const err=$("modalErr"); if(err) err.textContent="";
+  if(!contenido.trim()){ if(err) err.textContent="Pega el CSV o elige un fichero."; return; }
+  try{
+    const r=await api("/clientes/importar",{method:"POST",body:JSON.stringify({contenido, previsualizar})});
+    const errFilas=(r.errores||[]).map(e=>`<div class="muted" style="font-size:12px">Fila ${e.fila}: ${esc(e.mensaje)}</div>`).join("");
+    res.innerHTML=`<div class="imp-res">
+      <div><b>${r.total}</b> filas · <b style="color:var(--pos)">${r.correctas}</b> válidas${r.errores&&r.errores.length?` · <b style="color:var(--neg)">${r.errores.length}</b> con error`:""}</div>
+      ${previsualizar?`<div class="muted" style="font-size:12px;margin-top:4px">Previsualización: no se ha creado nada todavía. Pulsa <b>Importar</b> para crear las ${r.correctas} válidas.</div>`:`<div style="color:var(--pos);margin-top:4px">✔ ${r.importadas} clientes importados.</div>`}
+      ${errFilas?`<div style="margin-top:6px">${errFilas}</div>`:""}
+    </div>`;
+    if(!previsualizar && r.importadas>0){ toast(`${r.importadas} clientes importados.`,"ok"); }
+  }catch(e){ if(err) err.textContent=e.message; }
+}
 function darBajaCliente(id, nombre){
   confirmarAccion("Dar de baja cliente",
     `¿Seguro que quieres dar de baja a «${esc(nombre)}»? Dejará de aparecer en el listado, pero se conserva su ficha y su historial (baja lógica, no se borra).`,

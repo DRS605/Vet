@@ -14,6 +14,20 @@ public sealed class ImportacionCsvEndpointsTests : IClassFixture<FabricaApiPrueb
     private sealed record ErrorFila(int Fila, string Mensaje);
     private sealed record ResultadoImportacion(int Total, int Correctas, int Importadas, bool Previsualizacion, IReadOnlyList<ErrorFila> Errores);
     private sealed record ClienteResp(Guid Id, string Nombre);
+    private sealed record ClienteConTelResp(Guid Id, string Nombre, string? Telefono);
+
+    [Fact]
+    public async Task Importa_el_telefono_del_cliente()
+    {
+        var (cliente, _) = await Ayudas.ConEmpresaAsync(_fabrica);
+        var csv = "nombre;telefono;email\nMaría López;+34 600 123 456;maria@x.es";
+        var r = await (await cliente.PostAsJsonAsync("/clientes/importar", new { Contenido = csv, Previsualizar = false }))
+            .Content.ReadFromJsonAsync<ResultadoImportacion>();
+        r!.Importadas.Should().Be(1);
+
+        var lista = await cliente.GetFromJsonAsync<List<ClienteConTelResp>>("/clientes");
+        lista!.Single().Telefono.Should().Be("+34 600 123 456");
+    }
     private sealed record ProductoResp(Guid Id, string Nombre, string? Referencia);
 
     [Fact]

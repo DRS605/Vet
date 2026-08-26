@@ -125,6 +125,7 @@ public static class EndpointsTerceros
                 Nombre: fila.Campo("nombre", "razon social", "cliente") ?? string.Empty,
                 NifFiscal: fila.Campo("nif", "cif", "dni", "nif fiscal"),
                 Email: fila.Campo("email", "correo", "e-mail"),
+                Telefono: fila.Campo("telefono", "teléfono", "movil", "móvil", "tel"),
                 Calle: fila.Campo("direccion", "calle"),
                 CodigoPostal: fila.Campo("cp", "codigo postal"),
                 Poblacion: fila.Campo("poblacion", "ciudad", "localidad"),
