@@ -590,15 +590,16 @@ const ICON = {
   especies:'<svg viewBox="0 0 24 24"><path d="M4.5 12.5c0-2 1.5-3 2.5-2s.5 3-1 3-1.5-1-1.5-1M17 12.5c0-2 1.5-3 2.5-2s.5 3-1 3-1.5-1-1.5-1M9 8c0-2 1.2-3 2-2s.5 3-.8 3M15 8c0-2-1.2-3-2-2s-.5 3 .8 3M12 12c-2.5 0-4 2-4 4s1.5 3 4 3 4-1.5 4-3-1.5-4-4-4z"/></svg>',
   conceptos:'<svg viewBox="0 0 24 24"><path d="M20 12l-8 8-8-8V4h8z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>',
   campos:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
-  usuarios:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17.5" cy="9" r="2.4"/><path d="M16 15c3 .2 5 1.9 5 5"/></svg>'
+  usuarios:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17.5" cy="9" r="2.4"/><path d="M16 15c3 .2 5 1.9 5 5"/></svg>',
+  presupuestos:'<svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 14l2 2 4-4"/></svg>'
 };
 const NAV = [
   ["inicio","Inicio"],["agenda","Agenda"],["clientes","Clientes"],
-  ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["facturacion","Facturación"],
+  ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["facturacion","Facturación"],["presupuestos","Presupuestos"],
   ["especies","Especies"],["conceptos","Servicios / Conceptos"],["campos","Campos personalizados"],
   ["usuarios","Usuarios"],["ajustes","Ajustes"]
 ];
-const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",usuarios:"Usuarios",ajustes:"Ajustes"};
+const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",usuarios:"Usuarios",presupuestos:"Presupuestos",ajustes:"Ajustes"};
 
 /* ---------- fetch con Bearer ---------- */
 async function api(path, opts={}){
@@ -612,6 +613,18 @@ async function api(path, opts={}){
   }
   const ct=r.headers.get("content-type")||"";
   return ct.includes("json") ? r.json() : r.text();
+}
+
+/* Descarga/abre un PDF de un endpoint protegido (añade el token y lo abre como blob en otra pestaña). */
+async function descargarPdf(path, nombre){
+  try{
+    const h={}; if(token) h["Authorization"]="Bearer "+token;
+    const r=await fetch(API+path,{headers:h});
+    if(!r.ok) throw new Error("No se pudo generar el PDF (Error "+r.status+").");
+    const blob=await r.blob(); const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=nombre||"documento.pdf"; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),4000);
+  }catch(e){ toast(e.message||"No se pudo abrir el PDF.","err"); }
 }
 
 /* ---------- toast + modal ---------- */
@@ -719,7 +732,7 @@ function ir(k, params){
   closeMenu(); vista=k; ctx=Object.assign({}, params||{});
   document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes")));
   $("viewTitle").textContent=TITULOS[k]||k;
-  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,usuarios:vUsuarios,ajustes:vAjustes}[k];
+  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,usuarios:vUsuarios,presupuestos:vPresupuestos,ajustes:vAjustes}[k];
   (fn||vInicio)();
 }
 const view = h => $("view").innerHTML=h;
@@ -1447,6 +1460,111 @@ function revocarUsuario(id, nombre){
     await api(`/usuarios/${id}/revocar`,{method:"POST"});
     toast("Acceso revocado.","ok"); vUsuarios();
   }, "Revocar");
+}
+
+/* ---------- PRESUPUESTOS ---------- */
+const PRESU_ESTADO={Borrador:["wait","Pendiente"],Aceptado:["ok","Aceptado"],Rechazado:["neg","Rechazado"]};
+async function vPresupuestos(){ cargando(); await conError(async()=>{
+  let lista;
+  try{ lista=await api("/presupuestos"); }
+  catch(e){ view(vacio("🔒","Sin acceso","No tienes permiso para ver presupuestos.")); return; }
+  const filas=lista.map(p=>{
+    const [cls,txt]=PRESU_ESTADO[p.estado]||["b",p.estado];
+    let acc=`<button class="btn tiny line" onclick="descargarPdf('/presupuestos/${p.id}/pdf','presupuesto-${esc(p.numeroCompleto)}.pdf')">PDF</button>`;
+    if(p.estado==="Borrador"){
+      acc+=` <button class="btn tiny line" onclick="editarPresupuesto('${p.id}')">Editar</button>`;
+      acc+=` <button class="btn tiny v" onclick="aceptarPresupuesto('${p.id}')">Generar factura</button>`;
+      acc+=` <button class="btn tiny line" onclick="rechazarPresupuesto('${p.id}',${esc(JSON.stringify(p.numeroCompleto))})">Rechazar</button>`;
+    }
+    return `<tr>
+      <td><b>${esc(p.numeroCompleto)}</b>${p.facturaId?' <span class="pill ok">Facturado</span>':""}</td>
+      <td class="muted">${fdate(p.fecha)}</td>
+      <td>${esc(p.clienteNombre)}</td>
+      <td class="num"><b>${eur(p.total)}</b></td>
+      <td><span class="pill ${cls}">${esc(txt)}</span></td>
+      <td class="num" style="white-space:nowrap">${acc}</td>
+    </tr>`;
+  }).join("");
+  const cuerpo = lista.length
+    ? `<table><thead><tr><th>Número</th><th>Fecha</th><th>Cliente</th><th class="num">Total</th><th>Estado</th><th class="num">Acciones</th></tr></thead><tbody>${filas}</tbody></table>`
+    : vacio("📄","Sin presupuestos","Crea el primer presupuesto para enviárselo al cliente; si lo acepta, se convierte en factura.", `<button class="btn v" onclick="modalPresupuesto()">${ICON.plus} Nuevo presupuesto</button>`);
+  view(`
+    <div class="toolbar"><div class="grow"></div><button class="btn v" onclick="modalPresupuesto()">${ICON.plus} Nuevo presupuesto</button></div>
+    ${panel("Presupuestos", cuerpo, `<span class="sp">${lista.length} presupuesto${lista.length===1?"":"s"}</span>`)}`);
+}); }
+let _presuLineas=[];
+/* Recupera un presupuesto pendiente para modificarlo. */
+async function editarPresupuesto(id){
+  try{ const p=await api("/presupuestos/"+id); modalPresupuesto(p); }
+  catch(e){ toast(e.message||"No se pudo cargar el presupuesto.","err"); }
+}
+/* Alta (pre=null) o edición (pre = presupuesto completo con líneas). Solo se editan los pendientes. */
+async function modalPresupuesto(pre){
+  const editar=!!(pre&&pre.id);
+  const clientes=await api("/clientes");
+  if(!clientes.length){ toast("Crea antes un cliente.","err"); return; }
+  if(!conceptosCache.length) await cargarConceptos();
+  _presuLineas = editar && pre.lineas && pre.lineas.length
+    ? pre.lineas.map(l=>({concepto:l.descripcion||"", cantidad:l.cantidad, importe:l.precioUnitario, iva:l.porcentajeIva!=null?l.porcentajeIva:21, productoId:null}))
+    : [{concepto:"",cantidad:1,importe:null,iva:21,productoId:null}];
+  const cliSel = editar ? pre.clienteId : ctx.clienteId;
+  const dias = editar && pre.fecha && pre.validez
+    ? Math.max(0, Math.round((new Date(pre.validez)-new Date(pre.fecha))/86400000)) || 30
+    : 30;
+  const optsCli=clientes.map(c=>`<option value="${esc(c.id)}" ${c.id===cliSel?"selected":""}>${esc(c.nombre)}</option>`).join("");
+  abrir(editar?`Editar presupuesto ${esc(pre.numeroCompleto||"")}`:"Nuevo presupuesto", `
+    <div class="grid-2"><div><label>Cliente *</label><select id="pr_cliente">${optsCli}</select></div><div><label>Validez (días)</label><input id="pr_validez" inputmode="numeric" value="${dias}"/></div></div>
+    <label>Líneas</label>
+    <div id="pr_lineas"></div>
+    ${datalistConceptos("dl_presu")}
+    <div style="margin-top:8px"><button type="button" class="btn tiny line" onclick="presuAnadir()">${ICON.plus} Añadir línea</button></div>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      presuSync();
+      const lineas=_presuLineas.filter(l=>(l.concepto||"").trim());
+      if(!lineas.length) throw new Error("Añade al menos una línea con concepto.");
+      for(const l of lineas){ if(!(l.cantidad>0)) throw new Error(`La cantidad de «${l.concepto}» debe ser mayor que cero.`); }
+      const cuerpo={ clienteId:val("pr_cliente"), diasValidez:num("pr_validez")||30,
+        lineas:lineas.map(l=>({cantidad:l.cantidad, descripcion:l.concepto.trim(), precioUnitario:l.importe, codigoIva:codigoIvaDe(l.iva), productoId:l.productoId||null})) };
+      if(editar){ await api("/presupuestos/"+pre.id,{method:"PUT",body:JSON.stringify(cuerpo)}); toast("Presupuesto actualizado.","ok"); }
+      else { await api("/presupuestos",{method:"POST",body:JSON.stringify(cuerpo)}); toast("Presupuesto creado.","ok"); }
+      vPresupuestos();
+    }, editar?"Guardar":"Crear");
+  presuRender();
+}
+function presuRender(){
+  const box=$("pr_lineas"); if(!box) return;
+  box.innerHTML=`<table class="tbl-lineas"><thead><tr><th>Concepto</th><th class="num" style="width:60px">Cant.</th><th class="num" style="width:92px">Precio €</th><th style="width:70px">IVA</th><th style="width:30px"></th></tr></thead><tbody>${
+    _presuLineas.map((l,i)=>`<tr>
+      <td><input id="pl_con_${i}" list="dl_presu" value="${esc(l.concepto)}" oninput="presuConcepto(${i})"/></td>
+      <td><input id="pl_cant_${i}" class="num" inputmode="decimal" value="${l.cantidad}"/></td>
+      <td><input id="pl_imp_${i}" class="num" inputmode="decimal" value="${l.importe==null?"":l.importe}"/></td>
+      <td><select id="pl_iva_${i}">${IVAS.map(v=>`<option value="${v}" ${v===l.iva?"selected":""}>${v}%</option>`).join("")}</select></td>
+      <td><button type="button" class="btn tiny line" onclick="presuQuitar(${i})">✕</button></td>
+    </tr>`).join("")
+  }</tbody></table>`;
+}
+function presuSync(){
+  _presuLineas=_presuLineas.map((l,i)=>{
+    const con=$("pl_con_"+i), cant=$("pl_cant_"+i), imp=$("pl_imp_"+i), iva=$("pl_iva_"+i);
+    if(!con) return l;
+    return {concepto:con.value, cantidad:Number((cant.value||"").replace(",",".")), importe:imp.value===""?null:Number(imp.value.replace(",",".")), iva:Number(iva.value), productoId:l.productoId||null};
+  });
+}
+function presuConcepto(i){ const el=$("pl_con_"+i); if(!el) return; const p=conceptoPorNombre(el.value); if(p){ _presuLineas[i].productoId=p.id; const imp=$("pl_imp_"+i); if(imp&&imp.value===""){ imp.value=p.precioUnitario; } const iva=$("pl_iva_"+i); if(iva&&p.porcentajeIva!=null) iva.value=p.porcentajeIva; } else { _presuLineas[i].productoId=null; } }
+function presuAnadir(){ presuSync(); _presuLineas.push({concepto:"",cantidad:1,importe:null,iva:21,productoId:null}); presuRender(); $("pl_con_"+(_presuLineas.length-1))?.focus(); }
+function presuQuitar(i){ presuSync(); _presuLineas.splice(i,1); if(!_presuLineas.length) _presuLineas.push({concepto:"",cantidad:1,importe:null,iva:21,productoId:null}); presuRender(); }
+async function aceptarPresupuesto(id){
+  abrir("Aceptar presupuesto", `<p>Al aceptar, el presupuesto se convierte en <b>factura</b> (numeración correlativa y VeriFactu). ¿Continuar?</p><div class="error" id="modalErr"></div>`, async()=>{
+    await api(`/presupuestos/${id}/aceptar`,{method:"POST",body:JSON.stringify({})});
+    toast("Presupuesto aceptado y facturado.","ok"); vPresupuestos();
+  }, "Aceptar y facturar");
+}
+function rechazarPresupuesto(id, numero){
+  abrir("Rechazar presupuesto", `<p>¿Marcar el presupuesto «${esc(numero)}» como rechazado?</p><div class="error" id="modalErr"></div>`, async()=>{
+    await api(`/presupuestos/${id}/rechazar`,{method:"POST"});
+    toast("Presupuesto rechazado.","ok"); vPresupuestos();
+  }, "Rechazar");
 }
 
 /* ---------- RECORDATORIOS ---------- */
