@@ -5,8 +5,20 @@
 Gestion veterinaria para tu clinica. No necesitas instalar .NET, ni
 Python, ni Docker: todo va dentro de esta carpeta.
 
-Requisitos: Windows 10 u 11 de 64 bits. La PRIMERA vez necesita conexion
-a internet (solo si el paquete no trae ya la carpeta "postgres").
+Requisitos: Windows 10 u 11 de 64 bits.
+
+Base de datos: puedes elegir entre DOS opciones (el instalador te pregunta):
+
+  A) USAR UN PostgreSQL YA INSTALADO en el PC (recomendado si ya lo tienes).
+     Es lo mas rapido: no descarga nada. Solo necesitas puerto, usuario,
+     contrasena y nombre de base de datos. El usuario debe tener permiso para
+     crear bases de datos (el usuario "postgres" lo tiene); la app crea la BD
+     "alxor" sola en el primer arranque.
+
+  B) DEJAR QUE EL INSTALADOR PREPARE UN PostgreSQL PORTABLE dentro de tu perfil.
+     No necesitas tener PostgreSQL. La PRIMERA vez descarga PostgreSQL de
+     internet (puede tardar varios minutos), salvo que el paquete ya traiga la
+     carpeta "postgres".
 
 
 ------------------------------------------------------------------------
@@ -20,8 +32,18 @@ a internet (solo si el paquete no trae ya la carpeta "postgres").
 
 2. Doble clic en:  "Instalar ALXOR Vet.bat"
    - Crea la carpeta de datos en tu perfil de usuario (ver "DONDE VIVEN
-     TUS DATOS", mas abajo) y prepara ahi la base de datos.
-   - Arranca la aplicacion.
+     TUS DATOS", mas abajo).
+   - Te PREGUNTA por la base de datos:
+        * Si detecta un PostgreSQL escuchando en localhost:5432, te ofrece
+          usarlo: "Se ha detectado PostgreSQL en este equipo. Quieres
+          usarlo? (S/N)".
+        * Si no detecta ninguno, te pregunta igualmente si quieres usar uno
+          ya instalado; si dices que NO, prepara el portable.
+     Si eliges USAR EL TUYO, te pedira puerto (por defecto 5432), usuario
+     (por defecto "postgres"), contrasena y nombre de base de datos (por
+     defecto "alxor"), verificara la conexion y NO descargara el portable.
+     Estos datos se guardan y NO se te vuelven a preguntar en el futuro.
+   - Arranca la aplicacion (crea/actualiza la base de datos sola al arrancar).
    - Abre el navegador solo en el ASISTENTE de primer arranque.
    Espera a que termine (unos minutos la primera vez). No cierres la ventana.
 
@@ -96,10 +118,17 @@ A) Sencilla (con la app DETENIDA): "Detener ALXOR Vet.bat" y luego copia
    la carpeta "%LOCALAPPDATA%\ALXOR Vet\datos" completa a un disco externo
    o unidad de red.
 
-B) Con pg_dump (la app puede seguir en marcha), en PowerShell:
+B) Con pg_dump (la app puede seguir en marcha), en PowerShell. Usa el
+   pg_dump del PostgreSQL PORTABLE:
        $cfg = Get-Content "$env:LOCALAPPDATA\ALXOR Vet\config\alxor.config.json" | ConvertFrom-Json
        $env:PGPASSWORD = $cfg.PgPassword
        & "$env:LOCALAPPDATA\ALXOR Vet\postgres\pgsql\bin\pg_dump.exe" -h localhost -p 5433 -U postgres alxor > copia_alxor.sql
+
+   IMPORTANTE: si elegiste USAR TU PostgreSQL ya instalado, la copia de la
+   opcion A no aplica (los datos NO estan en la carpeta "datos"). Usa el
+   pg_dump de tu propia instalacion de PostgreSQL con tus datos de conexion
+   (los tienes en la seccion "PostgresExistente" del fichero de config), o
+   la herramienta de copias que ya uses para ese servidor.
 
 Guarda la copia FUERA del PC (nube, disco externo, unidad de red).
 
@@ -145,8 +174,10 @@ programa" sin ser administrador):
 
    %LOCALAPPDATA%\ALXOR Vet\
       datos\      -> tu base de datos (COPIA DE SEGURIDAD aqui)
+                     (SOLO si usas el PostgreSQL portable; si usas el tuyo,
+                      los datos viven en tu propia instalacion de PostgreSQL)
       config\     -> configuracion y contrasenas generadas
       logs\       -> registros (instalacion, postgres, app)
-      postgres\   -> PostgreSQL portable (se crea/descarga solo)
+      postgres\   -> PostgreSQL portable (solo si NO usas uno ya instalado)
 
 (%LOCALAPPDATA% suele ser C:\Users\TU-USUARIO\AppData\Local)

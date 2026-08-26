@@ -28,13 +28,25 @@ try {
         Escribir-Log "No se encuentra $RutaExe. Descomprime el paquete completo." 'ERROR'
         exit 1
     }
-    if (-not (Test-Path (Join-Path $BinPostgres 'pg_ctl.exe'))) {
-        Escribir-Log "Falta PostgreSQL portable. Ejecuta primero 'Instalar ALXOR Vet.bat'." 'ERROR'
-        exit 1
+
+    if (Usa-PostgresExistente -Config $config) {
+        # PostgreSQL EXISTENTE (servicio del usuario): no se arranca ni se para aqui.
+        $pe = $config.PostgresExistente
+        Escribir-Log "Usando PostgreSQL ya instalado ($($pe.Host):$($pe.Puerto)); no se gestiona Postgres portable." 'OK'
+        if (-not (Probar-PuertoTcp -Equipo ([string]$pe.Host) -Puerto ([int]$pe.Puerto) -TimeoutMs 3000)) {
+            Escribir-Log "No hay conexion con PostgreSQL en $($pe.Host):$($pe.Puerto). Arrancalo y reintenta." 'ERROR'
+            throw "Sin conexion a PostgreSQL en $($pe.Host):$($pe.Puerto)."
+        }
+        # La app crea/migra la BD sola al arrancar; aqui no tocamos la BD.
+    } else {
+        if (-not (Test-Path (Join-Path $BinPostgres 'pg_ctl.exe'))) {
+            Escribir-Log "Falta PostgreSQL portable. Ejecuta primero 'Instalar ALXOR Vet.bat'." 'ERROR'
+            exit 1
+        }
+        if (-not (Arrancar-Postgres -Puerto $config.PgPuerto)) { throw 'No se pudo arrancar PostgreSQL.' }
+        if (-not (Asegurar-BaseDatos -Puerto $config.PgPuerto -Usuario $config.PgUsuario -Password $config.PgPassword -BaseDatos $config.BaseDatos)) { throw 'No se pudo asegurar la base de datos.' }
     }
 
-    if (-not (Arrancar-Postgres -Puerto $config.PgPuerto)) { throw 'No se pudo arrancar PostgreSQL.' }
-    if (-not (Asegurar-BaseDatos -Puerto $config.PgPuerto -Usuario $config.PgUsuario -Password $config.PgPassword -BaseDatos $config.BaseDatos)) { throw 'No se pudo asegurar la base de datos.' }
     if (-not (Arrancar-App -Config $config)) { throw 'La aplicacion no arranco correctamente.' }
 
     $url = "http://localhost:$($config.AppPuerto)/vet.html"

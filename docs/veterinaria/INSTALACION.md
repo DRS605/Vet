@@ -27,15 +27,32 @@ con `vet.html`), los lanzadores `.bat` y un `LEEME.txt`.
    (`C:\ALXOR-Vet`) **o incluso `C:\Archivos de programa\ALXOR Vet`**: no hace falta ejecutar como
    administrador. La carpeta de instalación se trata como de **solo lectura** (solo se lee el `.exe`
    y su interfaz web); **ningún dato se escribe dentro de ella**.
+> **PostgreSQL: dos opciones.** El instalador **pregunta** cómo quieres la base de datos:
+>
+> - **(A) Usar un PostgreSQL ya instalado en el PC** — *recomendado si la clínica ya tiene
+>   PostgreSQL*. Es lo más rápido: **no descarga nada**. Autodetecta si hay algo escuchando en
+>   `localhost:5432` y te ofrece usarlo; si no detecta nada, te pregunta igualmente. Si dices que sí,
+>   te pide **puerto** (por defecto `5432`), **usuario** (por defecto `postgres`), **contraseña** y
+>   **nombre de BD** (por defecto `alxor`), **verifica la conexión** (TCP) y guarda esos datos en la
+>   sección `PostgresExistente` de `config\alxor.config.json`. La app **crea la BD `alxor` sola en el
+>   primer arranque** (EF Core `Migrate()`), así que el usuario indicado debe tener **permiso para
+>   crear bases de datos** (el usuario `postgres` lo tiene). No se descarga ni arranca el portable.
+> - **(B) PostgreSQL portable** — si la clínica **no** tiene PostgreSQL. El instalador lo prepara solo
+>   (ver más abajo). La primera vez lo **descarga** de la web oficial (puede tardar varios minutos).
+>
+> La elección se **guarda** y no se vuelve a preguntar en instalaciones/arranques posteriores.
+
 2. Doble clic en **`Instalar ALXOR Vet.bat`**. La primera vez:
    - crea la **raíz de datos** del usuario en **`%LOCALAPPDATA%\ALXOR Vet\`** (p. ej.
      `C:\Users\<tu-usuario>\AppData\Local\ALXOR Vet\`), que **siempre es escribible**;
-   - genera los **secretos** (contraseña de PostgreSQL y clave JWT, con el RNG del sistema) y los
-     guarda en `config\alxor.config.json` **bajo esa raíz de datos** (se **reutilizan** en cada
-     arranque, no se regeneran);
-   - prepara **PostgreSQL portable** en `%LOCALAPPDATA%\ALXOR Vet\postgres\` (lo **descarga** de la web
-     oficial la primera vez), hace `initdb` en `%LOCALAPPDATA%\ALXOR Vet\datos\`, lo arranca en
-     `localhost:5433` y crea la BD `alxor`;
+   - genera los **secretos** (contraseña de PostgreSQL del portable y clave JWT, con el RNG del
+     sistema) y los guarda en `config\alxor.config.json` **bajo esa raíz de datos** (se **reutilizan**
+     en cada arranque, no se regeneran);
+   - **pregunta por la base de datos** (opción A o B, ver recuadro anterior). Con la **opción B
+     (portable)**: prepara **PostgreSQL portable** en `%LOCALAPPDATA%\ALXOR Vet\postgres\` (lo
+     **descarga** de la web oficial la primera vez), hace `initdb` en `%LOCALAPPDATA%\ALXOR Vet\datos\`,
+     lo arranca en `localhost:5433` y crea la BD `alxor`. Con la **opción A (existente)**: **no
+     descarga ni arranca** nada de eso; solo verifica que hay conexión con tu PostgreSQL;
    - arranca la app en `http://0.0.0.0:8080` pasándole **toda la configuración por variables de
      entorno** (`ConnectionStrings__AlxorCore`, `Jwt__ClaveSecreta`, `ASPNETCORE_ENVIRONMENT=Production`,
      `ASPNETCORE_URLS`, `Migraciones__AplicarAlArrancar=true` y la sección `Correo__*`, deshabilitada
@@ -54,9 +71,12 @@ firewall del puerto 8080 se crea sola; si no, ábrela una vez con:
 netsh advfirewall firewall add rule name="ALXOR Vet (8080)" dir=in action=allow protocol=TCP localport=8080
 ```
 
-**Dónde viven los datos:** todo el estado (base de datos, PostgreSQL portable, logs, secretos y
-config) vive en **`%LOCALAPPDATA%\ALXOR Vet\`**, **no** en la carpeta de instalación. Así el paquete
-funciona instalado en cualquier ruta, incluida `Archivos de programa`, sin permisos de administrador.
+**Dónde viven los datos:** con el **PostgreSQL portable**, todo el estado (base de datos, binarios de
+PostgreSQL, logs, secretos y config) vive en **`%LOCALAPPDATA%\ALXOR Vet\`**, **no** en la carpeta de
+instalación. Así el paquete funciona instalado en cualquier ruta, incluida `Archivos de programa`, sin
+permisos de administrador. Con la **opción A (PostgreSQL ya instalado)**, la **base de datos** vive en
+**tu propia instalación de PostgreSQL** (no en la carpeta `datos\`); en `%LOCALAPPDATA%\ALXOR Vet\`
+quedan solo logs y `config` (incluida la sección `PostgresExistente` con los datos de conexión).
 
 **Correo:** desactivado por defecto. Con la app detenida, edita la sección `Correo` del fichero
 `%LOCALAPPDATA%\ALXOR Vet\config\alxor.config.json` (`"Habilitado": true`, `Host`, `Puerto` 587,
@@ -72,7 +92,9 @@ $env:PGPASSWORD = $cfg.PgPassword
 & "$env:LOCALAPPDATA\ALXOR Vet\postgres\pgsql\bin\pg_dump.exe" -h localhost -p 5433 -U postgres alxor > copia_alxor.sql
 ```
 
-Guarda la copia **fuera del PC** (nube, disco externo o unidad de red).
+Guarda la copia **fuera del PC** (nube, disco externo o unidad de red). *(Si usas la **opción A**, tu
+PostgreSQL ya instalado, esta copia no aplica: usa el `pg_dump` de tu propia instalación con los datos
+de conexión de la sección `PostgresExistente`, o la herramienta de copias de ese servidor.)*
 
 **Si algo falla:** todo queda registrado en **`%LOCALAPPDATA%\ALXOR Vet\logs\`** (`instalacion.log`,
 `postgres.log`, `app.log`).

@@ -90,6 +90,71 @@ function Guardar-Config {
     $Config | ConvertTo-Json -Depth 8 | Set-Content -Path $RutaConfig -Encoding UTF8
 }
 
+# --- PostgreSQL ya instalado en el equipo (opcion) ---------------------------
+# Puerto estandar de un PostgreSQL instalado por el usuario (servicio del SO).
+$Global:PgPuertoExistenteDefecto = 5432
+
+# Comprueba si hay un servicio TCP escuchando (p. ej. PostgreSQL) usando un
+# TcpClient con timeout corto. Es mas rapido y fiable que Test-NetConnection.
+function Probar-PuertoTcp {
+    param([string]$Equipo = 'localhost', [int]$Puerto = 5432, [int]$TimeoutMs = 1500)
+    $cliente = $null
+    try {
+        $cliente = New-Object System.Net.Sockets.TcpClient
+        $iar = $cliente.BeginConnect($Equipo, $Puerto, $null, $null)
+        $conectado = $iar.AsyncWaitHandle.WaitOne($TimeoutMs, $false)
+        if ($conectado -and $cliente.Connected) {
+            $cliente.EndConnect($iar)
+            return $true
+        }
+        return $false
+    } catch {
+        return $false
+    } finally {
+        if ($cliente) { $cliente.Close() }
+    }
+}
+
+# Escapa un valor para una cadena de conexion estilo ADO.NET/Npgsql. Si el valor
+# lleva caracteres problematicos (; = ' " o espacios al principio/fin) se envuelve
+# entre comillas dobles y las comillas dobles internas se duplican (regla ADO.NET).
+# Asi una contrasena con ; o = no rompe la cadena de conexion.
+function Escapar-ValorNpgsql {
+    param([string]$Valor)
+    if ($null -eq $Valor) { return '' }
+    if (($Valor -match '[;=''"]') -or ($Valor -ne $Valor.Trim())) {
+        return '"' + ($Valor -replace '"', '""') + '"'
+    }
+    return $Valor
+}
+
+# True si la configuracion indica usar un PostgreSQL ya instalado por el usuario.
+function Usa-PostgresExistente {
+    param($Config)
+    if ($null -eq $Config) { return $false }
+    if (-not ($Config.PSObject.Properties.Name -contains 'PostgresExistente')) { return $false }
+    $pe = $Config.PostgresExistente
+    if ($null -eq $pe) { return $false }
+    return ($pe.Usar -eq $true)
+}
+
+# Construye la cadena de conexion Npgsql a partir de la config: usa el PostgreSQL
+# existente si esta configurado, o el portable en caso contrario.
+function Nueva-CadenaConexion {
+    param([Parameter(Mandatory=$true)] $Config)
+    if (Usa-PostgresExistente -Config $Config) {
+        $pe = $Config.PostgresExistente
+        $equipo  = if ([string]::IsNullOrWhiteSpace([string]$pe.Host)) { 'localhost' } else { [string]$pe.Host }
+        $puerto  = if ($pe.Puerto) { [int]$pe.Puerto } else { $PgPuertoExistenteDefecto }
+        $bd      = if ([string]::IsNullOrWhiteSpace([string]$pe.Bd)) { 'alxor' } else { [string]$pe.Bd }
+        $usuario = if ([string]::IsNullOrWhiteSpace([string]$pe.Usuario)) { 'postgres' } else { [string]$pe.Usuario }
+        $clave   = [string]$pe.Clave
+        return "Host=$(Escapar-ValorNpgsql $equipo);Port=$puerto;Database=$(Escapar-ValorNpgsql $bd);Username=$(Escapar-ValorNpgsql $usuario);Password=$(Escapar-ValorNpgsql $clave)"
+    }
+    # Portable: contrasena generada con alfabeto seguro, pero se escapa igualmente.
+    return "Host=localhost;Port=$($Config.PgPuerto);Database=$($Config.BaseDatos);Username=$($Config.PgUsuario);Password=$(Escapar-ValorNpgsql ([string]$Config.PgPassword))"
+}
+
 # --- Secretos aleatorios fuertes --------------------------------------------
 # Usa el generador criptografico del sistema (System.Security).
 function Nuevo-Secreto {

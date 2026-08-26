@@ -15,7 +15,9 @@
 function Aplicar-VariablesEntorno {
     param([Parameter(Mandatory=$true)] $Config)
 
-    $cadena = "Host=localhost;Port=$($Config.PgPuerto);Database=$($Config.BaseDatos);Username=$($Config.PgUsuario);Password=$($Config.PgPassword)"
+    # La cadena de conexion la construye una funcion comun: apunta al PostgreSQL
+    # existente (si el usuario lo eligio en la instalacion) o al portable.
+    $cadena = Nueva-CadenaConexion -Config $Config
 
     $env:ASPNETCORE_ENVIRONMENT = 'Production'
     $env:ASPNETCORE_URLS        = "http://0.0.0.0:$($Config.AppPuerto)"

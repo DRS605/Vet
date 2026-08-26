@@ -27,6 +27,91 @@ function Configurar-Firewall {
     }
 }
 
+function Leer-Si-No {
+    param([string]$Pregunta, [bool]$PorDefecto = $false)
+    $resp = Read-Host $Pregunta
+    if ([string]::IsNullOrWhiteSpace($resp)) { return $PorDefecto }
+    return (($resp.Trim().ToLower()) -in @('s', 'si', 'sí', 'y', 'yes'))
+}
+
+# Pide de forma interactiva los datos del PostgreSQL ya instalado y los devuelve
+# como objeto ordenado (Usar=true). Enmascara la contrasena al teclearla.
+function Pedir-DatosPostgresExistente {
+    Escribir-Log 'Introduce los datos de tu PostgreSQL (Enter = valor por defecto):'
+    $equipo = Read-Host '  Host [localhost]'
+    if ([string]::IsNullOrWhiteSpace($equipo)) { $equipo = 'localhost' }
+
+    $puertoTxt = Read-Host "  Puerto [$PgPuertoExistenteDefecto]"
+    $puerto = $PgPuertoExistenteDefecto
+    if (-not [string]::IsNullOrWhiteSpace($puertoTxt)) {
+        $tmp = 0
+        if ([int]::TryParse($puertoTxt.Trim(), [ref]$tmp) -and $tmp -gt 0 -and $tmp -le 65535) { $puerto = $tmp }
+        else { Escribir-Log "Puerto '$puertoTxt' no valido; se usa $PgPuertoExistenteDefecto." 'AVISO' }
+    }
+
+    $usuario = Read-Host '  Usuario [postgres]'
+    if ([string]::IsNullOrWhiteSpace($usuario)) { $usuario = 'postgres' }
+
+    # Contrasena enmascarada; se convierte a texto plano (se guarda tal cual).
+    $claveSegura = Read-Host '  Contrasena' -AsSecureString
+    $bstr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($claveSegura)
+    try { $clave = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr) }
+    finally { [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr) }
+    if ($null -eq $clave) { $clave = '' }
+
+    $bd = Read-Host '  Nombre de la base de datos [alxor]'
+    if ([string]::IsNullOrWhiteSpace($bd)) { $bd = 'alxor' }
+
+    return [ordered]@{
+        Usar    = $true
+        Host    = $equipo
+        Puerto  = $puerto
+        Usuario = $usuario
+        Clave   = $clave
+        Bd      = $bd
+    }
+}
+
+# Decide y persiste como se usa PostgreSQL. Devuelve $true si se usa uno existente.
+# Idempotente: si la config ya trae 'PostgresExistente', se respeta sin preguntar.
+function Resolver-Postgres {
+    param([Parameter(Mandatory=$true)] $Config)
+
+    # Ya decidido en una instalacion previa: respetar la eleccion guardada.
+    if ($Config.PSObject.Properties.Name -contains 'PostgresExistente') {
+        if (Usa-PostgresExistente -Config $Config) {
+            $pe = $Config.PostgresExistente
+            Escribir-Log "Configuracion previa: se usa el PostgreSQL ya instalado ($($pe.Host):$($pe.Puerto), BD '$($pe.Bd)')." 'OK'
+            return $true
+        }
+        Escribir-Log 'Configuracion previa: se usa el PostgreSQL portable.' 'OK'
+        return $false
+    }
+
+    # Primera vez: detectar y preguntar.
+    $detectado = Probar-PuertoTcp -Equipo 'localhost' -Puerto $PgPuertoExistenteDefecto -TimeoutMs 1500
+    if ($detectado) {
+        Escribir-Log "Se ha detectado algo escuchando en localhost:$PgPuertoExistenteDefecto (posible PostgreSQL)." 'OK'
+        $usar = Leer-Si-No 'Se ha detectado PostgreSQL en este equipo. Quieres usarlo? (S/N)' $true
+    } else {
+        Escribir-Log "No se ha detectado PostgreSQL en localhost:$PgPuertoExistenteDefecto." 'INFO'
+        $usar = Leer-Si-No 'Usar un PostgreSQL ya instalado? (S/N) [N = preparar uno portable]' $false
+    }
+
+    if (-not $usar) {
+        # Se persiste la eleccion (portable) para no volver a preguntar al reinstalar.
+        $Config | Add-Member -NotePropertyName PostgresExistente -NotePropertyValue ([ordered]@{ Usar = $false }) -Force
+        Guardar-Config -Config $Config
+        return $false
+    }
+
+    $pe = Pedir-DatosPostgresExistente
+    $Config | Add-Member -NotePropertyName PostgresExistente -NotePropertyValue $pe -Force
+    Guardar-Config -Config $Config
+    Escribir-Log "Datos de PostgreSQL existente guardados en config\alxor.config.json ($($pe.Host):$($pe.Puerto), usuario '$($pe.Usuario)', BD '$($pe.Bd)')." 'OK'
+    return $true
+}
+
 function Crear-AccesoInicio {
     try {
         $carpetaInicio = [Environment]::GetFolderPath('Startup')
@@ -97,11 +182,30 @@ try {
         }
     }
 
-    # 3) PostgreSQL portable: binarios, cluster y arranque.
-    if (-not (Asegurar-BinariosPostgres)) { throw 'No se pudo preparar PostgreSQL portable.' }
-    if (-not (Inicializar-Cluster -Usuario $config.PgUsuario -Password $config.PgPassword)) { throw 'No se pudo inicializar el cluster de datos.' }
-    if (-not (Arrancar-Postgres -Puerto $config.PgPuerto)) { throw 'No se pudo arrancar PostgreSQL.' }
-    if (-not (Asegurar-BaseDatos -Puerto $config.PgPuerto -Usuario $config.PgUsuario -Password $config.PgPassword -BaseDatos $config.BaseDatos)) { throw 'No se pudo crear la base de datos.' }
+    # Normalizamos la config a objeto (PSCustomObject) releyendola del disco, para
+    # poder anadir/leer la seccion 'PostgresExistente' de forma uniforme.
+    $config = Leer-Config
+
+    # 3) PostgreSQL: usar uno ya instalado (opcion del usuario) o el portable.
+    if (Resolver-Postgres -Config $config) {
+        # PostgreSQL EXISTENTE: es un servicio del propio usuario. NO se descarga ni
+        # se arranca el portable. La app creara la BD sola al migrar (EF Migrate()).
+        $config = Leer-Config   # recargar con la seccion PostgresExistente recien guardada
+        $pe = $config.PostgresExistente
+        Escribir-Log "Verificando conexion TCP con PostgreSQL en $($pe.Host):$($pe.Puerto)..."
+        if (-not (Probar-PuertoTcp -Equipo ([string]$pe.Host) -Puerto ([int]$pe.Puerto) -TimeoutMs 3000)) {
+            Escribir-Log "No hay conexion TCP con PostgreSQL en $($pe.Host):$($pe.Puerto)." 'ERROR'
+            Escribir-Log 'Comprueba que PostgreSQL esta arrancado, que el puerto es correcto y que acepta conexiones locales.' 'ERROR'
+            throw "Sin conexion a PostgreSQL en $($pe.Host):$($pe.Puerto)."
+        }
+        Escribir-Log "Conexion TCP con PostgreSQL OK. La app creara la BD '$($pe.Bd)' al arrancar si no existe (requiere permiso para crear bases de datos)." 'OK'
+    } else {
+        # PostgreSQL PORTABLE: binarios, cluster y arranque como hasta ahora.
+        if (-not (Asegurar-BinariosPostgres)) { throw 'No se pudo preparar PostgreSQL portable.' }
+        if (-not (Inicializar-Cluster -Usuario $config.PgUsuario -Password $config.PgPassword)) { throw 'No se pudo inicializar el cluster de datos.' }
+        if (-not (Arrancar-Postgres -Puerto $config.PgPuerto)) { throw 'No se pudo arrancar PostgreSQL.' }
+        if (-not (Asegurar-BaseDatos -Puerto $config.PgPuerto -Usuario $config.PgUsuario -Password $config.PgPassword -BaseDatos $config.BaseDatos)) { throw 'No se pudo crear la base de datos.' }
+    }
 
     # 4) Regla de firewall para acceso LAN (requiere admin; si no, se documenta).
     Configurar-Firewall -Puerto $config.AppPuerto
