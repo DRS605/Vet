@@ -32,6 +32,21 @@ public static class RegistroServicios
         servicios.AddScoped<IRepositorioEspecies>(sp => sp.GetRequiredService<RepositorioEspecies>());
         servicios.AddScoped<IConsultaEspecies>(sp => sp.GetRequiredService<RepositorioEspecies>());
 
+        servicios.AddScoped<RepositorioRazas>();
+        servicios.AddScoped<IRepositorioRazas>(sp => sp.GetRequiredService<RepositorioRazas>());
+        servicios.AddScoped<IConsultaRazas>(sp => sp.GetRequiredService<RepositorioRazas>());
+        servicios.AddScoped<CrearRaza>();
+        servicios.AddScoped<ActualizarRaza>();
+        servicios.AddScoped<DesactivarRaza>();
+        servicios.AddScoped<ListarRazas>();
+
+        // Facturación clínica: info por factura (especies/razas de los actos) + nota interna del panel de facturas.
+        servicios.AddScoped<RepositorioFacturacionClinica>();
+        servicios.AddScoped<IRepositorioNotasFactura>(sp => sp.GetRequiredService<RepositorioFacturacionClinica>());
+        servicios.AddScoped<IConsultaFacturacionClinica>(sp => sp.GetRequiredService<RepositorioFacturacionClinica>());
+        servicios.AddScoped<ListarFacturacionClinica>();
+        servicios.AddScoped<GuardarNotaFactura>();
+
         servicios.AddScoped<CrearEspecie>();
         servicios.AddScoped<ActualizarEspecie>();
         servicios.AddScoped<DesactivarEspecie>();

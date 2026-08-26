@@ -39,17 +39,18 @@ public sealed record EspecieDto(
     Guid Id,
     string Nombre,
     int MesesCachorro,
-    bool Activo)
+    bool Activo,
+    string? Emoji)
 {
     public static EspecieDto Desde(Especie e)
     {
         ArgumentNullException.ThrowIfNull(e);
-        return new EspecieDto(e.Id, e.Nombre, e.MesesCachorro, e.Activo);
+        return new EspecieDto(e.Id, e.Nombre, e.MesesCachorro, e.Activo, e.Emoji);
     }
 }
 
 /// <summary>Datos de una especie para crear o actualizar.</summary>
-public sealed record DatosEspecie(string Nombre, int MesesCachorro = AlxorCore.Clinica.Dominio.Especie.MesesCachorroPorDefecto);
+public sealed record DatosEspecie(string Nombre, int MesesCachorro = AlxorCore.Clinica.Dominio.Especie.MesesCachorroPorDefecto, string? Emoji = null);
 
 /// <summary>Repositorio de especies (escritura).</summary>
 public interface IRepositorioEspecies

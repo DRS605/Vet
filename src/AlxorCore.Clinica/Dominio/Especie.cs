@@ -18,6 +18,9 @@ public sealed class Especie : RaizAgregadoEmpresa<Guid>
 {
     public const int LongitudMaximaNombre = 60;
 
+    /// <summary>Longitud máxima del emoji/icono (deja margen para emojis compuestos con ZWJ).</summary>
+    public const int LongitudMaximaEmoji = 16;
+
     /// <summary>Umbral por defecto (en meses) por debajo del cual un animal se considera cachorro.</summary>
     public const int MesesCachorroPorDefecto = 12;
 
@@ -27,11 +30,12 @@ public sealed class Especie : RaizAgregadoEmpresa<Guid>
         Nombre = null!;
     }
 
-    private Especie(Guid id, Guid empresaId, string nombre, int mesesCachorro, DateTimeOffset ahora)
+    private Especie(Guid id, Guid empresaId, string nombre, int mesesCachorro, string? emoji, DateTimeOffset ahora)
         : base(id, empresaId)
     {
         Nombre = nombre;
         MesesCachorro = mesesCachorro;
+        Emoji = emoji;
         Activo = true;
         CreadoEn = ahora;
         ActualizadoEn = ahora;
@@ -43,6 +47,9 @@ public sealed class Especie : RaizAgregadoEmpresa<Guid>
     /// <summary>Umbral (en meses) por debajo del cual un animal de esta especie se considera cachorro. &gt; 0.</summary>
     public int MesesCachorro { get; private set; }
 
+    /// <summary>Emoji/icono opcional de la especie, elegido por la clínica (p. ej. 🐕, 🐍). Nulo = icono por defecto.</summary>
+    public string? Emoji { get; private set; }
+
     /// <summary>Baja lógica: una especie desactivada deja de ofrecerse, pero no se borra.</summary>
     public bool Activo { get; private set; }
 
@@ -50,26 +57,26 @@ public sealed class Especie : RaizAgregadoEmpresa<Guid>
 
     public DateTimeOffset ActualizadoEn { get; private set; }
 
-    public static Resultado<Especie> Crear(Guid empresaId, string? nombre, int mesesCachorro, IReloj reloj)
+    public static Resultado<Especie> Crear(Guid empresaId, string? nombre, int mesesCachorro, IReloj reloj, string? emoji = null)
     {
         ArgumentNullException.ThrowIfNull(reloj);
 
-        var error = Validar(nombre, mesesCachorro);
+        var error = Validar(nombre, mesesCachorro, emoji);
         if (error is not null)
         {
             return Resultado.Fallo<Especie>(error);
         }
 
-        var especie = new Especie(Guid.NewGuid(), empresaId, nombre!.Trim(), mesesCachorro, reloj.AhoraUtc);
+        var especie = new Especie(Guid.NewGuid(), empresaId, nombre!.Trim(), mesesCachorro, NormalizarEmoji(emoji), reloj.AhoraUtc);
         especie.RegistrarEvento(new EspecieCreada(especie.Id, empresaId, reloj.AhoraUtc));
         return Resultado.Ok(especie);
     }
 
-    public Resultado Actualizar(string? nombre, int mesesCachorro, IReloj reloj)
+    public Resultado Actualizar(string? nombre, int mesesCachorro, IReloj reloj, string? emoji = null)
     {
         ArgumentNullException.ThrowIfNull(reloj);
 
-        var error = Validar(nombre, mesesCachorro);
+        var error = Validar(nombre, mesesCachorro, emoji);
         if (error is not null)
         {
             return Resultado.Fallo(error);
@@ -77,6 +84,7 @@ public sealed class Especie : RaizAgregadoEmpresa<Guid>
 
         Nombre = nombre!.Trim();
         MesesCachorro = mesesCachorro;
+        Emoji = NormalizarEmoji(emoji);
         ActualizadoEn = reloj.AhoraUtc;
         return Resultado.Ok();
     }
@@ -89,7 +97,7 @@ public sealed class Especie : RaizAgregadoEmpresa<Guid>
         ActualizadoEn = reloj.AhoraUtc;
     }
 
-    private static Error? Validar(string? nombre, int mesesCachorro)
+    private static Error? Validar(string? nombre, int mesesCachorro, string? emoji)
     {
         if (string.IsNullOrWhiteSpace(nombre))
         {
@@ -106,6 +114,13 @@ public sealed class Especie : RaizAgregadoEmpresa<Guid>
             return Error.Validacion("especie.meses_invalido", "El umbral de cachorro (en meses) debe ser mayor que cero.");
         }
 
+        if (emoji is not null && emoji.Trim().Length > LongitudMaximaEmoji)
+        {
+            return Error.Validacion("especie.emoji_largo", "El emoji indicado no es válido.");
+        }
+
         return null;
     }
+
+    private static string? NormalizarEmoji(string? emoji) => string.IsNullOrWhiteSpace(emoji) ? null : emoji.Trim();
 }

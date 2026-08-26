@@ -60,6 +60,34 @@ public static class EndpointsClinica
             .WithSummary("Da de baja (baja lógica) una especie del maestro.")
             .RequierePermiso(Permisos.AnimalGestionar);
 
+        var razas = rutas.MapGroup("/razas").WithTags("Razas");
+
+        razas.MapGet("", ListarRazasAsync)
+            .WithSummary("Lista las razas del maestro (filtra por ?especie=; ?incluirInactivas= para todas).")
+            .RequierePermiso(Permisos.AnimalLeer);
+
+        razas.MapPost("", CrearRazaAsync)
+            .WithSummary("Crea una raza en el maestro de la empresa.")
+            .RequierePermiso(Permisos.AnimalGestionar);
+
+        razas.MapPut("/{id:guid}", ActualizarRazaAsync)
+            .WithSummary("Actualiza el nombre de una raza.")
+            .RequierePermiso(Permisos.AnimalGestionar);
+
+        razas.MapDelete("/{id:guid}", DesactivarRazaAsync)
+            .WithSummary("Da de baja (baja lógica) una raza del maestro.")
+            .RequierePermiso(Permisos.AnimalGestionar);
+
+        var factClinica = rutas.MapGroup("/facturas-clinica").WithTags("Facturas (clínica)");
+
+        factClinica.MapGet("", ListarFacturacionClinicaAsync)
+            .WithSummary("Info clínica por factura (especies/razas de los actos y nota interna) para el panel de facturas.")
+            .RequierePermiso(Permisos.FacturaLeer);
+
+        factClinica.MapPut("/{facturaId:guid}/nota", GuardarNotaFacturaAsync)
+            .WithSummary("Guarda la nota interna (no fiscal) de una factura.")
+            .RequierePermiso(Permisos.FacturaEmitir);
+
         var campos = rutas.MapGroup("/campos-personalizados").WithTags("Campos personalizados");
 
         campos.MapGet("", ListarCamposAsync)
@@ -380,6 +408,53 @@ public static class EndpointsClinica
 
     private static async Task<IResult> DarDeBajaEspecieAsync(Guid id, DesactivarEspecie caso, CancellationToken ct) =>
         (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> ListarRazasAsync(string? especie, bool? incluirInactivas, IContextoEmpresa contexto, ListarRazas caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, especie, incluirInactivas ?? false, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> CrearRazaAsync(DatosRaza datos, IContextoEmpresa contexto, CrearRaza caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, datos, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/razas/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> ActualizarRazaAsync(Guid id, DatosRaza datos, ActualizarRaza caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> DesactivarRazaAsync(Guid id, DesactivarRaza caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> ListarFacturacionClinicaAsync(IContextoEmpresa contexto, ListarFacturacionClinica caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> GuardarNotaFacturaAsync(Guid facturaId, DatosNotaFactura datos, IContextoEmpresa contexto, GuardarNotaFactura caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return (await caso.EjecutarAsync(contexto.EmpresaId.Value, facturaId, datos ?? new DatosNotaFactura(null), ct).ConfigureAwait(false)).ASinContenido();
+    }
 
     private static async Task<IResult> ListarCamposAsync(string entidad, bool? incluirInactivos, IContextoEmpresa contexto, ListarCamposPersonalizados caso, CancellationToken ct)
     {

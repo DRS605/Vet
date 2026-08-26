@@ -27,7 +27,7 @@ public sealed class CrearEspecie
     {
         ArgumentNullException.ThrowIfNull(datos);
 
-        var especie = Especie.Crear(empresaId, datos.Nombre, datos.MesesCachorro, _reloj);
+        var especie = Especie.Crear(empresaId, datos.Nombre, datos.MesesCachorro, _reloj, datos.Emoji);
         if (especie.EsFallo)
         {
             return Resultado.Fallo<EspecieDto>(especie.Error);
@@ -75,7 +75,7 @@ public sealed class ActualizarEspecie
             return Resultado.Fallo<EspecieDto>(Error.Conflicto("especie.duplicada", "Ya existe una especie con ese nombre en esta empresa."));
         }
 
-        var actualizada = especie.Actualizar(datos.Nombre, datos.MesesCachorro, _reloj);
+        var actualizada = especie.Actualizar(datos.Nombre, datos.MesesCachorro, _reloj, datos.Emoji);
         if (actualizada.EsFallo)
         {
             return Resultado.Fallo<EspecieDto>(actualizada.Error);
@@ -169,7 +169,7 @@ public sealed class SembrarEspeciesPorDefecto
         var creadas = 0;
         var yaExistentes = 0;
 
-        foreach (var (nombre, meses) in EspeciesPorDefecto.Todas)
+        foreach (var (nombre, meses, emoji) in EspeciesPorDefecto.Todas)
         {
             if (await _consulta.ExisteNombreAsync(empresaId, nombre, null, ct).ConfigureAwait(false))
             {
@@ -177,7 +177,7 @@ public sealed class SembrarEspeciesPorDefecto
                 continue;
             }
 
-            var especie = Especie.Crear(empresaId, nombre, meses, _reloj);
+            var especie = Especie.Crear(empresaId, nombre, meses, _reloj, emoji);
             if (especie.EsFallo)
             {
                 return Resultado.Fallo<SiembraEspeciesResultado>(especie.Error);
@@ -203,15 +203,15 @@ public sealed class SembrarEspeciesPorDefecto
 /// </summary>
 public static class EspeciesPorDefecto
 {
-    /// <summary>Lista de (nombre, meses de cachorro) sembrada en cada empresa nueva.</summary>
-    public static readonly IReadOnlyList<(string Nombre, int MesesCachorro)> Todas = new (string, int)[]
+    /// <summary>Lista de (nombre, meses de cachorro, emoji) sembrada en cada empresa nueva.</summary>
+    public static readonly IReadOnlyList<(string Nombre, int MesesCachorro, string Emoji)> Todas = new (string, int, string)[]
     {
-        ("Perro", 12),
-        ("Gato", 12),
-        ("Conejo", 6),
-        ("Ave", 12),
-        ("Huron", 12),
-        ("Reptil", 12),
-        ("Otro", 12),
+        ("Perro", 12, "🐕"),
+        ("Gato", 12, "🐈"),
+        ("Conejo", 6, "🐇"),
+        ("Ave", 12, "🦜"),
+        ("Huron", 12, "🦡"),
+        ("Reptil", 12, "🦎"),
+        ("Otro", 12, "🐾"),
     };
 }

@@ -8,8 +8,8 @@ using AlxorCore.Organizacion.Aplicacion.CasosDeUso;
 
 namespace AlxorCore.Api.Endpoints;
 
-/// <summary>Cuerpo para invitar a un usuario a la empresa.</summary>
-public sealed record InvitarPeticion(string Email, string? Nombre, string Rol);
+/// <summary>Cuerpo para invitar a un usuario a la empresa. Si viene <c>ContrasenaInicial</c>, el usuario puede entrar ya con ella (sin correo).</summary>
+public sealed record InvitarPeticion(string Email, string? Nombre, string Rol, string? ContrasenaInicial = null);
 
 /// <summary>Cuerpo para cambiar el rol de un miembro.</summary>
 public sealed record CambiarRolPeticion(string Rol);
@@ -93,7 +93,7 @@ public static class EndpointsUsuarios
         }
         else
         {
-            var creado = await crear.EjecutarAsync(peticion.Email ?? string.Empty, peticion.Nombre, ct).ConfigureAwait(false);
+            var creado = await crear.EjecutarAsync(peticion.Email ?? string.Empty, peticion.Nombre, peticion.ContrasenaInicial, ct).ConfigureAwait(false);
             if (creado.EsFallo)
             {
                 return ResultadosHttp.AProblema(creado.Error);
@@ -109,8 +109,10 @@ public static class EndpointsUsuarios
             return ResultadosHttp.AProblema(membresia.Error);
         }
 
-        var incluirToken = token is not null && !entorno.IsProduction();
-        return Results.Ok(new { usuarioId, creado = existente is null, enlaceContrasena = incluirToken ? token : null });
+        // Si el admin fijó contraseña inicial, el usuario puede entrar ya (sin enlace).
+        var conClave = existente is null && !string.IsNullOrEmpty(peticion.ContrasenaInicial);
+        var incluirToken = !conClave && !string.IsNullOrEmpty(token) && !entorno.IsProduction();
+        return Results.Ok(new { usuarioId, creado = existente is null, accesoInmediato = conClave, enlaceContrasena = incluirToken ? token : null });
     }
 
     private static async Task<IResult> CambiarRolAsync(

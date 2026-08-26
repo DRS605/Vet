@@ -237,6 +237,22 @@
     .cita-pet:hover{background:var(--accent-soft);}
     .cita-pet input{width:auto;margin:0;flex:none;}
 
+    /* Selector de emoji de especie y lista de razas. */
+    .emoji-grid{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px;}
+    .emoji-chip{font-size:19px;line-height:1;padding:6px 8px;border:1px solid var(--line);border-radius:9px;background:#fff;cursor:pointer;}
+    .emoji-chip:hover{background:var(--accent-soft);border-color:transparent;}
+    .rz-list{border:1px solid var(--line);border-radius:11px;overflow:hidden;}
+    .rz-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:9px 13px;border-bottom:1px solid #f4efe7;}
+    .rz-row:last-child{border-bottom:none;}
+
+    /* Informes: KPIs y barras. */
+    .inf-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:14px;}
+    .inf-kpi{background:#fff;border:1px solid var(--line);border-radius:13px;padding:14px 16px;box-shadow:var(--shadow);}
+    .inf-kpi span{display:block;font-size:12px;color:var(--muted);}
+    .inf-kpi b{font-size:22px;letter-spacing:-.01em;}
+    .inf-bar{background:var(--accent-soft);border-radius:7px;height:12px;overflow:hidden;}
+    .inf-bar span{display:block;height:100%;background:var(--grad-honey);}
+
     .rem{display:flex;gap:13px;padding:13px 18px;border-bottom:1px solid #f4efe7;align-items:flex-start;}
     .rem:last-child{border-bottom:none;}
     .rem .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;font-size:17px;}
@@ -505,7 +521,8 @@ async function cargarConceptos(){ try{ conceptosCache = await api("/productos");
 function datalistConceptos(id){ return `<datalist id="${id}">${conceptosCache.map(p=>`<option value="${esc(p.nombre)}"></option>`).join("")}</datalist>`; }
 /* Busca un concepto del maestro por nombre exacto (sin distinguir mayúsculas), o null si es texto libre. */
 function conceptoPorNombre(nombre){ const n=(nombre||"").trim().toLowerCase(); return conceptosCache.find(p=>p.nombre.toLowerCase()===n)||null; }
-function emojiEspecie(e){ const m={Perro:"🐕",Gato:"🐈",Conejo:"🐇",Ave:"🦜",Huron:"🦡"}; return m[e]||"🐾"; }
+function emojiEspecie(e){ const esp=(especiesCache||[]).find(x=>x.nombre===e); if(esp&&esp.emoji) return esp.emoji; const m={Perro:"🐕",Gato:"🐈",Conejo:"🐇",Ave:"🦜",Huron:"🦡",Reptil:"🦎"}; return m[e]||"🐾"; }
+const EMOJIS_ESPECIE=["🐕","🐈","🐇","🦜","🦡","🦎","🐍","🐢","🐹","🐁","🐴","🐄","🐖","🐐","🐑","🐓","🦆","🐠","🦥","🐾"];
 function opcionesEspecie(sel){
   if(!especiesCache.length) return `<option value="${esc(sel||"")}">${esc(sel||"—")}</option>`;
   return especiesCache.map(e=>`<option value="${esc(e.nombre)}" ${e.nombre===sel?"selected":""}>${emojiEspecie(e.nombre)} ${esc(e.nombre)}</option>`).join("");
@@ -591,15 +608,18 @@ const ICON = {
   conceptos:'<svg viewBox="0 0 24 24"><path d="M20 12l-8 8-8-8V4h8z"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>',
   campos:'<svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
   usuarios:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17.5" cy="9" r="2.4"/><path d="M16 15c3 .2 5 1.9 5 5"/></svg>',
-  presupuestos:'<svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 14l2 2 4-4"/></svg>'
+  presupuestos:'<svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 14l2 2 4-4"/></svg>',
+  facturas:'<svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>',
+  informes:'<svg viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>'
 };
 const NAV = [
   ["inicio","Inicio"],["agenda","Agenda"],["clientes","Clientes"],
   ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["facturacion","Facturación"],["presupuestos","Presupuestos"],
+  ["facturas","Facturas"],["informes","Informes"],
   ["especies","Especies"],["conceptos","Servicios / Conceptos"],["campos","Campos personalizados"],
   ["usuarios","Usuarios"],["ajustes","Ajustes"]
 ];
-const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",usuarios:"Usuarios",presupuestos:"Presupuestos",ajustes:"Ajustes"};
+const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",usuarios:"Usuarios",presupuestos:"Presupuestos",facturas:"Facturas emitidas",informes:"Informes",ajustes:"Ajustes"};
 
 /* ---------- fetch con Bearer ---------- */
 async function api(path, opts={}){
@@ -732,7 +752,7 @@ function ir(k, params){
   closeMenu(); vista=k; ctx=Object.assign({}, params||{});
   document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes")));
   $("viewTitle").textContent=TITULOS[k]||k;
-  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,usuarios:vUsuarios,presupuestos:vPresupuestos,ajustes:vAjustes}[k];
+  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,usuarios:vUsuarios,presupuestos:vPresupuestos,facturas:vFacturasPanel,informes:vInformesClientes,ajustes:vAjustes}[k];
   (fn||vInicio)();
 }
 const view = h => $("view").innerHTML=h;
@@ -956,10 +976,10 @@ async function modalAnimal(clienteId, a){
   abrir(editar?"Editar animal":"Nuevo animal", `
     <label>Nombre *</label><input id="a_nombre" value="${esc(a&&a.nombre||"")}"/>
     <div class="grid-2">
-      <div><label>Especie</label><select id="a_especie">${opcionesEspecie(a&&a.especie)}</select></div>
+      <div><label>Especie</label><select id="a_especie" onchange="animalCargarRazas(this.value)">${opcionesEspecie(a&&a.especie)}</select></div>
       <div><label>Sexo</label><select id="a_sexo"><option value="Desconocido"${sx("Desconocido")}>—</option><option value="Macho"${sx("Macho")}>Macho</option><option value="Hembra"${sx("Hembra")}>Hembra</option></select></div>
     </div>
-    <div class="grid-2"><div><label>Raza</label><input id="a_raza" value="${esc(a&&a.raza||"")}"/></div><div><label>Fecha de nacimiento</label><input id="a_fnac" type="date" value="${a&&a.fechaNacimiento?String(a.fechaNacimiento).slice(0,10):""}"/></div></div>
+    <div class="grid-2"><div><label>Raza</label><select id="a_raza"><option value="">—</option></select></div><div><label>Fecha de nacimiento</label><input id="a_fnac" type="date" value="${a&&a.fechaNacimiento?String(a.fechaNacimiento).slice(0,10):""}"/></div></div>
     <div class="grid-2"><div><label>Microchip</label><input id="a_chip" value="${esc(a&&a.microchip||"")}"/></div><div><label>Peso (kg)</label><input id="a_peso" inputmode="decimal" value="${a&&a.pesoKg!=null?a.pesoKg:""}"/></div></div>
     <label><input type="checkbox" id="a_ester" style="width:auto;margin-right:8px" ${a&&a.esterilizado?"checked":""}/>Esterilizado</label>
     <label>Notas</label><textarea id="a_notas">${esc(a&&a.notas||"")}</textarea>
@@ -986,6 +1006,19 @@ async function modalAnimal(clienteId, a){
         toast("Animal creado.","ok"); ir("animal",{animalId:creado.id,clienteId});
       }
     }, editar?"Guardar":"Crear");
+  // Carga las razas de la especie seleccionada (manteniendo la raza actual del animal si la tiene).
+  await animalCargarRazas(val("a_especie"), a&&a.raza);
+}
+/* Rellena el desplegable de razas (id a_raza) con las razas de la especie; conserva la raza actual. */
+async function animalCargarRazas(especie, actual){
+  const sel=$("a_raza"); if(!sel) return;
+  const prev = actual!==undefined ? actual : sel.value;
+  let razas=[];
+  try{ razas = especie ? await api(`/razas?especie=${encodeURIComponent(especie)}`) : []; }catch{ razas=[]; }
+  const nombres=razas.map(r=>r.nombre);
+  // Si la raza actual del animal no está en el maestro, se añade igualmente para no perderla.
+  if(prev && !nombres.includes(prev)) nombres.unshift(prev);
+  sel.innerHTML='<option value="">—</option>'+nombres.map(n=>`<option value="${esc(n)}" ${n===prev?"selected":""}>${esc(n)}</option>`).join("");
 }
 /* Alias por compatibilidad con los puntos de entrada de alta. */
 function modalNuevoAnimal(clienteId){ modalAnimal(clienteId); }
@@ -1290,12 +1323,14 @@ function darBajaPauta(id, nombre, especie){
 async function vEspecies(){ cargando(); await conError(async()=>{
   const especies=await api(`/especies?incluirInactivas=true`);
   especiesCache = especies.filter(e=>e.activo);
+  window._especiesById={}; especies.forEach(e=>window._especiesById[e.id]=e);
   const filas = especies.map(e=>`
     <tr class="${e.activo?"":"muted"}">
-      <td><b>${emojiEspecie(e.nombre)} ${esc(e.nombre)}</b>${e.activo?"":' <span class="pill b">De baja</span>'}</td>
+      <td><b><span style="font-size:17px">${esc(e.emoji||emojiEspecie(e.nombre))}</span> ${esc(e.nombre)}</b>${e.activo?"":' <span class="pill b">De baja</span>'}</td>
       <td class="num muted">${e.mesesCachorro} m</td>
       <td class="num">
-        ${e.activo?`<button class="btn tiny line" onclick='modalEditarEspecie(${JSON.stringify(e.id)},${JSON.stringify(e.nombre)},${e.mesesCachorro})'>Editar</button>
+        ${e.activo?`<button class="btn tiny line" onclick='modalRazas(${JSON.stringify(e.nombre)})'>Razas</button>
+        <button class="btn tiny line" onclick='modalEditarEspecie(${JSON.stringify(e.id)})'>Editar</button>
         <button class="btn tiny line" onclick='darBajaEspecie(${JSON.stringify(e.id)},${JSON.stringify(e.nombre)})'>Dar de baja</button>`:""}
       </td>
     </tr>`).join("");
@@ -1303,30 +1338,36 @@ async function vEspecies(){ cargando(); await conError(async()=>{
     ? `<table><thead><tr><th>Especie</th><th class="num">Cachorro hasta</th><th class="num">Acciones</th></tr></thead><tbody>${filas}</tbody></table>`
     : vacio("🐾","Sin especies","Aún no hay especies. Añade la primera para poder dar de alta animales.", `<button class="btn v" onclick="modalNuevaEspecie()">${ICON.plus} Nueva especie</button>`);
   view(`
-    <div style="margin-bottom:12px"><a onclick="ir('vacunas')" class="muted">← Vacunas</a></div>
     <h3 class="sec">Especies</h3>
-    <p class="subt">El maestro de especies de tu clínica. Da de alta, edita o da de baja especies; el umbral «cachorro» (en meses) marca hasta cuándo se considera cachorro a un animal de esa especie.</p>
+    <p class="subt">El maestro de especies de tu clínica. Da de alta, edita o da de baja especies, elige su emoji y gestiona sus razas. El umbral «cachorro» (en meses) marca hasta cuándo se considera cachorro a un animal de esa especie.</p>
     ${panel("Maestro de especies", cuerpo, `<button class="btn v small" onclick="modalNuevaEspecie()">${ICON.plus} Nueva especie</button>`)}`);
 }); }
-function _camposEspecie(nombre, meses){
+function _camposEspecie(e){
+  const emoji=(e&&e.emoji)||"";
+  const chips=EMOJIS_ESPECIE.map(x=>`<button type="button" class="emoji-chip" onclick="setEmojiEspecie('${x}')">${x}</button>`).join("");
   return `
-    <label>Nombre *</label><input id="e_nombre" value="${esc(nombre||"")}" placeholder="p. ej. Tortuga"/>
-    <label>Cachorro hasta (meses)</label><input id="e_meses" inputmode="numeric" value="${meses!=null?meses:12}"/>
+    <label>Nombre *</label><input id="e_nombre" value="${esc(e&&e.nombre||"")}" placeholder="p. ej. Tortuga"/>
+    <label>Emoji</label>
+    <div style="display:flex;align-items:center;gap:10px"><input id="e_emoji" value="${esc(emoji)}" maxlength="8" style="width:70px;text-align:center;font-size:20px" placeholder="🐾"/><span class="muted">o elige uno:</span></div>
+    <div class="emoji-grid">${chips}</div>
+    <label>Cachorro hasta (meses)</label><input id="e_meses" inputmode="numeric" value="${e&&e.mesesCachorro!=null?e.mesesCachorro:12}"/>
     <div class="error" id="modalErr"></div>`;
 }
+function setEmojiEspecie(x){ const el=$("e_emoji"); if(el) el.value=x; }
 function modalNuevaEspecie(){
-  abrir("Nueva especie", _camposEspecie("", 12), async()=>{
+  abrir("Nueva especie", _camposEspecie(null), async()=>{
     if(!val("e_nombre")) throw new Error("El nombre es obligatorio.");
     const meses=num("e_meses"); if(meses==null || meses<=0) throw new Error("El umbral de cachorro debe ser mayor que cero.");
-    await api("/especies",{method:"POST",body:JSON.stringify({nombre:val("e_nombre"), mesesCachorro:meses})});
+    await api("/especies",{method:"POST",body:JSON.stringify({nombre:val("e_nombre"), mesesCachorro:meses, emoji:val("e_emoji")||null})});
     toast("Especie creada.","ok"); await cargarEspecies(); vEspecies();
   }, "Crear");
 }
-function modalEditarEspecie(id, nombre, meses){
-  abrir("Editar especie", _camposEspecie(nombre, meses), async()=>{
+function modalEditarEspecie(id){
+  const e=(window._especiesById||{})[id]||{id};
+  abrir("Editar especie", _camposEspecie(e), async()=>{
     if(!val("e_nombre")) throw new Error("El nombre es obligatorio.");
     const m=num("e_meses"); if(m==null || m<=0) throw new Error("El umbral de cachorro debe ser mayor que cero.");
-    await api("/especies/"+id,{method:"PUT",body:JSON.stringify({nombre:val("e_nombre"), mesesCachorro:m})});
+    await api("/especies/"+id,{method:"PUT",body:JSON.stringify({nombre:val("e_nombre"), mesesCachorro:m, emoji:val("e_emoji")||null})});
     toast("Especie actualizada.","ok"); await cargarEspecies(); vEspecies();
   }, "Guardar");
 }
@@ -1335,6 +1376,43 @@ function darBajaEspecie(id, nombre){
     await api("/especies/"+id,{method:"DELETE"});
     toast("Especie dada de baja.","ok"); await cargarEspecies(); vEspecies();
   }, "Dar de baja");
+}
+
+/* ---------- RAZAS (maestro por especie) ---------- */
+async function modalRazas(especie){
+  abrir(`Razas de ${esc(especie)}`, `
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="rz_nueva" placeholder="Nueva raza (p. ej. Labrador)" onkeydown="if(event.key==='Enter'){event.preventDefault();razaCrear(${JSON.stringify(especie)});}"/>
+      <button type="button" class="btn v" style="flex:none" onclick="razaCrear(${JSON.stringify(especie)})">${ICON.plus} Añadir</button>
+    </div>
+    <div id="rz_lista" style="margin-top:12px"><span class="muted">Cargando…</span></div>
+    <div class="error" id="modalErr" style="margin-top:8px"></div>`, null, "Cerrar");
+  await razasRender(especie);
+}
+async function razasRender(especie){
+  const box=$("rz_lista"); if(!box) return;
+  try{
+    const razas=await api(`/razas?especie=${encodeURIComponent(especie)}`);
+    box.innerHTML = razas.length
+      ? `<div class="rz-list">${razas.map(r=>`<div class="rz-row"><span>${esc(r.nombre)}</span><span style="display:flex;gap:6px"><button type="button" class="btn tiny line" onclick='razaEditar(${JSON.stringify(r)})'>Editar</button><button type="button" class="btn tiny line" onclick='razaBaja(${JSON.stringify(r.id)},${JSON.stringify(especie)})'>✕</button></span></div>`).join("")}</div>`
+      : `<span class="muted">Aún no hay razas para esta especie. Añade la primera arriba.</span>`;
+  }catch{ box.innerHTML='<span class="muted">No se pudieron cargar las razas.</span>'; }
+}
+async function razaCrear(especie){
+  const el=$("rz_nueva"); const nombre=(el&&el.value||"").trim(); if(!nombre) return;
+  try{ await api("/razas",{method:"POST",body:JSON.stringify({especie, nombre})}); if(el) el.value=""; const b=$("modalErr"); if(b) b.textContent=""; await razasRender(especie); }
+  catch(e){ const b=$("modalErr"); if(b) b.textContent=e.message; }
+}
+function razaEditar(r){
+  abrir("Editar raza", `<label>Nombre *</label><input id="rz_edit" value="${esc(r.nombre)}"/><div class="error" id="modalErr"></div>`, async()=>{
+    const nombre=val("rz_edit"); if(!nombre) throw new Error("El nombre es obligatorio.");
+    await api("/razas/"+r.id,{method:"PUT",body:JSON.stringify({especie:r.especie, nombre})});
+    toast("Raza actualizada.","ok"); modalRazas(r.especie);
+  }, "Guardar");
+}
+async function razaBaja(id, especie){
+  try{ await api("/razas/"+id,{method:"DELETE"}); await razasRender(especie); }
+  catch(e){ toast(e.message,"err"); }
 }
 
 /* ---------- CAMPOS PERSONALIZADOS (maestro) ---------- */
@@ -1434,12 +1512,18 @@ function modalInvitarUsuario(){
     <label>Correo *</label><input id="u_email" type="email" placeholder="persona@clinica.com"/>
     <label>Nombre</label><input id="u_nombre" placeholder="Nombre y apellidos"/>
     <label>Rol</label><select id="u_rol">${rolOpc}</select>
-    <p class="muted" style="margin:10px 0 0;font-size:12.5px">Se creará el usuario y su acceso a la clínica. Para poder entrar deberá establecer su contraseña con el enlace que se genere (o el que reciba por correo si está configurado el envío).</p>
+    <label>Contraseña inicial</label><input id="u_clave" type="text" placeholder="Mínimo 8 caracteres — la podrá cambiar luego"/>
+    <p class="muted" style="margin:10px 0 0;font-size:12.5px">Si pones una <b>contraseña inicial</b>, la persona podrá entrar ya con ese correo y esa contraseña (recomendado si no tienes el correo configurado). Si la dejas en blanco, se generará un enlace para que ponga su contraseña (o lo recibirá por correo si está configurado el envío).</p>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("u_email")) throw new Error("El correo es obligatorio.");
-      const r=await api("/usuarios/invitar",{method:"POST",body:JSON.stringify({email:val("u_email"), nombre:val("u_nombre")||null, rol:val("u_rol")})});
-      if(r&&r.enlaceContrasena){
+      const clave=val("u_clave");
+      if(clave && clave.length<8) throw new Error("La contraseña inicial debe tener al menos 8 caracteres.");
+      const r=await api("/usuarios/invitar",{method:"POST",body:JSON.stringify({email:val("u_email"), nombre:val("u_nombre")||null, rol:val("u_rol"), contrasenaInicial:clave||null})});
+      if(r&&r.accesoInmediato){
+        toast("Usuario creado. Ya puede entrar con su correo y la contraseña que le has puesto.","ok");
+        vUsuarios();
+      } else if(r&&r.enlaceContrasena){
         toast("Usuario invitado.","ok");
         abrir("Usuario invitado", `<p>Comparte este enlace con la persona para que establezca su contraseña:</p>
           <input readonly value="${esc(r.enlaceContrasena)}" onclick="this.select()" style="font-size:12px"/>
@@ -1565,6 +1649,124 @@ function rechazarPresupuesto(id, numero){
     await api(`/presupuestos/${id}/rechazar`,{method:"POST"});
     toast("Presupuesto rechazado.","ok"); vPresupuestos();
   }, "Rechazar");
+}
+
+/* ---------- PANEL DE FACTURAS EMITIDAS ---------- */
+let _facPanel={facturas:[],clinica:{},saldos:{}};
+async function vFacturasPanel(){ cargando(); await conError(async()=>{
+  let facturas, clinica;
+  try{ [facturas, clinica]=await Promise.all([api("/facturas"), api("/facturas-clinica").catch(()=>[])]); }
+  catch(e){ view(vacio("🔒","Sin acceso","No tienes permiso para ver las facturas.")); return; }
+  const cmap={}; (clinica||[]).forEach(c=>cmap[c.facturaId]=c);
+  const saldos={};
+  await Promise.all((facturas||[]).map(f=>api(`/facturas/${f.id}/saldo`).then(s=>{saldos[f.id]=s;}).catch(()=>{})));
+  _facPanel={facturas:facturas||[], clinica:cmap, saldos};
+  const razasSet=new Set(); _facPanel.facturas.forEach(f=>((cmap[f.id]||{}).razas||[]).forEach(r=>razasSet.add(r)));
+  const razaOpc=['<option value="">Todas las razas</option>'].concat([...razasSet].sort().map(r=>`<option value="${esc(r)}">${esc(r)}</option>`)).join("");
+  view(`
+    <h3 class="sec">Facturas emitidas</h3>
+    <p class="subt">Listado de facturas con su estado de cobro. Filtra por fechas, cliente o raza, marca si están pagadas y añade notas internas.</p>
+    <div class="toolbar" style="flex-wrap:wrap;gap:8px;align-items:center">
+      <label class="muted" style="margin:0">Del</label><input id="fp_desde" type="date" onchange="facPanelRender()" style="min-width:150px"/>
+      <label class="muted" style="margin:0">al</label><input id="fp_hasta" type="date" onchange="facPanelRender()" style="min-width:150px"/>
+      <input id="fp_cliente" placeholder="Cliente…" oninput="facPanelRender()" style="min-width:150px"/>
+      <select id="fp_raza" onchange="facPanelRender()">${razaOpc}</select>
+      <select id="fp_estado" onchange="facPanelRender()"><option value="">Cobro: todas</option><option value="pendiente">Pendientes de cobro</option><option value="pagada">Pagadas</option></select>
+    </div>
+    <div id="fp_tabla"></div>`);
+  facPanelRender();
+}); }
+function facPanelRender(){
+  const box=$("fp_tabla"); if(!box) return;
+  const desde=val("fp_desde"), hasta=val("fp_hasta"), cli=(val("fp_cliente")||"").toLowerCase(), raza=val("fp_raza"), est=val("fp_estado");
+  const rows=_facPanel.facturas.filter(f=>{
+    if(desde && String(f.fechaEmision).slice(0,10)<desde) return false;
+    if(hasta && String(f.fechaEmision).slice(0,10)>hasta) return false;
+    if(cli && !(f.clienteNombre||"").toLowerCase().includes(cli)) return false;
+    const c=_facPanel.clinica[f.id];
+    if(raza && !(((c||{}).razas||[]).includes(raza))) return false;
+    const s=_facPanel.saldos[f.id]; const pagada=s?Number(s.pendiente)<=0:false;
+    if(est==="pendiente" && pagada) return false;
+    if(est==="pagada" && !pagada) return false;
+    return true;
+  });
+  const totalMostrado=rows.reduce((s,f)=>s+Number(f.total||0),0);
+  if(!rows.length){ box.innerHTML=vacio("🧾","Sin facturas","No hay facturas que coincidan con el filtro."); return; }
+  const filas=rows.map(f=>{
+    const c=_facPanel.clinica[f.id]||{}; const s=_facPanel.saldos[f.id];
+    const pagada=s?Number(s.pendiente)<=0:false; const pend=s?Number(s.pendiente):null;
+    const chips=[...(c.especies||[]).map(e=>`<span class="pill b">${emojiEspecie(e)} ${esc(e)}</span>`),...(c.razas||[]).map(r=>`<span class="pill vet">${esc(r)}</span>`)].join(" ");
+    const estadoPago = pagada?'<span class="pill ok">Pagada</span>':`<span class="pill wait">Pendiente${pend!=null?` · ${eur(pend)}`:""}</span>`;
+    const nota=c.nota?`<div class="muted" style="font-size:12px;margin-top:3px">📝 ${esc(c.nota)}</div>`:"";
+    let acc=`<button class="btn tiny line" onclick="descargarPdf('/facturas/${f.id}/pdf',${esc(JSON.stringify('factura-'+f.numeroCompleto+'.pdf'))})">PDF</button>`;
+    if(!pagada && pend!=null && pend>0) acc+=` <button class="btn tiny v" onclick="marcarCobrada('${f.id}',${pend})">Cobrada</button>`;
+    acc+=` <button class="btn tiny line" onclick="editarNotaFactura('${f.id}')">Nota</button>`;
+    return `<tr>
+      <td><b>${esc(f.numeroCompleto)}</b>${nota}</td>
+      <td class="muted">${fdate(f.fechaEmision)}</td>
+      <td>${esc(f.clienteNombre)}</td>
+      <td>${chips||'<span class="muted">—</span>'}</td>
+      <td class="num"><b>${eur(f.total)}</b></td>
+      <td>${estadoPago}</td>
+      <td class="num" style="white-space:nowrap">${acc}</td>
+    </tr>`;
+  }).join("");
+  box.innerHTML=panel(`Facturas`, `<table><thead><tr><th>Número</th><th>Fecha</th><th>Cliente</th><th>Especie / raza</th><th class="num">Total</th><th>Cobro</th><th class="num">Acciones</th></tr></thead><tbody>${filas}</tbody></table>`, `<span class="sp">${rows.length} · ${eur(totalMostrado)}</span>`);
+}
+async function marcarCobrada(id, importe){
+  abrir("Marcar como cobrada", `<p>¿Registrar el cobro de <b>${eur(importe)}</b> de esta factura?</p><div class="error" id="modalErr"></div>`, async()=>{
+    await api("/cobros",{method:"POST",body:JSON.stringify({facturaId:id, importe})});
+    toast("Cobro registrado.","ok"); vFacturasPanel();
+  }, "Registrar cobro");
+}
+function editarNotaFactura(id){
+  const c=_facPanel.clinica[id]||{};
+  abrir("Nota de la factura", `<label>Nota interna <span class="muted" style="font-weight:400">(no aparece en la factura)</span></label><textarea id="nf_texto" placeholder="p. ej. pendiente de justificante, revisar seguro…">${esc(c.nota||"")}</textarea><div class="error" id="modalErr"></div>`, async()=>{
+    await api(`/facturas-clinica/${id}/nota`,{method:"PUT",body:JSON.stringify({texto:val("nf_texto")||""})});
+    toast("Nota guardada.","ok"); vFacturasPanel();
+  }, "Guardar");
+}
+
+/* ---------- INFORMES ---------- */
+async function vInformesClientes(){ cargando(); await conError(async()=>{
+  let facturas;
+  try{ facturas=await api("/facturas"); }
+  catch(e){ view(vacio("🔒","Sin acceso","No tienes permiso para ver los informes.")); return; }
+  window._infFacturas=facturas||[];
+  view(`
+    <h3 class="sec">Informes</h3>
+    <p class="subt">Resumen de tu facturación y ranking de clientes. Filtra por fechas para acotar el periodo.</p>
+    <div class="toolbar" style="gap:8px;align-items:center">
+      <label class="muted" style="margin:0">Del</label><input id="inf_desde" type="date" onchange="infRender()" style="min-width:150px"/>
+      <label class="muted" style="margin:0">al</label><input id="inf_hasta" type="date" onchange="infRender()" style="min-width:150px"/>
+    </div>
+    <div id="inf_cont"></div>`);
+  infRender();
+}); }
+function infRender(){
+  const box=$("inf_cont"); if(!box) return;
+  const desde=val("inf_desde"), hasta=val("inf_hasta");
+  const facturas=(window._infFacturas||[]).filter(f=>{ const d=String(f.fechaEmision).slice(0,10); if(desde&&d<desde) return false; if(hasta&&d>hasta) return false; return true; });
+  const totalFact=facturas.reduce((s,f)=>s+Number(f.total||0),0);
+  const porCli={};
+  facturas.forEach(f=>{ const k=f.clienteNombre||"—"; (porCli[k]=porCli[k]||{nombre:k,total:0,n:0}); porCli[k].total+=Number(f.total||0); porCli[k].n++; });
+  const ranking=Object.values(porCli).sort((a,b)=>b.total-a.total);
+  const maxT=ranking.length?ranking[0].total:0;
+  const filas=ranking.slice(0,25).map((c,i)=>`<tr>
+    <td class="muted">${i+1}</td><td><b>${esc(c.nombre)}</b></td>
+    <td class="num muted">${c.n}</td>
+    <td class="num"><b>${eur(c.total)}</b></td>
+    <td style="width:32%"><div class="inf-bar"><span style="width:${maxT?Math.round(c.total/maxT*100):0}%"></span></div></td>
+  </tr>`).join("");
+  const kpis=`<div class="inf-kpis">
+    <div class="inf-kpi"><span>Facturas</span><b>${facturas.length}</b></div>
+    <div class="inf-kpi"><span>Total facturado</span><b>${eur(totalFact)}</b></div>
+    <div class="inf-kpi"><span>Clientes</span><b>${ranking.length}</b></div>
+    <div class="inf-kpi"><span>Media por cliente</span><b>${eur(ranking.length?totalFact/ranking.length:0)}</b></div>
+  </div>`;
+  box.innerHTML = facturas.length
+    ? `${kpis}${panel("Mejores clientes", `<table><thead><tr><th>#</th><th>Cliente</th><th class="num">Facturas</th><th class="num">Total</th><th></th></tr></thead><tbody>${filas}</tbody></table>`)}`
+    : vacio("📊","Sin datos","No hay facturas en el periodo seleccionado.");
 }
 
 /* ---------- RECORDATORIOS ---------- */

@@ -45,6 +45,10 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<ValorCampoPersonalizado> ValoresCampos => Set<ValorCampoPersonalizado>();
 
+    public DbSet<Raza> Razas => Set<Raza>();
+
+    public DbSet<NotaFactura> NotasFactura => Set<NotaFactura>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Esquema);
@@ -300,6 +304,7 @@ internal sealed class ConfiguracionEspecie : IEntityTypeConfiguration<Especie>
         builder.Property(e => e.EmpresaId).HasColumnName("empresa_id").IsRequired();
         builder.Property(e => e.Nombre).HasColumnName("nombre").HasMaxLength(Especie.LongitudMaximaNombre).IsRequired();
         builder.Property(e => e.MesesCachorro).HasColumnName("meses_cachorro").IsRequired();
+        builder.Property(e => e.Emoji).HasColumnName("emoji").HasMaxLength(Especie.LongitudMaximaEmoji);
         builder.Property(e => e.Activo).HasColumnName("activo").IsRequired();
         builder.Property(e => e.CreadoEn).HasColumnName("creado_en").IsRequired();
         builder.Property(e => e.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
@@ -1013,6 +1018,160 @@ internal sealed class RepositorioCamposPersonalizados : IRepositorioCamposPerson
                 valores.TryGetValue(c.Id, out var valor) ? valor : null))
             .ToList();
     }
+}
+
+internal sealed class ConfiguracionRaza : IEntityTypeConfiguration<Raza>
+{
+    public void Configure(EntityTypeBuilder<Raza> builder)
+    {
+        builder.ToTable("raza");
+        builder.HasKey(r => r.Id);
+        builder.Property(r => r.Id).HasColumnName("id");
+        builder.Property(r => r.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(r => r.Especie).HasColumnName("especie").HasMaxLength(Raza.LongitudMaximaEspecie).IsRequired();
+        builder.Property(r => r.Nombre).HasColumnName("nombre").HasMaxLength(Raza.LongitudMaximaNombre).IsRequired();
+        builder.Property(r => r.Activo).HasColumnName("activo").IsRequired();
+        builder.Property(r => r.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(r => r.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        // Única por empresa + especie + nombre.
+        builder.HasIndex(r => new { r.EmpresaId, r.Especie, r.Nombre })
+            .HasDatabaseName("ux_raza_empresa_especie_nombre")
+            .IsUnique();
+        builder.Ignore(r => r.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioRazas : IRepositorioRazas, IConsultaRazas
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioRazas(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<Raza?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.Razas.SingleOrDefaultAsync(r => r.Id == id, ct);
+
+    public void Agregar(Raza raza) => _contexto.Razas.Add(raza);
+
+    public async Task<RazaDto?> ObtenerAsync(Guid id, CancellationToken ct = default)
+    {
+        var raza = await _contexto.Razas.SingleOrDefaultAsync(r => r.Id == id, ct).ConfigureAwait(false);
+        return raza is null ? null : RazaDto.Desde(raza);
+    }
+
+    public async Task<IReadOnlyList<RazaDto>> ListarAsync(Guid empresaId, string? especie = null, bool incluirInactivas = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.Razas.Where(r => r.EmpresaId == empresaId);
+        if (!string.IsNullOrWhiteSpace(especie))
+        {
+            var esp = especie.Trim();
+            consulta = consulta.Where(r => r.Especie == esp);
+        }
+
+        if (!incluirInactivas)
+        {
+            consulta = consulta.Where(r => r.Activo);
+        }
+
+        var razas = await consulta.OrderBy(r => r.Especie).ThenBy(r => r.Nombre).ToListAsync(ct).ConfigureAwait(false);
+        return razas.Select(RazaDto.Desde).ToList();
+    }
+
+    public Task<bool> ExisteNombreAsync(Guid empresaId, string especie, string nombre, Guid? excluirId = null, CancellationToken ct = default) =>
+        _contexto.Razas.AnyAsync(
+            r => r.EmpresaId == empresaId && r.Especie == especie && r.Nombre == nombre && (excluirId == null || r.Id != excluirId),
+            ct);
+}
+
+internal sealed class ConfiguracionNotaFactura : IEntityTypeConfiguration<NotaFactura>
+{
+    public void Configure(EntityTypeBuilder<NotaFactura> builder)
+    {
+        builder.ToTable("nota_factura");
+        builder.HasKey(n => n.Id);
+        builder.Property(n => n.Id).HasColumnName("id");
+        builder.Property(n => n.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(n => n.FacturaId).HasColumnName("factura_id").IsRequired();
+        builder.Property(n => n.Texto).HasColumnName("texto").HasMaxLength(NotaFactura.LongitudMaximaTexto).IsRequired();
+        builder.Property(n => n.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        builder.HasIndex(n => new { n.EmpresaId, n.FacturaId }).HasDatabaseName("ux_nota_factura_empresa_factura").IsUnique();
+        builder.Ignore(n => n.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioFacturacionClinica : IRepositorioNotasFactura, IConsultaFacturacionClinica
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioFacturacionClinica(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<NotaFactura?> ObtenerPorFacturaAsync(Guid empresaId, Guid facturaId, CancellationToken ct = default) =>
+        _contexto.NotasFactura.SingleOrDefaultAsync(n => n.EmpresaId == empresaId && n.FacturaId == facturaId, ct);
+
+    public void Agregar(NotaFactura nota) => _contexto.NotasFactura.Add(nota);
+
+    public void Eliminar(NotaFactura nota) => _contexto.NotasFactura.Remove(nota);
+
+    public async Task<IReadOnlyList<FacturaClinicaDto>> ListarAsync(Guid empresaId, CancellationToken ct = default)
+    {
+        // Actos ya facturados: (factura, animal). Con el animal obtenemos especie y raza.
+        var actos = await _contexto.ActosClinicos
+            .Where(a => a.EmpresaId == empresaId && a.FacturaId != null)
+            .Select(a => new { FacturaId = a.FacturaId!.Value, a.AnimalId })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var animalIds = actos.Select(a => a.AnimalId).Distinct().ToList();
+        var animales = animalIds.Count == 0
+            ? new List<AnimalEspecieRaza>()
+            : await _contexto.Animales
+                .Where(a => animalIds.Contains(a.Id))
+                .Select(a => new AnimalEspecieRaza(a.Id, a.Especie, a.Raza))
+                .ToListAsync(ct)
+                .ConfigureAwait(false);
+        var animalPorId = animales.ToDictionary(a => a.Id);
+
+        var notas = (await _contexto.NotasFactura
+                .Where(n => n.EmpresaId == empresaId)
+                .Select(n => new { n.FacturaId, n.Texto })
+                .ToListAsync(ct)
+                .ConfigureAwait(false))
+            .ToDictionary(n => n.FacturaId, n => n.Texto);
+
+        var porFactura = new Dictionary<Guid, (HashSet<string> Especies, HashSet<string> Razas)>();
+        foreach (var acto in actos)
+        {
+            if (!porFactura.TryGetValue(acto.FacturaId, out var acc))
+            {
+                acc = (new HashSet<string>(StringComparer.OrdinalIgnoreCase), new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+                porFactura[acto.FacturaId] = acc;
+            }
+
+            if (animalPorId.TryGetValue(acto.AnimalId, out var an))
+            {
+                if (!string.IsNullOrWhiteSpace(an.Especie)) acc.Especies.Add(an.Especie);
+                if (!string.IsNullOrWhiteSpace(an.Raza)) acc.Razas.Add(an.Raza!);
+            }
+        }
+
+        // Facturas que solo tienen nota (sin actos) también se incluyen.
+        var facturaIds = new HashSet<Guid>(porFactura.Keys);
+        foreach (var id in notas.Keys) facturaIds.Add(id);
+
+        return facturaIds.Select(id =>
+        {
+            porFactura.TryGetValue(id, out var acc);
+            notas.TryGetValue(id, out var nota);
+            return new FacturaClinicaDto(
+                id,
+                acc.Especies is null ? Array.Empty<string>() : acc.Especies.OrderBy(x => x).ToList(),
+                acc.Razas is null ? Array.Empty<string>() : acc.Razas.OrderBy(x => x).ToList(),
+                nota);
+        }).ToList();
+    }
+
+    private sealed record AnimalEspecieRaza(Guid Id, string Especie, string? Raza);
 }
 
 /// <summary>Factoría en tiempo de diseño para migraciones.</summary>

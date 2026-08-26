@@ -13,7 +13,40 @@ public sealed class UsuariosEndpointsTests : IClassFixture<FabricaApiPruebas>
     public UsuariosEndpointsTests(FabricaApiPruebas fabrica) => _fabrica = fabrica;
 
     private sealed record MiembroDto(Guid UsuarioId, string Email, string Nombre, bool EmailVerificado, string Rol, string RolNombre, string Estado, bool EsYo);
-    private sealed record InvitarResp(Guid UsuarioId, bool Creado, string? EnlaceContrasena);
+    private sealed record InvitarResp(Guid UsuarioId, bool Creado, bool AccesoInmediato, string? EnlaceContrasena);
+    private sealed record LoginResp(string Token);
+
+    [Fact]
+    public async Task Invitar_con_contrasena_inicial_permite_entrar_de_inmediato()
+    {
+        var (cliente, _) = await Ayudas.ConEmpresaAsync(_fabrica);
+        var email = $"invitado{Guid.NewGuid():N}@ejemplo.com";
+
+        var resp = await cliente.PostAsJsonAsync("/usuarios/invitar", new { Email = email, Nombre = "Con Clave", Rol = "usuario", ContrasenaInicial = "ClaveInicial1" });
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var invitado = await resp.Content.ReadFromJsonAsync<InvitarResp>();
+        invitado!.AccesoInmediato.Should().BeTrue();
+        invitado.EnlaceContrasena.Should().BeNull();
+
+        // El miembro figura con el email verificado.
+        var miembros = await cliente.GetFromJsonAsync<List<MiembroDto>>("/usuarios");
+        miembros!.Single(m => m.Email == email).EmailVerificado.Should().BeTrue();
+
+        // Y puede iniciar sesión con esas credenciales desde un cliente nuevo.
+        var anon = _fabrica.CreateClient();
+        var login = await anon.PostAsJsonAsync("/auth/login", new { Email = email, Contrasena = "ClaveInicial1" });
+        login.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await login.Content.ReadFromJsonAsync<LoginResp>())!.Token.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task Invitar_con_contrasena_demasiado_corta_devuelve_400()
+    {
+        var (cliente, _) = await Ayudas.ConEmpresaAsync(_fabrica);
+        var email = $"invitado{Guid.NewGuid():N}@ejemplo.com";
+        var resp = await cliente.PostAsJsonAsync("/usuarios/invitar", new { Email = email, Rol = "usuario", ContrasenaInicial = "corta" });
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
 
     [Fact]
     public async Task El_creador_de_la_empresa_es_su_unico_miembro_propietario()

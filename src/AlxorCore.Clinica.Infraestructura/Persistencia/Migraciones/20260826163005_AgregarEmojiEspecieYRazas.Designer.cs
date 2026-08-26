@@ -3,6 +3,7 @@ using System;
 using AlxorCore.Clinica.Infraestructura;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AlxorCore.Clinica.Infraestructura.Persistencia.Migraciones
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826163005_AgregarEmojiEspecieYRazas")]
+    partial class AgregarEmojiEspecieYRazas
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -550,40 +553,6 @@ namespace AlxorCore.Clinica.Infraestructura.Persistencia.Migraciones
                         .HasDatabaseName("ux_especie_empresa_nombre");
 
                     b.ToTable("especie", "clinica");
-                });
-
-            modelBuilder.Entity("AlxorCore.Clinica.Dominio.NotaFactura", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<DateTimeOffset>("ActualizadoEn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("actualizado_en");
-
-                    b.Property<Guid>("EmpresaId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("empresa_id");
-
-                    b.Property<Guid>("FacturaId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("factura_id");
-
-                    b.Property<string>("Texto")
-                        .IsRequired()
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)")
-                        .HasColumnName("texto");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("EmpresaId", "FacturaId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_nota_factura_empresa_factura");
-
-                    b.ToTable("nota_factura", "clinica");
                 });
 
             modelBuilder.Entity("AlxorCore.Clinica.Dominio.PautaVacunal", b =>
