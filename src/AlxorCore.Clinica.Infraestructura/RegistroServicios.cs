@@ -56,6 +56,16 @@ public static class RegistroServicios
         servicios.AddScoped<DescargarAdjunto>();
         servicios.AddScoped<EliminarAdjunto>();
 
+        // Inventario / stock.
+        servicios.AddScoped<RepositorioInventario>();
+        servicios.AddScoped<IRepositorioInventario>(sp => sp.GetRequiredService<RepositorioInventario>());
+        servicios.AddScoped<IConsultaInventario>(sp => sp.GetRequiredService<RepositorioInventario>());
+        servicios.AddScoped<CrearArticuloInventario>();
+        servicios.AddScoped<ActualizarArticuloInventario>();
+        servicios.AddScoped<AjustarStockArticulo>();
+        servicios.AddScoped<DesactivarArticuloInventario>();
+        servicios.AddScoped<ListarInventario>();
+
         servicios.AddScoped<CrearEspecie>();
         servicios.AddScoped<ActualizarEspecie>();
         servicios.AddScoped<DesactivarEspecie>();

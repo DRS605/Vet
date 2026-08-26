@@ -51,6 +51,8 @@ public sealed class ClinicaDbContext : DbContextEmpresaBase, IUnidadDeTrabajoCli
 
     public DbSet<Adjunto> Adjuntos => Set<Adjunto>();
 
+    public DbSet<ArticuloInventario> Inventario => Set<ArticuloInventario>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasDefaultSchema(Esquema);
@@ -1229,6 +1231,54 @@ internal sealed class RepositorioAdjuntos : IRepositorioAdjuntos, IConsultaAdjun
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
         return a;
+    }
+}
+
+internal sealed class ConfiguracionArticuloInventario : IEntityTypeConfiguration<ArticuloInventario>
+{
+    public void Configure(EntityTypeBuilder<ArticuloInventario> builder)
+    {
+        builder.ToTable("articulo_inventario");
+        builder.HasKey(a => a.Id);
+        builder.Property(a => a.Id).HasColumnName("id");
+        builder.Property(a => a.EmpresaId).HasColumnName("empresa_id").IsRequired();
+        builder.Property(a => a.Nombre).HasColumnName("nombre").HasMaxLength(ArticuloInventario.LongitudMaximaNombre).IsRequired();
+        builder.Property(a => a.Categoria).HasColumnName("categoria").HasMaxLength(20).HasConversion<string>().IsRequired();
+        builder.Property(a => a.Unidad).HasColumnName("unidad").HasMaxLength(ArticuloInventario.LongitudMaximaUnidad);
+        builder.Property(a => a.Stock).HasColumnName("stock").HasColumnType("numeric(12,2)").IsRequired();
+        builder.Property(a => a.StockMinimo).HasColumnName("stock_minimo").HasColumnType("numeric(12,2)").IsRequired();
+        builder.Property(a => a.Caducidad).HasColumnName("caducidad");
+        builder.Property(a => a.Notas).HasColumnName("notas").HasMaxLength(ArticuloInventario.LongitudMaximaNotas);
+        builder.Property(a => a.Activo).HasColumnName("activo").IsRequired();
+        builder.Property(a => a.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(a => a.ActualizadoEn).HasColumnName("actualizado_en").IsRequired();
+
+        builder.HasIndex(a => new { a.EmpresaId, a.Nombre }).HasDatabaseName("ix_articulo_inventario_empresa_nombre");
+        builder.Ignore(a => a.EventosDominio);
+    }
+}
+
+internal sealed class RepositorioInventario : IRepositorioInventario, IConsultaInventario
+{
+    private readonly ClinicaDbContext _contexto;
+
+    public RepositorioInventario(ClinicaDbContext contexto) => _contexto = contexto;
+
+    public Task<ArticuloInventario?> ObtenerPorIdAsync(Guid id, CancellationToken ct = default) =>
+        _contexto.Inventario.SingleOrDefaultAsync(a => a.Id == id, ct);
+
+    public void Agregar(ArticuloInventario articulo) => _contexto.Inventario.Add(articulo);
+
+    public async Task<IReadOnlyList<ArticuloInventarioDto>> ListarAsync(Guid empresaId, bool incluirInactivos = false, CancellationToken ct = default)
+    {
+        var consulta = _contexto.Inventario.Where(a => a.EmpresaId == empresaId);
+        if (!incluirInactivos)
+        {
+            consulta = consulta.Where(a => a.Activo);
+        }
+
+        var articulos = await consulta.OrderBy(a => a.Nombre).ToListAsync(ct).ConfigureAwait(false);
+        return articulos.Select(ArticuloInventarioDto.Desde).ToList();
     }
 }
 

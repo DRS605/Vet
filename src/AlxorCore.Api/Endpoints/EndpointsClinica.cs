@@ -60,6 +60,28 @@ public static class EndpointsClinica
             .WithSummary("Da de baja (baja lógica) una especie del maestro.")
             .RequierePermiso(Permisos.AnimalGestionar);
 
+        var inventario = rutas.MapGroup("/inventario").WithTags("Inventario");
+
+        inventario.MapGet("", ListarInventarioAsync)
+            .WithSummary("Lista el inventario de la empresa (?incluirInactivos= para todos).")
+            .RequierePermiso(Permisos.AnimalLeer);
+
+        inventario.MapPost("", CrearArticuloAsync)
+            .WithSummary("Crea un artículo de inventario.")
+            .RequierePermiso(Permisos.ProductoGestionar);
+
+        inventario.MapPut("/{id:guid}", ActualizarArticuloAsync)
+            .WithSummary("Actualiza un artículo de inventario.")
+            .RequierePermiso(Permisos.ProductoGestionar);
+
+        inventario.MapPost("/{id:guid}/ajustar", AjustarStockAsync)
+            .WithSummary("Ajusta el stock de un artículo (entrada/salida).")
+            .RequierePermiso(Permisos.ProductoGestionar);
+
+        inventario.MapDelete("/{id:guid}", DesactivarArticuloAsync)
+            .WithSummary("Da de baja un artículo de inventario.")
+            .RequierePermiso(Permisos.ProductoGestionar);
+
         var razas = rutas.MapGroup("/razas").WithTags("Razas");
 
         razas.MapGet("", ListarRazasAsync)
@@ -426,6 +448,36 @@ public static class EndpointsClinica
         (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
 
     private static async Task<IResult> DarDeBajaEspecieAsync(Guid id, DesactivarEspecie caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
+
+    private static async Task<IResult> ListarInventarioAsync(bool? incluirInactivos, IContextoEmpresa contexto, ListarInventario caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, incluirInactivos ?? false, ct).ConfigureAwait(false));
+    }
+
+    private static async Task<IResult> CrearArticuloAsync(DatosArticuloInventario datos, IContextoEmpresa contexto, CrearArticuloInventario caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, datos, ct).ConfigureAwait(false);
+        return resultado.EsCorrecto ? resultado.ACreado($"/inventario/{resultado.Valor.Id}") : ResultadosHttp.AProblema(resultado.Error);
+    }
+
+    private static async Task<IResult> ActualizarArticuloAsync(Guid id, DatosArticuloInventario datos, ActualizarArticuloInventario caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> AjustarStockAsync(Guid id, DatosAjusteStock datos, AjustarStockArticulo caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, datos?.Delta ?? 0m, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> DesactivarArticuloAsync(Guid id, DesactivarArticuloInventario caso, CancellationToken ct) =>
         (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
 
     private static async Task<IResult> ListarRazasAsync(string? especie, bool? incluirInactivas, IContextoEmpresa contexto, ListarRazas caso, CancellationToken ct)

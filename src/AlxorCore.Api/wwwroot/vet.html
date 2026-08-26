@@ -262,6 +262,14 @@
     .adj-info{display:flex;align-items:center;gap:6px;padding:7px 9px;font-size:11.5px;}
     .adj-info span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--muted);}
     .adj-del{border:none;background:transparent;color:var(--neg);cursor:pointer;font-size:13px;padding:0 2px;}
+    .inv-avisos{display:flex;gap:8px;flex-wrap:wrap;padding:12px 18px 0;}
+    /* Vista semanal de agenda. */
+    .sem-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
+    .sem-dia{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden;min-height:90px;}
+    .sem-dia.hoy{border-color:var(--honey);box-shadow:0 0 0 2px var(--honey-soft);}
+    .sem-dia h5{margin:0;padding:8px 11px;background:var(--accent-soft);font-size:12.5px;text-transform:capitalize;}
+    .sem-cita{padding:7px 11px;border-top:1px solid #f4efe7;font-size:12px;}
+    .sem-cita .hr{font-weight:700;}
 
     .rem{display:flex;gap:13px;padding:13px 18px;border-bottom:1px solid #f4efe7;align-items:flex-start;}
     .rem:last-child{border-bottom:none;}
@@ -620,16 +628,17 @@ const ICON = {
   usuarios:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><circle cx="17.5" cy="9" r="2.4"/><path d="M16 15c3 .2 5 1.9 5 5"/></svg>',
   presupuestos:'<svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 14l2 2 4-4"/></svg>',
   facturas:'<svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>',
-  informes:'<svg viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>'
+  informes:'<svg viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>',
+  inventario:'<svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>'
 };
 const NAV = [
   ["inicio","Inicio"],["agenda","Agenda"],["clientes","Clientes"],
-  ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["facturacion","Facturación"],["presupuestos","Presupuestos"],
-  ["facturas","Facturas"],["informes","Informes"],
+  ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["inventario","Inventario"],
+  ["facturacion","Facturación"],["presupuestos","Presupuestos"],["facturas","Facturas"],["informes","Informes"],
   ["especies","Especies"],["conceptos","Servicios / Conceptos"],["campos","Campos personalizados"],
   ["usuarios","Usuarios"],["ajustes","Ajustes"]
 ];
-const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",usuarios:"Usuarios",presupuestos:"Presupuestos",facturas:"Facturas emitidas",informes:"Informes",ajustes:"Ajustes"};
+const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",usuarios:"Usuarios",presupuestos:"Presupuestos",facturas:"Facturas emitidas",informes:"Informes",inventario:"Inventario",ajustes:"Ajustes"};
 
 /* ---------- fetch con Bearer ---------- */
 async function api(path, opts={}){
@@ -767,7 +776,7 @@ function ir(k, params){
   closeMenu(); vista=k; ctx=Object.assign({}, params||{});
   document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes")));
   $("viewTitle").textContent=TITULOS[k]||k;
-  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,usuarios:vUsuarios,presupuestos:vPresupuestos,facturas:vFacturasPanel,informes:vInformesClientes,ajustes:vAjustes}[k];
+  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,usuarios:vUsuarios,presupuestos:vPresupuestos,facturas:vFacturasPanel,informes:vInformesClientes,inventario:vInventario,ajustes:vAjustes}[k];
   (fn||vInicio)();
 }
 const view = h => $("view").innerHTML=h;
@@ -1060,7 +1069,7 @@ async function vAnimal(){ cargando(); await conError(async()=>{
   let cliente=null; try{ cliente=await api("/clientes/"+a.clienteId); }catch{}
   window._pautasCache=null;
   // Cachés por id para prerrellenar los modales de edición del historial y la ficha del animal.
-  window._animalActual=a;
+  window._animalActual=a; window._clienteActual=cliente;
   window._consultasById={}; consultas.forEach(c=>window._consultasById[c.id]=c);
   window._vacunasById={}; vacunas.forEach(v=>window._vacunasById[v.id]=v);
   window._cirugiasById={}; cirugias.forEach(s=>window._cirugiasById[s.id]=s);
@@ -1107,6 +1116,8 @@ async function vAnimal(){ cargando(); await conError(async()=>{
       <button class="btn v" onclick="modalVacunar('${a.id}','${a.especie}')">${ICON.vacunas} Vacunar</button>
       <button class="btn line" onclick="modalCirugia('${a.id}')">Nueva cirugía</button>
       <button class="btn line" onclick="modalActo('${a.id}')">Registrar acto</button>
+      <button class="btn line" onclick="modalConsentimiento()">📄 Consentimiento</button>
+      <button class="btn line" onclick="modalReceta()">💊 Receta</button>
     </div>
     ${cpPanelVista(camposAni)}
     ${pesoChartPanel(a, consultas)}
@@ -1181,6 +1192,73 @@ function eliminarAdjunto(id){
     await api("/adjuntos/"+id,{method:"DELETE"});
     toast("Adjunto eliminado.","ok"); vAnimal();
   }, "Eliminar");
+}
+
+/* ---------- DOCUMENTOS IMPRIMIBLES (consentimiento / receta) ---------- */
+async function datosEmpresa(){
+  if(window._empresaDatos) return window._empresaDatos;
+  try{ window._empresaDatos=await api("/empresas/actual"); }catch{ window._empresaDatos={razonSocial:empresa&&empresa.razonSocial||"Clínica",nif:empresa&&empresa.nif||""}; }
+  return window._empresaDatos;
+}
+function imprimirDoc(titulo, cuerpoHtml){
+  const emp=window._empresaDatos||{};
+  const dir=[emp.calle,[emp.codigoPostal,emp.poblacion].filter(Boolean).join(" "),emp.provincia].filter(Boolean).join(" · ");
+  const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(titulo)}</title>
+    <style>
+      *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2e1b0e;margin:0;padding:26mm 20mm;font-size:13px;line-height:1.5}
+      .cab{display:flex;justify-content:space-between;border-bottom:2px solid #f0a500;padding-bottom:10px;margin-bottom:18px}
+      .cab h1{font-size:18px;margin:0}.cab .r{text-align:right;font-size:11px;color:#7a5f49}
+      h2{font-size:15px;margin:18px 0 8px}
+      .row{margin:3px 0}.row b{display:inline-block;min-width:120px;color:#7a5f49}
+      .cont{white-space:pre-wrap;border:1px solid #e4d8c8;border-radius:8px;padding:12px;min-height:90px;margin-top:6px}
+      .firmas{display:flex;gap:40px;margin-top:48px}.firma{flex:1;border-top:1px solid #2e1b0e;padding-top:6px;font-size:11px;color:#7a5f49}
+      .pie{margin-top:40px;font-size:10px;color:#9a8574;text-align:center}
+      @media print{body{padding:14mm}}
+    </style></head><body>
+    <div class="cab"><div><h1>${esc(emp.razonSocial||"Clínica veterinaria")}</h1><div style="font-size:11px;color:#7a5f49">${esc(emp.nif||"")}${dir?" · "+esc(dir):""}</div></div>
+      <div class="r">${esc(titulo)}<br>${fdate(hoyISO())}</div></div>
+    ${cuerpoHtml}
+    <div class="pie">Documento generado con Vetis by Alxor</div>
+    <script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script>
+    </body></html>`;
+  const w=window.open("","_blank"); if(!w){ toast("Permite las ventanas emergentes para imprimir.","err"); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+}
+function _cabeceraDoc(a, c){
+  return `<div class="row"><b>Propietario/a:</b> ${esc(c&&c.nombre||"—")}${c&&c.nifFiscal?" ("+esc(c.nifFiscal)+")":""}</div>
+    <div class="row"><b>Teléfono:</b> ${esc(c&&c.telefono||"—")}</div>
+    <div class="row"><b>Animal:</b> ${esc(a.nombre)} · ${esc(a.especie)}${a.raza?" ("+esc(a.raza)+")":""}${a.microchip?" · Chip "+esc(a.microchip):""}</div>`;
+}
+async function modalConsentimiento(){
+  const a=window._animalActual, c=window._clienteActual; if(!a) return;
+  await datosEmpresa();
+  abrir("Consentimiento informado", `
+    <label>Procedimiento / intervención *</label><input id="doc_proc" placeholder="p. ej. Ovariohisterectomía"/>
+    <label>Detalles / riesgos (opcional)</label><textarea id="doc_txt" placeholder="Anestesia, riesgos, cuidados posteriores…"></textarea>
+    <div class="error" id="modalErr"></div>`, async()=>{
+    if(!val("doc_proc")) throw new Error("Indica el procedimiento.");
+    const cuerpo=`<h2>Consentimiento informado</h2>${_cabeceraDoc(a,c)}
+      <div class="row"><b>Procedimiento:</b> ${esc(val("doc_proc"))}</div>
+      <div class="cont">${esc(val("doc_txt")||"")}</div>
+      <p style="margin-top:16px">El/la propietario/a autoriza la realización del procedimiento descrito, habiendo sido informado/a de su naturaleza, riesgos y alternativas, y de los cuidados posteriores.</p>
+      <div class="firmas"><div class="firma">Firma del propietario/a</div><div class="firma">Firma y nº colegiado/a del veterinario/a</div></div>`;
+    imprimirDoc("Consentimiento informado", cuerpo); cerrarModal();
+  }, "Generar e imprimir");
+}
+async function modalReceta(){
+  const a=window._animalActual, c=window._clienteActual; if(!a) return;
+  await datosEmpresa();
+  abrir("Receta / prescripción", `
+    <label>Medicación e indicaciones *</label><textarea id="doc_txt" rows="6" placeholder="Medicamento, dosis, pauta y duración. Un renglón por línea."></textarea>
+    <label>Veterinario/a</label><input id="doc_vet" value="${esc(usuario&&usuario.nombre||"")}"/>
+    <div class="error" id="modalErr"></div>`, async()=>{
+    if(!val("doc_txt")) throw new Error("Escribe la medicación.");
+    const cuerpo=`<h2>Prescripción veterinaria</h2>${_cabeceraDoc(a,c)}
+      <div class="row"><b>Veterinario/a:</b> ${esc(val("doc_vet")||"")}</div>
+      <h2 style="margin-top:14px">Rp.</h2><div class="cont">${esc(val("doc_txt"))}</div>
+      <div class="firmas"><div class="firma">Firma y nº colegiado/a</div></div>`;
+    imprimirDoc("Receta veterinaria", cuerpo); cerrarModal();
+  }, "Generar e imprimir");
 }
 
 function modalConsulta(animalId, opts){
@@ -1854,6 +1932,86 @@ function infRender(){
     : vacio("📊","Sin datos","No hay facturas en el periodo seleccionado.");
 }
 
+/* ---------- INVENTARIO / STOCK ---------- */
+const CAT_INV=[["Medicamento","💊 Medicamento"],["Vacuna","💉 Vacuna"],["Material","🧰 Material"],["Alimento","🍖 Alimento"],["Otro","📦 Otro"]];
+function catInvNombre(c){ const x=CAT_INV.find(p=>p[0]===c); return x?x[1]:c; }
+function caducaPronto(fecha){ if(!fecha) return false; const d=new Date(String(fecha).slice(0,10)); const lim=new Date(); lim.setDate(lim.getDate()+30); return d<=lim; }
+function caducada(fecha){ if(!fecha) return false; return new Date(String(fecha).slice(0,10))<new Date(hoyISO()); }
+async function vInventario(){ cargando(); await conError(async()=>{
+  let items;
+  try{ items=await api("/inventario"); }
+  catch(e){ view(vacio("🔒","Sin acceso","No tienes permiso para ver el inventario.")); return; }
+  window._invById={}; items.forEach(a=>window._invById[a.id]=a);
+  const bajos=items.filter(a=>a.bajoStock).length, cad=items.filter(a=>caducaPronto(a.caducidad)).length;
+  const filas=items.map(a=>{
+    const badges=[a.bajoStock?'<span class="pill neg">Stock bajo</span>':"",
+      caducada(a.caducidad)?'<span class="pill neg">Caducado</span>':(caducaPronto(a.caducidad)?`<span class="pill wait">Caduca ${fdate(a.caducidad)}</span>`:"")].filter(Boolean).join(" ");
+    return `<tr>
+      <td><b>${esc(a.nombre)}</b> ${badges}</td>
+      <td class="muted">${esc(catInvNombre(a.categoria))}</td>
+      <td class="num"><b>${esc(String(a.stock))}</b>${a.unidad?` <span class="muted">${esc(a.unidad)}</span>`:""}</td>
+      <td class="num muted">${a.stockMinimo>0?esc(String(a.stockMinimo)):"—"}</td>
+      <td class="muted">${a.caducidad?fdate(a.caducidad):"—"}</td>
+      <td class="num" style="white-space:nowrap">
+        <button class="btn tiny v" onclick="ajustarStock('${a.id}')">± Stock</button>
+        <button class="btn tiny line" onclick="modalArticulo('${a.id}')">Editar</button>
+        <button class="btn tiny line" onclick="bajaArticulo('${a.id}',${esc(JSON.stringify(a.nombre))})">Baja</button>
+      </td></tr>`;
+  }).join("");
+  const avisos = (bajos||cad) ? `<div class="inv-avisos">${bajos?`<span class="pill neg">${bajos} con stock bajo</span>`:""} ${cad?`<span class="pill wait">${cad} caducan pronto</span>`:""}</div>` : "";
+  const cuerpo = items.length
+    ? `${avisos}<table><thead><tr><th>Artículo</th><th>Categoría</th><th class="num">Stock</th><th class="num">Mínimo</th><th>Caducidad</th><th class="num">Acciones</th></tr></thead><tbody>${filas}</tbody></table>`
+    : vacio("📦","Inventario vacío","Añade tu primer artículo (medicamentos, vacunas, material…) para controlar el stock.", `<button class="btn v" onclick="modalArticulo()">${ICON.plus} Nuevo artículo</button>`);
+  view(`
+    <h3 class="sec">Inventario</h3>
+    <p class="subt">Controla el stock de medicamentos, vacunas y material. Avisa cuando algo baja del mínimo o está a punto de caducar.</p>
+    ${panel("Inventario", cuerpo, `<button class="btn v small" onclick="modalArticulo()">${ICON.plus} Nuevo artículo</button>`)}`);
+}); }
+function _camposArticulo(a){
+  const cat=(a&&a.categoria)||"Medicamento";
+  const catOpc=CAT_INV.map(([v,l])=>`<option value="${v}" ${v===cat?"selected":""}>${l}</option>`).join("");
+  return `
+    <label>Nombre *</label><input id="i_nombre" value="${esc(a&&a.nombre||"")}" placeholder="p. ej. Amoxicilina 250 mg"/>
+    <div class="grid-2"><div><label>Categoría</label><select id="i_cat">${catOpc}</select></div><div><label>Unidad</label><input id="i_uni" value="${esc(a&&a.unidad||"")}" placeholder="uds, ml, comprimidos…"/></div></div>
+    <div class="grid-2"><div><label>Stock actual</label><input id="i_stock" inputmode="decimal" value="${a&&a.stock!=null?a.stock:0}"/></div><div><label>Stock mínimo</label><input id="i_min" inputmode="decimal" value="${a&&a.stockMinimo!=null?a.stockMinimo:0}"/></div></div>
+    <label>Caducidad</label><input id="i_cad" type="date" value="${a&&a.caducidad?String(a.caducidad).slice(0,10):""}"/>
+    <label>Notas</label><textarea id="i_notas">${esc(a&&a.notas||"")}</textarea>
+    <div class="error" id="modalErr"></div>`;
+}
+function modalArticulo(id){
+  const a=id?(window._invById||{})[id]:null;
+  abrir(a?"Editar artículo":"Nuevo artículo", _camposArticulo(a), async()=>{
+    if(!val("i_nombre")) throw new Error("El nombre es obligatorio.");
+    const cuerpo={ nombre:val("i_nombre"), categoria:val("i_cat"), unidad:val("i_uni")||null,
+      stock:num("i_stock")||0, stockMinimo:num("i_min")||0, caducidad:val("i_cad")||null, notas:val("i_notas")||null };
+    if(a) await api("/inventario/"+id,{method:"PUT",body:JSON.stringify(cuerpo)});
+    else await api("/inventario",{method:"POST",body:JSON.stringify(cuerpo)});
+    toast("Artículo guardado.","ok"); vInventario();
+  }, "Guardar");
+}
+function ajustarStock(id){
+  const a=(window._invById||{})[id]||{};
+  abrir(`Ajustar stock — ${esc(a.nombre||"")}`, `
+    <p class="muted" style="margin:0 0 10px">Stock actual: <b>${esc(String(a.stock))}</b>${a.unidad?" "+esc(a.unidad):""}</p>
+    <label>Cantidad</label><input id="as_cant" inputmode="decimal" value="1"/>
+    <div class="error" id="modalErr"></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button type="button" class="btn v" style="flex:1" onclick="aplicarAjuste('${id}',1)">Entrada (+)</button>
+      <button type="button" class="btn line" style="flex:1" onclick="aplicarAjuste('${id}',-1)">Salida (−)</button>
+    </div>`, null, "Cerrar");
+}
+async function aplicarAjuste(id, signo){
+  const cant=num("as_cant"); if(cant==null||cant<=0){ const b=$("modalErr"); if(b) b.textContent="Indica una cantidad mayor que cero."; return; }
+  try{ await api(`/inventario/${id}/ajustar`,{method:"POST",body:JSON.stringify({delta:signo*cant})}); toast("Stock actualizado.","ok"); vInventario(); }
+  catch(e){ const b=$("modalErr"); if(b) b.textContent=e.message; }
+}
+function bajaArticulo(id, nombre){
+  abrir("Dar de baja artículo", `<p>¿Dar de baja «${esc(nombre)}» del inventario?</p><div class="error" id="modalErr"></div>`, async()=>{
+    await api("/inventario/"+id,{method:"DELETE"});
+    toast("Artículo dado de baja.","ok"); vInventario();
+  }, "Dar de baja");
+}
+
 /* ---------- RECORDATORIOS ---------- */
 async function vRecordatorios(){ cargando(); await conError(async()=>{
   const [rec, animales, clientes]=await Promise.all([api(`/recordatorios?estado=Pendiente`), api(`/animales`), api(`/clientes`).catch(()=>[])]);
@@ -1896,8 +2054,47 @@ async function enviarPendientes(){
 }
 
 /* ---------- AGENDA ---------- */
+/* Lunes de la semana de una fecha ISO (yyyy-mm-dd). */
+function lunesDe(iso){ const d=new Date(iso+"T12:00:00"); const dow=(d.getDay()+6)%7; d.setDate(d.getDate()-dow); return d.toISOString().slice(0,10); }
+function sumarDias(iso, n){ const d=new Date(iso+"T12:00:00"); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
 async function vAgenda(){ cargando(); await conError(async()=>{
   const dia=ctx.dia||hoyISO();
+  const modo=ctx.modo==="semana"?"semana":"dia";
+  const toggle=`<div class="species-tabs" style="display:inline-flex;gap:6px">
+      <span class="sp ${modo==="dia"?"on":""}" onclick="ir('agenda',{dia:'${dia}',modo:'dia'})">Día</span>
+      <span class="sp ${modo==="semana"?"on":""}" onclick="ir('agenda',{dia:'${dia}',modo:'semana'})">Semana</span></div>`;
+  const nuevaBtn=`<button class="btn v" onclick="modalNuevaCita()">${ICON.plus} Nueva cita</button>`;
+
+  if(modo==="semana"){
+    const ini=lunesDe(dia), fin=sumarDias(ini,6);
+    const [citas, animales]=await Promise.all([
+      api(`/agenda?desde=${encodeURIComponent(diaDesde(ini))}&hasta=${encodeURIComponent(diaHasta(fin))}`),
+      api(`/animales`)
+    ]);
+    window._animalesCache=animales;
+    const porId={}; animales.forEach(a=>porId[a.id]=a);
+    const DIAS=["lunes","martes","miércoles","jueves","viernes","sábado","domingo"];
+    const cols=[];
+    for(let i=0;i<7;i++){
+      const f=sumarDias(ini,i);
+      const delDia=citas.filter(c=>String(c.inicio).slice(0,10)===f).sort((x,y)=>String(x.inicio).localeCompare(String(y.inicio)));
+      const items=delDia.map(c=>{ const a=porId[c.animalId]; const hh=new Date(c.inicio).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"});
+        const color=c.estado==="Confirmada"||c.estado==="Atendida"?"var(--pos)":c.estado==="Cancelada"||c.estado==="NoPresentado"?"var(--neg)":"var(--warn)";
+        return `<div class="sem-cita" onclick="${a?`ir('animal',{animalId:'${c.animalId}',clienteId:'${a.clienteId}'})`:""}"><span class="hr" style="color:${color}">${hh}</span> ${a?esc(a.nombre):"Animal"}<br><span class="muted">${esc(c.motivo||c.tipo||"")}</span></div>`;
+      }).join("")||`<div class="sem-cita muted">—</div>`;
+      cols.push(`<div class="sem-dia ${f===hoyISO()?"hoy":""}"><h5>${DIAS[i]} ${f.slice(8,10)}/${f.slice(5,7)}</h5>${items}</div>`);
+    }
+    view(`
+      <div class="toolbar" style="gap:10px;align-items:center">
+        ${toggle}
+        <button class="btn line small" onclick="ir('agenda',{dia:'${sumarDias(ini,-7)}',modo:'semana'})">← Semana anterior</button>
+        <button class="btn line small" onclick="ir('agenda',{dia:'${sumarDias(ini,7)}',modo:'semana'})">Siguiente →</button>
+        <div class="grow"></div>${nuevaBtn}
+      </div>
+      ${panel(`Semana del ${fdate(ini)} al ${fdate(fin)}`, `<div style="padding:14px 16px"><div class="sem-grid">${cols.join("")}</div></div>`, `<span class="sp">${citas.length} cita${citas.length===1?"":"s"}</span>`)}`);
+    return;
+  }
+
   const [citas, animales]=await Promise.all([
     api(`/agenda?desde=${encodeURIComponent(diaDesde(dia))}&hasta=${encodeURIComponent(diaHasta(dia))}`),
     api(`/animales`)
@@ -1917,11 +2114,11 @@ async function vAgenda(){ cargando(); await conError(async()=>{
   }).join("") : vacio("🗓️","Sin citas","No hay citas ese día.", `<button class="btn v" onclick="modalNuevaCita()">${ICON.plus} Nueva cita</button>`);
   view(`
     <div class="toolbar">
-      <label style="margin:0 6px 0 0">Día</label>
-      <input id="agDia" type="date" value="${dia}" style="min-width:170px" oninput="$('agDiaFmt').textContent=fdate(this.value)" onchange="ir('agenda',{dia:this.value})"/>
+      ${toggle}
+      <input id="agDia" type="date" value="${dia}" style="min-width:160px" oninput="$('agDiaFmt').textContent=fdate(this.value)" onchange="ir('agenda',{dia:this.value,modo:'dia'})"/>
       <span class="datefmt" id="agDiaFmt" title="Fecha seleccionada (DD/MM/AAAA)">${fdate(dia)}</span>
       <div class="grow"></div>
-      <button class="btn v" onclick="modalNuevaCita()">${ICON.plus} Nueva cita</button>
+      ${nuevaBtn}
     </div>
     ${panel(`Agenda · ${fdate(dia)}`, filas, `<span class="sp">${citas.length} cita${citas.length===1?"":"s"}</span>`)}`);
 }); }

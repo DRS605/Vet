@@ -3,6 +3,7 @@ using System;
 using AlxorCore.Clinica.Infraestructura;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace AlxorCore.Clinica.Infraestructura.Persistencia.Migraciones
 {
     [DbContext(typeof(ClinicaDbContext))]
-    partial class ClinicaDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826175300_AgregarInventario")]
+    partial class AgregarInventario
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
