@@ -84,6 +84,34 @@ public sealed class TercerosEndpointsTests : IClassFixture<FabricaApiPruebas>
     }
 
     [Fact]
+    public async Task Dar_de_baja_cliente_lo_oculta_del_listado_pero_conserva_su_ficha()
+    {
+        var (cliente, _) = await Ayudas.ConEmpresaAsync(_fabrica);
+
+        var crear = await cliente.PostAsJsonAsync("/clientes", new { Nombre = "Cliente a dar de baja SL" });
+        var creado = await crear.Content.ReadFromJsonAsync<ClienteDto>();
+
+        var baja = await cliente.DeleteAsync(new Uri($"/clientes/{creado!.Id}", UriKind.Relative));
+        baja.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+        // Ya no aparece en el listado (baja lógica, no borrado físico)…
+        var lista = await cliente.GetFromJsonAsync<List<ClienteDto>>("/clientes");
+        lista.Should().NotContain(c => c.Id == creado.Id);
+
+        // …pero su ficha sigue existiendo, marcada como inactiva.
+        var obtenido = await cliente.GetFromJsonAsync<ClienteDto>($"/clientes/{creado.Id}");
+        obtenido!.Activo.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Dar_de_baja_cliente_inexistente_devuelve_404()
+    {
+        var (cliente, _) = await Ayudas.ConEmpresaAsync(_fabrica);
+        var baja = await cliente.DeleteAsync(new Uri($"/clientes/{Guid.NewGuid()}", UriKind.Relative));
+        baja.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
     public async Task Crear_cliente_sin_nombre_devuelve_400()
     {
         var (cliente, _) = await Ayudas.ConEmpresaAsync(_fabrica);

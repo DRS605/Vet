@@ -34,6 +34,7 @@ public static class RegistroServicios
         servicios.AddScoped<CrearCliente>();
         servicios.AddScoped<ImportarClientes>();
         servicios.AddScoped<ActualizarCliente>();
+        servicios.AddScoped<DesactivarCliente>();
         servicios.AddScoped<ListarClientes>();
         servicios.AddScoped<ObtenerCliente>();
 

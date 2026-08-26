@@ -31,6 +31,10 @@ public static class EndpointsTerceros
             .WithSummary("Actualiza un cliente.")
             .RequierePermiso(Permisos.ClienteGestionar);
 
+        clientes.MapDelete("/{id:guid}", DarDeBajaAsync)
+            .WithSummary("Da de baja (baja lógica) un cliente.")
+            .RequierePermiso(Permisos.ClienteGestionar);
+
         clientes.MapPost("/importar", ImportarClientesAsync)
             .WithSummary("Importa clientes desde CSV (previsualiza o confirma).")
             .RequierePermiso(Permisos.ClienteGestionar);
@@ -135,4 +139,7 @@ public static class EndpointsTerceros
 
     private static async Task<IResult> ActualizarAsync(Guid id, DatosCliente datos, ActualizarCliente caso, CancellationToken ct) =>
         (await caso.EjecutarAsync(id, datos, ct).ConfigureAwait(false)).AOk();
+
+    private static async Task<IResult> DarDeBajaAsync(Guid id, DesactivarCliente caso, CancellationToken ct) =>
+        (await caso.EjecutarAsync(id, ct).ConfigureAwait(false)).ASinContenido();
 }

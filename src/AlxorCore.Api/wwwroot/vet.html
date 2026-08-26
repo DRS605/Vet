@@ -212,6 +212,7 @@
     .tl .card .h{display:flex;align-items:center;justify-content:space-between;gap:8px;}
     .tl .card .h b{font-size:13.5px;} .tl .card .txt{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.45;}
     .tl .card .txt b{color:var(--ink);font-weight:600;}
+    .tl-acc{display:flex;gap:7px;margin-top:9px;justify-content:flex-end;}
 
     .species-tabs{display:flex;gap:8px;padding:2px 0 16px;flex-wrap:wrap;}
     .species-tabs .sp{display:inline-flex;align-items:center;gap:7px;padding:8px 13px;border-radius:10px;border:1px solid var(--line);background:#fff;font-weight:600;font-size:13px;color:var(--muted);cursor:pointer;}
@@ -543,6 +544,11 @@ async function guardarModal(){
   finally{ btn.disabled=false; }
 }
 $("modalBg").addEventListener("click",e=>{ if(e.target===$("modalBg")) cerrarModal(); });
+/* Confirmación reutilizable para bajas/anulaciones (nunca borrado físico): abre un modal con el
+   mensaje y ejecuta la acción al confirmar. El texto del botón deja claro que es una baja/anulación. */
+function confirmarAccion(titulo, mensajeHtml, onConfirm, okTexto){
+  abrir(titulo, `<p style="margin:0;line-height:1.5">${mensajeHtml}</p><div class="error" id="modalErr"></div>`, onConfirm, okTexto||"Confirmar");
+}
 
 /* ---------- buscador global ---------- */
 let _buscarT=null, _buscarSeq=0;
@@ -735,15 +741,17 @@ function pillEstadoCita(e){
 async function vClientes(){ cargando(); await conError(async()=>{
   const clientes=await api("/clientes");
   window._clientes=clientes;
+  window._clientesById={}; clientes.forEach(c=>window._clientesById[c.id]=c);
   const filas = c => `<tr class="clickable" onclick="ir('cliente',{clienteId:'${c.id}'})">
     <td><div style="display:flex;align-items:center;gap:10px"><span class="avatar mini">${esc(iniciales(c.nombre))}</span><b>${esc(c.nombre)}</b></div></td>
     <td class="muted">${esc(c.nifFiscal||"—")}</td>
     <td class="muted">${esc(c.email||"—")}</td>
     <td class="muted">${esc([c.poblacion,c.provincia].filter(Boolean).join(", ")||"—")}</td>
-    <td class="num muted">Ver ficha →</td></tr>`;
+    <td class="num"><button class="btn tiny line" onclick="event.stopPropagation();modalCliente(window._clientesById['${c.id}'])">Editar</button>
+      <button class="btn tiny line" onclick="event.stopPropagation();darBajaCliente('${c.id}',${JSON.stringify(c.nombre)})">Dar de baja</button></td></tr>`;
   const render = lista => {
     const cuerpo = lista.length
-      ? `<table><thead><tr><th>Cliente</th><th>NIF</th><th>Correo</th><th>Población</th><th class="num"></th></tr></thead><tbody>${lista.map(filas).join("")}</tbody></table>`
+      ? `<table><thead><tr><th>Cliente</th><th>NIF</th><th>Correo</th><th>Población</th><th class="num">Acciones</th></tr></thead><tbody>${lista.map(filas).join("")}</tbody></table>`
       : ((window._clientes||[]).length
           ? vacio("🔎","Sin coincidencias","Ningún cliente coincide con lo que buscas. Prueba con otro nombre, NIF o correo.")
           : vacio("👤","Aún no tienes clientes","Crea la primera ficha de cliente para empezar a registrar sus animales, citas y vacunas.", `<button class="btn v" onclick="modalNuevoCliente()">${ICON.plus} Añade el primero</button>`));
@@ -762,28 +770,51 @@ function filtrarClientes(){
   const lista=(window._clientes||[]).filter(c=>!q || [c.nombre,c.nifFiscal,c.email].some(x=>(x||"").toLowerCase().includes(q)));
   window._renderClientes(lista);
 }
-function modalNuevoCliente(){
-  abrir("Nuevo cliente", `
-    <label>Nombre *</label><input id="c_nombre" placeholder="Nombre y apellidos"/>
-    <div class="grid-2"><div><label>NIF / DNI</label><input id="c_nif"/></div><div><label>Correo</label><input id="c_email" type="email"/></div></div>
-    <label>Dirección</label><input id="c_calle" placeholder="Calle y número"/>
-    <div class="grid-2"><div><label>Población</label><input id="c_pob"/></div><div><label>Provincia</label><input id="c_prov"/></div></div>
-    <label>Código postal</label><input id="c_cp"/>
+/* Modal de cliente: da de alta (sin argumento) o edita (con el cliente) reusando el mismo formulario.
+   Al editar se prerrellena y guarda con PUT; al crear, con POST. */
+function modalCliente(c){
+  const editar=!!(c&&c.id);
+  abrir(editar?"Editar cliente":"Nuevo cliente", `
+    <label>Nombre *</label><input id="c_nombre" placeholder="Nombre y apellidos" value="${esc(c&&c.nombre||"")}"/>
+    <div class="grid-2"><div><label>NIF / DNI</label><input id="c_nif" value="${esc(c&&c.nifFiscal||"")}"/></div><div><label>Correo</label><input id="c_email" type="email" value="${esc(c&&c.email||"")}"/></div></div>
+    <label>Dirección</label><input id="c_calle" placeholder="Calle y número" value="${esc(c&&c.calle||"")}"/>
+    <div class="grid-2"><div><label>Población</label><input id="c_pob" value="${esc(c&&c.poblacion||"")}"/></div><div><label>Provincia</label><input id="c_prov" value="${esc(c&&c.provincia||"")}"/></div></div>
+    <div class="grid-2"><div><label>Código postal</label><input id="c_cp" value="${esc(c&&c.codigoPostal||"")}"/></div><div><label>IRPF (%)</label><input id="c_irpf" inputmode="decimal" value="${c&&c.porcentajeIrpfDefecto!=null?c.porcentajeIrpfDefecto:""}" placeholder="0"/></div></div>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("c_nombre")) throw new Error("El nombre es obligatorio.");
-      const c=await api("/clientes",{method:"POST",body:JSON.stringify({
+      const cuerpo={
         nombre:val("c_nombre"), nifFiscal:val("c_nif")||null, email:val("c_email")||null,
-        calle:val("c_calle")||null, codigoPostal:val("c_cp")||null, poblacion:val("c_pob")||null, provincia:val("c_prov")||null
-      })});
-      toast("Cliente creado.","ok"); ir("cliente",{clienteId:c.id});
-    });
+        calle:val("c_calle")||null, codigoPostal:val("c_cp")||null, poblacion:val("c_pob")||null, provincia:val("c_prov")||null,
+        porcentajeIrpfDefecto:num("c_irpf")||0
+      };
+      if(editar){
+        await api("/clientes/"+c.id,{method:"PUT",body:JSON.stringify(cuerpo)});
+        toast("Cliente actualizado.","ok");
+        if(vista==="cliente") vCliente(); else vClientes();
+      } else {
+        const creado=await api("/clientes",{method:"POST",body:JSON.stringify(cuerpo)});
+        toast("Cliente creado.","ok"); ir("cliente",{clienteId:creado.id});
+      }
+    }, editar?"Guardar":"Crear");
+}
+/* Alias por compatibilidad con los puntos de entrada de alta. */
+function modalNuevoCliente(){ modalCliente(); }
+function darBajaCliente(id, nombre){
+  confirmarAccion("Dar de baja cliente",
+    `¿Seguro que quieres dar de baja a «${esc(nombre)}»? Dejará de aparecer en el listado, pero se conserva su ficha y su historial (baja lógica, no se borra).`,
+    async()=>{
+      await api("/clientes/"+id,{method:"DELETE"});
+      toast("Cliente dado de baja.","ok");
+      if(vista==="cliente") ir("clientes"); else vClientes();
+    }, "Dar de baja");
 }
 
 /* ---------- FICHA CLIENTE ---------- */
 async function vCliente(){ cargando(); await conError(async()=>{
   const id=ctx.clienteId;
   const [c, animales]=await Promise.all([api("/clientes/"+id), api(`/clientes/${id}/animales`)]);
+  window._clientesById=window._clientesById||{}; window._clientesById[id]=c;
   const petCard = a => `<div class="pet" onclick="ir('animal',{animalId:'${a.id}',clienteId:'${id}'})">
     <div class="av">${emojiEspecie(a.especie)}</div>
     <h5>${esc(a.nombre)}</h5>
@@ -799,30 +830,59 @@ async function vCliente(){ cargando(); await conError(async()=>{
       <div style="flex:1"><h3>${esc(c.nombre)}</h3>
         <div class="meta">${c.email?`<span>✉️ ${esc(c.email)}</span>`:""}${c.nifFiscal?`<span>🪪 ${esc(c.nifFiscal)}</span>`:""}${[c.calle,c.poblacion].filter(Boolean).length?`<span>📍 ${esc([c.calle,c.poblacion].filter(Boolean).join(", "))}</span>`:""}</div>
       </div>
-      <button class="btn v" onclick="modalNuevoAnimal('${id}')">${ICON.plus} Añadir animal</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn line" onclick="modalCliente(window._clientesById['${id}'])">Editar ficha</button>
+        <button class="btn line" onclick="darBajaCliente('${id}',${JSON.stringify(c.nombre)})">Dar de baja</button>
+        <button class="btn v" onclick="modalNuevoAnimal('${id}')">${ICON.plus} Añadir animal</button>
+      </div>
     </div>
     ${panel(`Animales de ${esc(c.nombre.split(" ")[0])}`, petsHtml, `<span class="sp">${animales.length} ficha${animales.length===1?"":"s"}</span>`)}`);
 }); }
-function modalNuevoAnimal(clienteId){
-  abrir("Nuevo animal", `
-    <label>Nombre *</label><input id="a_nombre"/>
+/* Modal de animal: alta (con clienteId) o edición (pasando el animal). Al editar se prerrellena la
+   ficha completa —especie desde el maestro, sexo, raza, nacimiento, microchip, esterilizado, peso,
+   notas— y se guarda con PUT; al crear, con POST. */
+function modalAnimal(clienteId, a){
+  const editar=!!(a&&a.id);
+  const sx=s=>(a&&a.sexo)===s?" selected":"";
+  abrir(editar?"Editar animal":"Nuevo animal", `
+    <label>Nombre *</label><input id="a_nombre" value="${esc(a&&a.nombre||"")}"/>
     <div class="grid-2">
-      <div><label>Especie</label><select id="a_especie">${opcionesEspecie()}</select></div>
-      <div><label>Sexo</label><select id="a_sexo"><option value="Desconocido">—</option><option value="Macho">Macho</option><option value="Hembra">Hembra</option></select></div>
+      <div><label>Especie</label><select id="a_especie">${opcionesEspecie(a&&a.especie)}</select></div>
+      <div><label>Sexo</label><select id="a_sexo"><option value="Desconocido"${sx("Desconocido")}>—</option><option value="Macho"${sx("Macho")}>Macho</option><option value="Hembra"${sx("Hembra")}>Hembra</option></select></div>
     </div>
-    <div class="grid-2"><div><label>Raza</label><input id="a_raza"/></div><div><label>Fecha de nacimiento</label><input id="a_fnac" type="date"/></div></div>
-    <div class="grid-2"><div><label>Microchip</label><input id="a_chip"/></div><div><label>Peso (kg)</label><input id="a_peso" inputmode="decimal"/></div></div>
-    <label><input type="checkbox" id="a_ester" style="width:auto;margin-right:8px"/>Esterilizado</label>
+    <div class="grid-2"><div><label>Raza</label><input id="a_raza" value="${esc(a&&a.raza||"")}"/></div><div><label>Fecha de nacimiento</label><input id="a_fnac" type="date" value="${a&&a.fechaNacimiento?String(a.fechaNacimiento).slice(0,10):""}"/></div></div>
+    <div class="grid-2"><div><label>Microchip</label><input id="a_chip" value="${esc(a&&a.microchip||"")}"/></div><div><label>Peso (kg)</label><input id="a_peso" inputmode="decimal" value="${a&&a.pesoKg!=null?a.pesoKg:""}"/></div></div>
+    <label><input type="checkbox" id="a_ester" style="width:auto;margin-right:8px" ${a&&a.esterilizado?"checked":""}/>Esterilizado</label>
+    <label>Notas</label><textarea id="a_notas">${esc(a&&a.notas||"")}</textarea>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("a_nombre")) throw new Error("El nombre es obligatorio.");
-      const a=await api("/animales",{method:"POST",body:JSON.stringify({
-        clienteId, nombre:val("a_nombre"), especie:val("a_especie"), sexo:val("a_sexo"),
-        raza:val("a_raza")||null, fechaNacimiento:val("a_fnac")||null, microchip:val("a_chip")||null,
-        esterilizado:$("a_ester").checked, pesoKg:num("a_peso")
-      })});
-      toast("Animal creado.","ok"); ir("animal",{animalId:a.id,clienteId});
-    });
+      if(editar){
+        await api("/animales/"+a.id,{method:"PUT",body:JSON.stringify({
+          nombre:val("a_nombre"), especie:val("a_especie"), sexo:val("a_sexo"),
+          raza:val("a_raza")||null, fechaNacimiento:val("a_fnac")||null, microchip:val("a_chip")||null,
+          esterilizado:$("a_ester").checked, pesoKg:num("a_peso"), notas:val("a_notas")||null
+        })});
+        toast("Animal actualizado.","ok"); vAnimal();
+      } else {
+        const creado=await api("/animales",{method:"POST",body:JSON.stringify({
+          clienteId, nombre:val("a_nombre"), especie:val("a_especie"), sexo:val("a_sexo"),
+          raza:val("a_raza")||null, fechaNacimiento:val("a_fnac")||null, microchip:val("a_chip")||null,
+          esterilizado:$("a_ester").checked, pesoKg:num("a_peso"), notas:val("a_notas")||null
+        })});
+        toast("Animal creado.","ok"); ir("animal",{animalId:creado.id,clienteId});
+      }
+    }, editar?"Guardar":"Crear");
+}
+/* Alias por compatibilidad con los puntos de entrada de alta. */
+function modalNuevoAnimal(clienteId){ modalAnimal(clienteId); }
+function darBajaAnimal(id, nombre, clienteId){
+  confirmarAccion("Dar de baja animal",
+    `¿Seguro que quieres dar de baja a «${esc(nombre)}»? Dejará de aparecer en las fichas, pero se conserva su historial (baja lógica, no se borra).`,
+    async()=>{
+      await api("/animales/"+id,{method:"DELETE"});
+      toast("Animal dado de baja.","ok"); ir("cliente",{clienteId});
+    }, "Dar de baja");
 }
 
 /* ---------- FICHA ANIMAL + HISTORIAL ---------- */
@@ -836,22 +896,31 @@ async function vAnimal(){ cargando(); await conError(async()=>{
   ctx.clienteId = ctx.clienteId || a.clienteId;
   let cliente=null; try{ cliente=await api("/clientes/"+a.clienteId); }catch{}
   window._pautasCache=null;
+  // Cachés por id para prerrellenar los modales de edición del historial y la ficha del animal.
+  window._animalActual=a;
+  window._consultasById={}; consultas.forEach(c=>window._consultasById[c.id]=c);
+  window._vacunasById={}; vacunas.forEach(v=>window._vacunasById[v.id]=v);
+  window._cirugiasById={}; cirugias.forEach(s=>window._cirugiasById[s.id]=s);
+  const accEvento = (fn,anularFn) => `<div class="tl-acc">${fn}${anularFn}</div>`;
 
   const eventos=[];
   consultas.forEach(c=>eventos.push({fecha:c.fecha,tipo:"Consulta",cls:"part",color:"var(--accent)",titulo:c.motivo?`Consulta — ${c.motivo}`:"Consulta",
-    txt:[c.diagnostico?`<b>Diagnóstico:</b> ${esc(c.diagnostico)}`:"",c.tratamiento?`<b>Tratamiento:</b> ${esc(c.tratamiento)}`:"",c.veterinario?`<b>Vet.:</b> ${esc(c.veterinario)}`:""].filter(Boolean).join(" ")}));
+    txt:[c.diagnostico?`<b>Diagnóstico:</b> ${esc(c.diagnostico)}`:"",c.tratamiento?`<b>Tratamiento:</b> ${esc(c.tratamiento)}`:"",c.veterinario?`<b>Vet.:</b> ${esc(c.veterinario)}`:""].filter(Boolean).join(" "),
+    acc:accEvento(`<button class="btn tiny line" onclick="editarConsulta('${c.id}')">Editar</button>`,`<button class="btn tiny line" onclick="anularConsulta('${c.id}')">Anular</button>`)}));
   vacunas.forEach(v=>eventos.push({fecha:v.fechaAplicacion,tipo:"Vacuna",cls:"vet",color:"var(--vet)",titulo:`Vacuna — ${v.nombre}`,
-    txt:[v.lote?`<b>Lote:</b> ${esc(v.lote)}`:"",v.proximaDosis?`<b>Próxima dosis:</b> ${fdate(v.proximaDosis)}`:""].filter(Boolean).join(" · ")}));
+    txt:[v.lote?`<b>Lote:</b> ${esc(v.lote)}`:"",v.proximaDosis?`<b>Próxima dosis:</b> ${fdate(v.proximaDosis)}`:""].filter(Boolean).join(" · "),
+    acc:accEvento(`<button class="btn tiny line" onclick="editarVacuna('${v.id}')">Editar</button>`,`<button class="btn tiny line" onclick="anularVacuna('${v.id}')">Anular</button>`)}));
   cirugias.forEach(s=>eventos.push({fecha:s.fecha,tipo:"Cirugía",cls:"info",color:"#8a5a1e",titulo:`Cirugía — ${s.nombre}`,
-    txt:[s.descripcion?esc(s.descripcion):"",s.cirujano?`<b>Cirujano:</b> ${esc(s.cirujano)}`:"",s.proximaRevision?`<b>Revisión:</b> ${fdate(s.proximaRevision)}`:""].filter(Boolean).join(" · ")}));
+    txt:[s.descripcion?esc(s.descripcion):"",s.cirujano?`<b>Cirujano:</b> ${esc(s.cirujano)}`:"",s.proximaRevision?`<b>Revisión:</b> ${fdate(s.proximaRevision)}`:""].filter(Boolean).join(" · "),
+    acc:accEvento(`<button class="btn tiny line" onclick="editarCirugia('${s.id}')">Editar</button>`,`<button class="btn tiny line" onclick="anularCirugia('${s.id}')">Anular</button>`)}));
   actos.forEach(x=>eventos.push({fecha:x.fecha,tipo:"Acto",cls:"cach",color:"var(--honey-ink)",titulo:`Acto — ${x.concepto}`,
-    txt:`<b>Importe:</b> ${eur(x.importe)} · ${esc(x.estado)}`}));
+    txt:`<b>Importe:</b> ${eur(x.importe)} · ${esc(x.estado)}`,acc:""}));
   eventos.sort((p,q)=>String(q.fecha).localeCompare(String(p.fecha)));
 
   const tl = eventos.length ? `<div class="tl">${eventos.map(e=>`
     <div class="it"><div class="date">${fdateCorta(e.fecha)}</div>
       <div class="rail"><span class="d" style="background:${e.color}"></span></div>
-      <div class="card"><div class="h"><b>${esc(e.titulo)}</b><span class="pill ${e.cls}">${e.tipo}</span></div>${e.txt?`<div class="txt">${e.txt}</div>`:""}</div></div>`).join("")}</div>`
+      <div class="card"><div class="h"><b>${esc(e.titulo)}</b><span class="pill ${e.cls}">${e.tipo}</span></div>${e.txt?`<div class="txt">${e.txt}</div>`:""}${e.acc||""}</div></div>`).join("")}</div>`
     : vacio("📋","Historial vacío","Aún no hay consultas, vacunas ni cirugías registradas para este animal.", `<button class="btn" onclick="modalConsulta('${a.id}')">${ICON.plus} Registrar la primera consulta</button>`);
 
   const vacTabla = vacunas.length ? `<table><tbody>${vacunas.slice().sort((x,y)=>String(y.fechaAplicacion).localeCompare(String(x.fechaAplicacion))).slice(0,6).map(v=>`
@@ -863,7 +932,11 @@ async function vAnimal(){ cargando(); await conError(async()=>{
     <div class="clienthead">
       <div class="big" style="background:var(--grad-honey);color:var(--ink);font-size:26px">${emojiEspecie(a.especie)}</div>
       <div style="flex:1"><h3>${esc(a.nombre)} ${a.esCachorro?'<span class="pill cach" style="vertical-align:middle">🍼 Cachorro</span>':""}</h3>
-        <div class="meta"><span>${esc(a.raza||a.especie)} · ${a.sexo==="Macho"?"Macho":a.sexo==="Hembra"?"Hembra":"—"}</span><span>${edadTexto(a)}${a.fechaNacimiento?` (${fdate(a.fechaNacimiento)})`:""}</span>${a.pesoKg?`<span>${a.pesoKg} kg</span>`:""}${a.microchip?`<span>Chip ${esc(a.microchip)}</span>`:""}${cliente?`<span>Propietario: ${esc(cliente.nombre)}</span>`:""}</div>
+        <div class="meta"><span>${esc(a.raza||a.especie)} · ${a.sexo==="Macho"?"Macho":a.sexo==="Hembra"?"Hembra":"—"}</span><span>${edadTexto(a)}${a.fechaNacimiento?` (${fdate(a.fechaNacimiento)})`:""}</span>${a.pesoKg?`<span>${a.pesoKg} kg</span>`:""}${a.microchip?`<span>Chip ${esc(a.microchip)}</span>`:""}${cliente?`<span>Propietario: ${esc(cliente.nombre)}</span>`:""}${a.notas?`<span>📝 ${esc(a.notas)}</span>`:""}</div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn line" onclick="modalAnimal('${a.clienteId}',window._animalActual)">Editar ficha</button>
+        <button class="btn line" onclick="darBajaAnimal('${a.id}',${JSON.stringify(a.nombre)},'${a.clienteId}')">Dar de baja</button>
       </div>
     </div>
     <div class="toolbar">
@@ -881,12 +954,10 @@ async function vAnimal(){ cargando(); await conError(async()=>{
 function modalConsulta(animalId, opts){
   opts=opts||{};
   const refrescar = opts.alGuardar || vAnimal;
-  abrir("Nueva consulta", `
-    <div class="grid-2"><div><label>Fecha *</label><input id="k_fecha" type="date" value="${hoyISO()}"/></div><div><label>Peso (kg)</label><input id="k_peso" inputmode="decimal"/></div></div>
-    <label>Motivo</label><input id="k_motivo" value="${esc(opts.motivo||"")}"/>
-    <label>Diagnóstico</label><textarea id="k_diag"></textarea>
-    <label>Tratamiento</label><textarea id="k_trat"></textarea>
-    <label>Veterinario/a</label><input id="k_vet" value="${esc(usuario?.nombre||"")}"/>
+  const c = opts.consulta;              // presente al editar
+  const editar = !!(c&&c.id);
+  // El acto facturable solo tiene sentido al registrar una consulta nueva.
+  const bloqueActo = editar ? "" : `
     <div style="border-top:1px solid var(--line);margin-top:15px;padding-top:13px">
       <label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin:0;color:var(--ink);font-weight:600">
         <input type="checkbox" id="k_acto_on" style="width:auto;margin:0" onchange="$('k_acto_box').style.display=this.checked?'block':'none'"/>
@@ -897,10 +968,24 @@ function modalConsulta(animalId, opts){
         <div class="grid-2"><div><label>Importe (base, €) *</label><input id="k_acto_imp" inputmode="decimal"/></div><div><label>IVA (%)</label><input id="k_acto_iva" inputmode="decimal" placeholder="21"/></div></div>
         <p class="muted" style="font-size:12px;margin:8px 0 0">El acto queda pendiente de facturar; podrás emitir factura o ticket desde Facturación.</p>
       </div>
-    </div>
+    </div>`;
+  abrir(editar?"Editar consulta":"Nueva consulta", `
+    <div class="grid-2"><div><label>Fecha *</label><input id="k_fecha" type="date" value="${editar?String(c.fecha).slice(0,10):hoyISO()}"/></div><div><label>Peso (kg)</label><input id="k_peso" inputmode="decimal" value="${editar&&c.pesoKg!=null?c.pesoKg:""}"/></div></div>
+    <label>Motivo</label><input id="k_motivo" value="${esc(editar?(c.motivo||""):(opts.motivo||""))}"/>
+    <label>Diagnóstico</label><textarea id="k_diag">${esc(editar&&c.diagnostico||"")}</textarea>
+    <label>Tratamiento</label><textarea id="k_trat">${esc(editar&&c.tratamiento||"")}</textarea>
+    <label>Veterinario/a</label><input id="k_vet" value="${esc(editar?(c.veterinario||""):(usuario?.nombre||""))}"/>
+    ${bloqueActo}
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("k_fecha")) throw new Error("La fecha es obligatoria.");
+      if(editar){
+        await api(`/consultas/${c.id}`,{method:"PUT",body:JSON.stringify({
+          fecha:val("k_fecha"), motivo:val("k_motivo")||null, diagnostico:val("k_diag")||null,
+          tratamiento:val("k_trat")||null, pesoKg:num("k_peso"), veterinario:val("k_vet")||null
+        })});
+        toast("Consulta actualizada.","ok"); refrescar(); return;
+      }
       const conActo=$("k_acto_on").checked;
       if(conActo){
         if(!val("k_acto_con")) throw new Error("Indica el concepto del acto.");
@@ -917,7 +1002,12 @@ function modalConsulta(animalId, opts){
         })});
       }
       toast(conActo?"Consulta y acto registrados.":"Consulta registrada.","ok"); refrescar();
-    });
+    }, editar?"Guardar":undefined);
+}
+function editarConsulta(id){ const c=(window._consultasById||{})[id]; if(!c){ toast("No se encontró la consulta.","err"); return; } modalConsulta(c.animalId, {consulta:c}); }
+function anularConsulta(id){
+  confirmarAccion("Anular consulta","¿Seguro que quieres anular esta consulta? Desaparecerá del historial activo (anulación lógica, no se borra).",
+    async()=>{ await api("/consultas/"+id,{method:"DELETE"}); toast("Consulta anulada.","ok"); vAnimal(); }, "Anular");
 }
 async function modalVacunar(animalId, especie){
   let pautas=[]; try{ pautas=await api(`/vacunas/pautas?especie=${encodeURIComponent(especie)}`); }catch{}
@@ -940,22 +1030,60 @@ async function modalVacunar(animalId, especie){
     });
 }
 function _vacPautaChange(){ const s=$("v_pauta"); const o=s.options[s.selectedIndex]; if(o&&o.dataset.n) $("v_nombre").value=o.dataset.n; }
-function modalCirugia(animalId){
-  abrir("Nueva cirugía", `
-    <label>Nombre *</label><input id="s_nombre" placeholder="p. ej. Esterilización (OVH)"/>
-    <div class="grid-2"><div><label>Fecha *</label><input id="s_fecha" type="date" value="${hoyISO()}"/></div><div><label>Próxima revisión</label><input id="s_rev" type="date"/></div></div>
-    <label>Descripción</label><textarea id="s_desc"></textarea>
-    <div class="grid-2"><div><label>Cirujano/a</label><input id="s_cir" value="${esc(usuario?.nombre||"")}"/></div><div><label>Anestesia</label><input id="s_anes"/></div></div>
+/* Edición de una vacunación ya registrada (PUT). Se conserva la pauta original; se editan los datos
+   de la dosis (nombre, fechas, lote, veterinario/a, notas). */
+function editarVacuna(id){
+  const v=(window._vacunasById||{})[id]; if(!v){ toast("No se encontró la vacunación.","err"); return; }
+  abrir("Editar vacunación", `
+    <label>Nombre de la vacuna *</label><input id="ve_nombre" value="${esc(v.nombre||"")}"/>
+    <div class="grid-2"><div><label>Fecha *</label><input id="ve_fecha" type="date" value="${v.fechaAplicacion?String(v.fechaAplicacion).slice(0,10):""}"/></div><div><label>Próxima dosis</label><input id="ve_prox" type="date" value="${v.proximaDosis?String(v.proximaDosis).slice(0,10):""}"/></div></div>
+    <div class="grid-2"><div><label>Lote</label><input id="ve_lote" value="${esc(v.lote||"")}"/></div><div><label>Veterinario/a</label><input id="ve_vet" value="${esc(v.veterinario||"")}"/></div></div>
+    <label>Notas</label><textarea id="ve_notas">${esc(v.notas||"")}</textarea>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      if(!val("ve_fecha")) throw new Error("La fecha es obligatoria.");
+      if(!val("ve_nombre")) throw new Error("El nombre de la vacuna es obligatorio.");
+      await api("/vacunas/"+id,{method:"PUT",body:JSON.stringify({
+        fechaAplicacion:val("ve_fecha"), pautaVacunalId:v.pautaVacunalId||null, nombre:val("ve_nombre")||null,
+        lote:val("ve_lote")||null, proximaDosis:val("ve_prox")||null, veterinario:val("ve_vet")||null, notas:val("ve_notas")||null
+      })});
+      toast("Vacunación actualizada.","ok"); vAnimal();
+    }, "Guardar");
+}
+function anularVacuna(id){
+  confirmarAccion("Anular vacunación","¿Seguro que quieres anular esta vacunación? Desaparecerá del historial activo (anulación lógica, no se borra).",
+    async()=>{ await api("/vacunas/"+id,{method:"DELETE"}); toast("Vacunación anulada.","ok"); vAnimal(); }, "Anular");
+}
+function modalCirugia(animalId, s){
+  const editar=!!(s&&s.id);
+  abrir(editar?"Editar cirugía":"Nueva cirugía", `
+    <label>Nombre *</label><input id="s_nombre" placeholder="p. ej. Esterilización (OVH)" value="${esc(s&&s.nombre||"")}"/>
+    <div class="grid-2"><div><label>Fecha *</label><input id="s_fecha" type="date" value="${editar&&s.fecha?String(s.fecha).slice(0,10):hoyISO()}"/></div><div><label>Próxima revisión</label><input id="s_rev" type="date" value="${s&&s.proximaRevision?String(s.proximaRevision).slice(0,10):""}"/></div></div>
+    <label>Descripción</label><textarea id="s_desc">${esc(s&&s.descripcion||"")}</textarea>
+    <div class="grid-2"><div><label>Cirujano/a</label><input id="s_cir" value="${esc(editar?(s.cirujano||""):(usuario?.nombre||""))}"/></div><div><label>Anestesia</label><input id="s_anes" value="${esc(s&&s.anestesia||"")}"/></div></div>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("s_nombre")) throw new Error("El nombre es obligatorio.");
       if(!val("s_fecha")) throw new Error("La fecha es obligatoria.");
+      if(editar){
+        await api("/cirugias/"+s.id,{method:"PUT",body:JSON.stringify({
+          fecha:val("s_fecha"), nombre:val("s_nombre"), descripcion:val("s_desc")||null,
+          cirujano:val("s_cir")||null, anestesia:val("s_anes")||null,
+          complicaciones:s.complicaciones||null, proximaRevision:val("s_rev")||null
+        })});
+        toast("Cirugía actualizada.","ok"); vAnimal(); return;
+      }
       await api(`/animales/${animalId}/cirugias`,{method:"POST",body:JSON.stringify({
         animalId, fecha:val("s_fecha"), nombre:val("s_nombre"), descripcion:val("s_desc")||null,
         cirujano:val("s_cir")||null, anestesia:val("s_anes")||null, proximaRevision:val("s_rev")||null
       })});
       toast("Cirugía registrada.","ok"); vAnimal();
-    });
+    }, editar?"Guardar":undefined);
+}
+function editarCirugia(id){ const s=(window._cirugiasById||{})[id]; if(!s){ toast("No se encontró la cirugía.","err"); return; } modalCirugia(s.animalId, s); }
+function anularCirugia(id){
+  confirmarAccion("Anular cirugía","¿Seguro que quieres anular esta cirugía? Desaparecerá del historial activo (anulación lógica, no se borra).",
+    async()=>{ await api("/cirugias/"+id,{method:"DELETE"}); toast("Cirugía anulada.","ok"); vAnimal(); }, "Anular");
 }
 async function modalActo(animalId){
   if(!conceptosCache.length) await cargarConceptos();
@@ -990,12 +1118,15 @@ async function vVacunas(){ cargando(); await conError(async()=>{
   const especie=ctx.especie || (especiesCache[0] && especiesCache[0].nombre) || "Perro";
   const pautas=await api(`/vacunas/pautas?especie=${encodeURIComponent(especie)}`);
   const tabs=especiesCache.map(e=>`<span class="sp ${e.nombre===especie?"on":""}" onclick="ir('vacunas',{especie:'${esc(e.nombre)}'})"><span class="e">${emojiEspecie(e.nombre)}</span> ${esc(e.nombre)}</span>`).join("");
+  window._pautasById={}; pautas.forEach(p=>window._pautasById[p.id]=p);
   const caracterPill = c => c==="Legal"?'<span class="pill neg">Legal</span>':c==="Recomendada"?'<span class="pill vet">Recomendada</span>':'<span class="pill b">Opcional</span>';
   const cuerpo = pautas.length
-    ? `<table><thead><tr><th>Vacuna</th><th>Carácter</th><th class="num">Inicio</th><th class="num">Refuerzo</th></tr></thead><tbody>${pautas.map(p=>`
+    ? `<table><thead><tr><th>Vacuna</th><th>Carácter</th><th class="num">Inicio</th><th class="num">Refuerzo</th><th class="num">Acciones</th></tr></thead><tbody>${pautas.map(p=>`
         <tr><td><b>${esc(p.nombre)}</b></td><td>${caracterPill(p.caracter)}</td>
         <td class="num muted">${p.edadInicioSemanas!=null?p.edadInicioSemanas+" sem":"—"}</td>
-        <td class="num muted">${p.periodicidadRefuerzoMeses!=null?"cada "+p.periodicidadRefuerzoMeses+" m":"—"}</td></tr>`).join("")}</tbody></table>`
+        <td class="num muted">${p.periodicidadRefuerzoMeses!=null?"cada "+p.periodicidadRefuerzoMeses+" m":"—"}</td>
+        <td class="num"><button class="btn tiny line" onclick="modalPauta(null,window._pautasById['${p.id}'])">Editar</button>
+          <button class="btn tiny line" onclick="darBajaPauta('${p.id}',${JSON.stringify(p.nombre)},${JSON.stringify(p.especie)})">Dar de baja</button></td></tr>`).join("")}</tbody></table>`
     : vacio("💉","Sin pautas","No hay pautas para "+especie+" todavía.", `<button class="btn v" onclick="modalNuevaPauta('${especie}')">${ICON.plus} Nueva pauta</button>`);
   view(`
     <h3 class="sec">Calendario vacunal</h3>
@@ -1003,21 +1134,42 @@ async function vVacunas(){ cargando(); await conError(async()=>{
     <div class="species-tabs">${tabs}</div>
     ${panel(`Pautas · ${esc(especie)}`, cuerpo, `<button class="btn v small" onclick="modalNuevaPauta('${esc(especie)}')">${ICON.plus} Nueva pauta</button>`)}`);
 }); }
-function modalNuevaPauta(especie){
-  abrir("Nueva pauta vacunal", `
-    <label>Especie</label><select id="p_especie">${opcionesEspecie(especie)}</select>
-    <label>Nombre *</label><input id="p_nombre" placeholder="p. ej. Rabia"/>
-    <label>Carácter</label><select id="p_caracter"><option value="Recomendada">Recomendada</option><option value="Legal">Legal (obligatoria)</option><option value="Opcional">Opcional</option></select>
-    <div class="grid-2"><div><label>Edad de inicio (semanas)</label><input id="p_inicio" inputmode="numeric"/></div><div><label>Refuerzo (meses)</label><input id="p_refuerzo" inputmode="numeric"/></div></div>
+/* Modal de pauta vacunal: alta (con la especie) o edición (pasando la pauta). Al editar se prerrellena
+   nombre, carácter, edad de inicio y periodicidad de refuerzo y se guarda con PUT. */
+function modalPauta(especie, p){
+  const editar=!!(p&&p.id);
+  const esp = editar ? p.especie : especie;
+  const carOpt = c => `<option value="Recomendada"${c==="Recomendada"?" selected":""}>Recomendada</option><option value="Legal"${c==="Legal"?" selected":""}>Legal (obligatoria)</option><option value="Opcional"${c==="Opcional"?" selected":""}>Opcional</option>`;
+  abrir(editar?"Editar pauta vacunal":"Nueva pauta vacunal", `
+    <label>Especie</label><select id="p_especie" ${editar?"disabled":""}>${opcionesEspecie(esp)}</select>
+    <label>Nombre *</label><input id="p_nombre" placeholder="p. ej. Rabia" value="${esc(p&&p.nombre||"")}"/>
+    <label>Carácter</label><select id="p_caracter">${carOpt(p&&p.caracter||"Recomendada")}</select>
+    <div class="grid-2"><div><label>Edad de inicio (semanas)</label><input id="p_inicio" inputmode="numeric" value="${p&&p.edadInicioSemanas!=null?p.edadInicioSemanas:""}"/></div><div><label>Refuerzo (meses)</label><input id="p_refuerzo" inputmode="numeric" value="${p&&p.periodicidadRefuerzoMeses!=null?p.periodicidadRefuerzoMeses:""}"/></div></div>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("p_nombre")) throw new Error("El nombre es obligatorio.");
-      await api(`/vacunas/pautas`,{method:"POST",body:JSON.stringify({
-        especie:val("p_especie"), nombre:val("p_nombre"), caracter:val("p_caracter"),
+      const cuerpo={
+        especie:editar?p.especie:val("p_especie"), nombre:val("p_nombre"), caracter:val("p_caracter"),
         edadInicioSemanas:num("p_inicio"), periodicidadRefuerzoMeses:num("p_refuerzo")
-      })});
-      toast("Pauta creada.","ok"); ir("vacunas",{especie:val("p_especie")});
-    });
+      };
+      if(editar){
+        await api("/vacunas/pautas/"+p.id,{method:"PUT",body:JSON.stringify(cuerpo)});
+        toast("Pauta actualizada.","ok"); ir("vacunas",{especie:p.especie});
+      } else {
+        await api("/vacunas/pautas",{method:"POST",body:JSON.stringify(cuerpo)});
+        toast("Pauta creada.","ok"); ir("vacunas",{especie:cuerpo.especie});
+      }
+    }, editar?"Guardar":"Crear");
+}
+/* Alias por compatibilidad con los puntos de entrada de alta. */
+function modalNuevaPauta(especie){ modalPauta(especie); }
+function darBajaPauta(id, nombre, especie){
+  confirmarAccion("Dar de baja pauta",
+    `¿Seguro que quieres dar de baja la pauta «${esc(nombre)}»? Dejará de ofrecerse al vacunar, pero las vacunaciones ya registradas se conservan (baja lógica, no se borra).`,
+    async()=>{
+      await api("/vacunas/pautas/"+id,{method:"DELETE"});
+      toast("Pauta dada de baja.","ok"); ir("vacunas",{especie});
+    }, "Dar de baja");
 }
 
 /* ---------- ESPECIES (maestro editable) ---------- */

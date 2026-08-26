@@ -88,6 +88,34 @@ public sealed class ActualizarCliente
     }
 }
 
+/// <summary>Caso de uso: dar de baja (baja lógica) un cliente. No borra: lo marca inactivo.</summary>
+public sealed class DesactivarCliente
+{
+    private readonly IRepositorioClientes _clientes;
+    private readonly IUnidadDeTrabajoTerceros _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public DesactivarCliente(IRepositorioClientes clientes, IUnidadDeTrabajoTerceros unidadDeTrabajo, IReloj reloj)
+    {
+        _clientes = clientes;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado> EjecutarAsync(Guid clienteId, CancellationToken ct = default)
+    {
+        var cliente = await _clientes.ObtenerPorIdAsync(clienteId, ct).ConfigureAwait(false);
+        if (cliente is null)
+        {
+            return Resultado.Fallo(Error.NoEncontrado("cliente.no_encontrado", "El cliente no existe."));
+        }
+
+        cliente.Desactivar(_reloj);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok();
+    }
+}
+
 /// <summary>Caso de uso: listar los clientes de la empresa activa.</summary>
 public sealed class ListarClientes
 {
