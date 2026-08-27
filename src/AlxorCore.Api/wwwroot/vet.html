@@ -79,7 +79,10 @@
     .app{display:none;grid-template-columns:230px 1fr;min-height:100vh;}
     .sidebar{background:#fff;border-right:1px solid var(--line);padding:18px 12px;display:flex;flex-direction:column;}
     .sidebar .head{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 18px;}
-    .navlabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:#b09a85;padding:6px 10px;font-weight:700;}
+    .navlabel{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:#b09a85;padding:6px 10px 3px;font-weight:700;margin-top:6px;border-top:1px solid #f1e8db;}
+    .nav-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;}
+    .nav-scroll .navlabel:first-child{margin-top:0;border-top:none;}
+    .nav-scroll::-webkit-scrollbar{width:7px;} .nav-scroll::-webkit-scrollbar-thumb{background:#e4d8c8;border-radius:4px;}
     nav a{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:10px;color:var(--muted);font-weight:560;margin-bottom:2px;position:relative;font-size:13.5px;cursor:pointer;}
     nav a svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;}
     nav a:hover{background:#faf5ec;color:var(--ink);}
@@ -441,9 +444,7 @@
   <div id="app" class="app">
     <aside class="sidebar">
       <div class="head"><div class="wordmark" style="font-size:17px"><span class="mark"><svg viewBox="0 0 24 24" aria-hidden="true"><g fill="var(--honey)"><ellipse cx="12" cy="15.5" rx="5.2" ry="4.3"/><ellipse cx="6.3" cy="9.7" rx="2" ry="2.6"/><ellipse cx="10" cy="6.8" rx="2" ry="2.7"/><ellipse cx="14" cy="6.8" rx="2" ry="2.7"/><ellipse cx="17.7" cy="9.7" rx="2" ry="2.6"/></g></svg></span> <span class="stack"><span class="name">Vetis</span><span class="by">by Alxor</span></span></div></div>
-      <div class="navlabel">Clínica</div>
-      <nav id="nav"></nav>
-      <div class="spacer"></div>
+      <nav id="nav" class="nav-scroll"></nav>
       <div class="userbox"><div class="avatar" id="sideAvatar">V</div><div class="who"><b id="sideNombre">Usuario</b><br><span id="sideEmpresa">—</span></div></div>
       <button class="btn line logout" onclick="cerrarSesion()" title="Cerrar sesión"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg> Cerrar sesión</button>
     </aside>
@@ -637,12 +638,13 @@ const ICON = {
   informes:'<svg viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>',
   inventario:'<svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>'
 };
-const NAV = [
-  ["inicio","Inicio"],["agenda","Agenda"],["clientes","Clientes"],
-  ["vacunas","Vacunas"],["recordatorios","Recordatorios"],["inventario","Inventario"],
-  ["facturacion","Facturación"],["presupuestos","Presupuestos"],["facturas","Facturas"],["informes","Informes"],
-  ["especies","Especies"],["conceptos","Servicios / Conceptos"],["campos","Campos personalizados"],
-  ["usuarios","Usuarios"],["ajustes","Ajustes"]
+/* Menú por bloques: cada sección tiene un título y sus opciones. */
+const NAV_SECCIONES = [
+  { t:"", items:[["inicio","Inicio"],["agenda","Agenda"],["clientes","Clientes"]] },
+  { t:"Clínica", items:[["vacunas","Vacunas"],["recordatorios","Recordatorios"],["inventario","Inventario"]] },
+  { t:"Facturación", items:[["facturacion","Facturación"],["presupuestos","Presupuestos"],["facturas","Facturas"],["informes","Informes"]] },
+  { t:"Maestros", items:[["especies","Especies"],["conceptos","Servicios / Conceptos"],["campos","Campos personalizados"]] },
+  { t:"Administración", items:[["usuarios","Usuarios"],["ajustes","Ajustes"]] },
 ];
 const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",usuarios:"Usuarios",presupuestos:"Presupuestos",facturas:"Facturas emitidas",informes:"Informes",inventario:"Inventario",ajustes:"Ajustes"};
 
@@ -770,7 +772,10 @@ async function arrancar(){
   $("sideNombre").textContent=usuario?.nombre||"Usuario";
   $("sideEmpresa").textContent=empresa.razonSocial;
   $("empresaChip").innerHTML=`🏥 <span class="cname">${esc(empresa.razonSocial)}</span>`;
-  $("nav").innerHTML=NAV.map(([k,l])=>`<a data-k="${k}" onclick="ir('${k}')">${ICON[k]}<span>${l}</span></a>`).join("");
+  $("nav").innerHTML=NAV_SECCIONES.map(s=>
+    (s.t?`<div class="navlabel">${s.t}</div>`:"")+
+    s.items.map(([k,l])=>`<a data-k="${k}" onclick="ir('${k}')">${ICON[k]}<span>${l}</span></a>`).join("")
+  ).join("");
   await cargarEspecies();
   ir("inicio");
 }
