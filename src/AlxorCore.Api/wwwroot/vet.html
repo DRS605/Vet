@@ -1266,9 +1266,15 @@ async function vAnimal(){ cargando(); await conError(async()=>{
   actos.forEach(x=>eventos.push({fecha:x.fecha,tipo:"Acto",cls:"cach",color:"var(--honey-ink)",titulo:`Acto — ${x.concepto}`,
     txt:`<b>Importe:</b> ${eur(x.importe)} · ${esc(x.estado)}`,acc:""}));
   eventos.sort((p,q)=>String(q.fecha).localeCompare(String(p.fecha)));
+  window._histActual={animal:a, cliente, eventos};
+
+  const histBar=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)">
+    ${["","Consulta","Vacuna","Cirugía","Acto"].map(t=>`<span class="sp hist-f ${t===""?"on":""}" data-f="${esc(t)}" onclick="filtrarHistorial(${esc(JSON.stringify(t))})">${t===""?"Todos":esc(t)+"s"}</span>`).join("")}
+    <span style="flex:1"></span>
+    <button class="btn tiny line" onclick="imprimirHistorial()">🖨️ Imprimir</button></div>`;
 
   const tl = eventos.length ? `<div class="tl">${eventos.map(e=>`
-    <div class="it"><div class="date">${fdateCorta(e.fecha)}</div>
+    <div class="it" data-tipo="${esc(e.tipo)}"><div class="date">${fdateCorta(e.fecha)}</div>
       <div class="rail"><span class="d" style="background:${e.color}"></span></div>
       <div class="card"><div class="h"><b>${esc(e.titulo)}</b><span class="pill ${e.cls}">${e.tipo}</span></div>${e.txt?`<div class="txt">${e.txt}</div>`:""}${e.acc||""}</div></div>`).join("")}</div>`
     : vacio("📋","Historial vacío","Aún no hay consultas, vacunas ni cirugías registradas para este animal.", `<button class="btn" onclick="modalConsulta('${a.id}')">${ICON.plus} Registrar la primera consulta</button>`);
@@ -1301,7 +1307,7 @@ async function vAnimal(){ cargando(); await conError(async()=>{
     ${pesoChartPanel(a, consultas)}
     ${adjuntosPanel(a.id, adjuntos)}
     <div class="grid2">
-      ${panel("Historial", tl, `<span class="sp">Consultas · vacunas · cirugías · actos</span>`)}
+      ${panel("Historial", (eventos.length?histBar:"")+tl, `<span class="sp">${eventos.length} evento${eventos.length===1?"":"s"}</span>`)}
       ${panel("Vacunas", vacTabla)}
     </div>`);
   // Cargar las miniaturas de las imágenes (requieren el token, no se pueden poner en <img src> directo).
@@ -1426,6 +1432,21 @@ async function abrirDoc(path){
     const b=await r.blob(); const u=URL.createObjectURL(b); window.open(u,"_blank"); setTimeout(()=>URL.revokeObjectURL(u),10000);
   }catch(e){ toast(e.message||"No se pudo abrir el documento.","err"); }
 }
+/* Filtra el historial del animal por tipo (Consulta/Vacuna/Cirugía/Acto), o todos ("" ). */
+function filtrarHistorial(t){
+  document.querySelectorAll(".hist-f").forEach(el=>el.classList.toggle("on", el.dataset.f===t));
+  document.querySelectorAll(".tl .it").forEach(it=>{ it.style.display=(!t||it.dataset.tipo===t)?"":"none"; });
+}
+/* Imprime el historial clínico completo del animal (con la cabecera de propietario/animal). */
+function imprimirHistorial(){
+  const d=window._histActual; if(!d||!d.eventos.length){ toast("No hay historial que imprimir.","err"); return; }
+  const filas=d.eventos.map(e=>`<tr>
+    <td style="white-space:nowrap;color:#7a5f49;vertical-align:top;padding:5px 12px 5px 0;border-bottom:1px solid #eee">${fdate(e.fecha)}</td>
+    <td style="padding:5px 0;border-bottom:1px solid #eee"><b>${esc(e.titulo)}</b>${e.txt?`<div style="color:#5c473a;font-size:12px;margin-top:2px">${e.txt}</div>`:""}</td></tr>`).join("");
+  const cuerpo=`<h2>Historial clínico</h2>${_cabeceraDoc(d.animal, d.cliente)}
+    <table style="width:100%;border-collapse:collapse;margin-top:12px">${filas}</table>`;
+  imprimirDoc("Historial clínico", cuerpo);
+}
 function _cabeceraDoc(a, c){
   return `<div class="row"><b>Propietario/a:</b> ${esc(c&&c.nombre||"—")}${c&&c.nifFiscal?" ("+esc(c.nifFiscal)+")":""}</div>
     <div class="row"><b>Teléfono:</b> ${esc(c&&c.telefono||"—")}</div>
@@ -1495,6 +1516,7 @@ async function modalConsulta(animalId, opts){
     <label>Veterinario/a</label>${vetSelect("k_vet", editar?(c.veterinario||""):(usuario?.nombre||""))}
     ${cpHtml(campos)}
     ${bloqueActo}
+    ${editar?"":'<label style="margin-top:12px;display:flex;align-items:center;gap:9px;cursor:pointer"><input type="checkbox" id="k_receta" style="width:auto;margin:0"/> Emitir receta al terminar</label>'}
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("k_fecha")) throw new Error("La fecha es obligatoria.");
@@ -1523,7 +1545,10 @@ async function modalConsulta(animalId, opts){
           porcentajeIva:num("k_acto_iva"), fecha:val("k_fecha")||null
         })});
       }
-      toast(conActo?"Consulta y acto registrados.":"Consulta registrada.","ok"); refrescar();
+      const emitirReceta=$("k_receta")&&$("k_receta").checked;
+      toast(conActo?"Consulta y acto registrados.":"Consulta registrada.","ok");
+      await refrescar();
+      if(emitirReceta) setTimeout(()=>modalReceta(), 80);
     }, editar?"Guardar":undefined);
 }
 function editarConsulta(id){ const c=(window._consultasById||{})[id]; if(!c){ toast("No se encontró la consulta.","err"); return; } modalConsulta(c.animalId, {consulta:c}); }
@@ -1551,6 +1576,7 @@ async function modalVacunar(animalId, especie){
         <p class="muted" style="font-size:12px;margin:8px 0 0">Queda pendiente de facturar; podrás juntarla con la consulta u otros actos del cliente en una sola factura.</p>
       </div>
     </div>
+    <label style="margin-top:12px;display:flex;align-items:center;gap:9px;cursor:pointer"><input type="checkbox" id="v_receta" style="width:auto;margin:0"/> Emitir receta al terminar</label>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("v_fecha")) throw new Error("La fecha es obligatoria.");
@@ -1570,7 +1596,7 @@ async function modalVacunar(animalId, especie){
           animalId, concepto:soVal("va_con"), importe:num("va_imp"), porcentajeIva:num("va_iva"), fecha:val("v_fecha")||null
         })});
       }
-      toast(conActo?"Vacunación y acto registrados.":"Vacunación registrada.","ok"); vAnimal();
+      const emitirReceta=$("v_receta")&&$("v_receta").checked; toast(conActo?"Vacunación y acto registrados.":"Vacunación registrada.","ok"); await vAnimal(); if(emitirReceta) setTimeout(()=>modalReceta(), 80);
     });
 }
 function _vacPautaChange(){ const s=$("v_pauta"); const o=s.options[s.selectedIndex]; if(o&&o.dataset.n) $("v_nombre").value=o.dataset.n; }
@@ -1619,6 +1645,7 @@ async function modalCirugia(animalId, s){
     <label>Descripción</label><textarea id="s_desc">${esc(s&&s.descripcion||"")}</textarea>
     <div class="grid-2"><div><label>Cirujano/a</label>${vetSelect("s_cir", editar?(s.cirujano||""):(usuario?.nombre||""))}</div><div><label>Anestesia</label><input id="s_anes" value="${esc(s&&s.anestesia||"")}"/></div></div>
     ${bloqueActoCir}
+    <label style="margin-top:12px;display:flex;align-items:center;gap:9px;cursor:pointer"><input type="checkbox" id="s_receta" style="width:auto;margin:0"/> Emitir receta al terminar</label>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("s_nombre")) throw new Error("El nombre es obligatorio.");
@@ -1645,7 +1672,7 @@ async function modalCirugia(animalId, s){
           animalId, concepto:soVal("sc_con"), importe:num("sc_imp"), porcentajeIva:num("sc_iva"), fecha:val("s_fecha")||null
         })});
       }
-      toast(conActo?"Cirugía y acto registrados.":"Cirugía registrada.","ok"); vAnimal();
+      const emitirReceta=$("s_receta")&&$("s_receta").checked; toast(conActo?"Cirugía y acto registrados.":"Cirugía registrada.","ok"); await vAnimal(); if(emitirReceta) setTimeout(()=>modalReceta(), 80);
     }, editar?"Guardar":undefined);
 }
 function editarCirugia(id){ const s=(window._cirugiasById||{})[id]; if(!s){ toast("No se encontró la cirugía.","err"); return; } modalCirugia(s.animalId, s); }
