@@ -1,0 +1,25 @@
+# Servicio systemd de ALXOR Vet (API .NET self-contained, SIN Docker).
+# Se instala en /etc/systemd/system/alxor-vet.service (lo hace instalar.sh).
+[Unit]
+Description=ALXOR Vet (API .NET)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=alxorvet
+Group=alxorvet
+WorkingDirectory=/opt/alxor-vet/app
+# Ejecutable self-contained (sin extensión en Linux); no requiere runtime .NET.
+ExecStart=/opt/alxor-vet/app/AlxorCore.Api
+# Toda la configuración (cadena de conexión, JWT, correo...) por variables.
+EnvironmentFile=/etc/alxor-vet.env
+Restart=always
+RestartSec=5
+# Endurecimiento básico.
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
