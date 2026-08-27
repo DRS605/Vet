@@ -1570,13 +1570,27 @@ function anularVacuna(id){
   confirmarAccion("Anular vacunación","¿Seguro que quieres anular esta vacunación? Desaparecerá del historial activo (anulación lógica, no se borra).",
     async()=>{ await api("/vacunas/"+id,{method:"DELETE"}); toast("Vacunación anulada.","ok"); vAnimal(); }, "Anular");
 }
-function modalCirugia(animalId, s){
+async function modalCirugia(animalId, s){
   const editar=!!(s&&s.id);
+  if(!conceptosCache.length) await cargarConceptos();
+  const bloqueActoCir = editar ? "" : `
+    <div style="border-top:1px solid var(--line);margin-top:15px;padding-top:13px">
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin:0;color:var(--ink);font-weight:600">
+        <input type="checkbox" id="sc_on" style="width:auto;margin:0" onchange="$('sc_box').style.display=this.checked?'block':'none'"/>
+        Facturar esta operación
+      </label>
+      <div id="sc_box" style="display:none;margin-top:11px">
+        <label>Concepto *</label>${selConOtra("sc_con","Cirugía",(conceptosCache||[]).map(p=>p.nombre),"conceptoAutorellena('sc_con','sc_imp','sc_iva')")}
+        <div class="grid-2"><div><label>Importe (base, €) *</label><input id="sc_imp" inputmode="decimal"/></div><div><label>IVA</label><select id="sc_iva">${_ivaOpts(21)}</select></div></div>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">Queda pendiente de facturar; podrás juntarla con la consulta u otros actos del cliente en una sola factura.</p>
+      </div>
+    </div>`;
   abrir(editar?"Editar cirugía":"Nueva cirugía", `
     <label>Nombre *</label><input id="s_nombre" placeholder="p. ej. Esterilización (OVH)" value="${esc(s&&s.nombre||"")}"/>
     <div class="grid-2"><div><label>Fecha *</label><input id="s_fecha" type="date" value="${editar&&s.fecha?String(s.fecha).slice(0,10):hoyISO()}"/></div><div><label>Próxima revisión</label><input id="s_rev" type="date" value="${s&&s.proximaRevision?String(s.proximaRevision).slice(0,10):""}"/></div></div>
     <label>Descripción</label><textarea id="s_desc">${esc(s&&s.descripcion||"")}</textarea>
     <div class="grid-2"><div><label>Cirujano/a</label>${vetSelect("s_cir", editar?(s.cirujano||""):(usuario?.nombre||""))}</div><div><label>Anestesia</label><input id="s_anes" value="${esc(s&&s.anestesia||"")}"/></div></div>
+    ${bloqueActoCir}
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("s_nombre")) throw new Error("El nombre es obligatorio.");
@@ -1589,11 +1603,21 @@ function modalCirugia(animalId, s){
         })});
         toast("Cirugía actualizada.","ok"); vAnimal(); return;
       }
+      const conActo=$("sc_on")&&$("sc_on").checked;
+      if(conActo){
+        if(!soVal("sc_con")) throw new Error("Indica el concepto para facturar la operación.");
+        if(num("sc_imp")==null) throw new Error("Indica el importe de la operación.");
+      }
       await api(`/animales/${animalId}/cirugias`,{method:"POST",body:JSON.stringify({
         animalId, fecha:val("s_fecha"), nombre:val("s_nombre"), descripcion:val("s_desc")||null,
-        cirujano:val("s_cir")||null, anestesia:val("s_anes")||null, proximaRevision:val("s_rev")||null
+        cirujano:soVal("s_cir")||null, anestesia:val("s_anes")||null, proximaRevision:val("s_rev")||null
       })});
-      toast("Cirugía registrada.","ok"); vAnimal();
+      if(conActo){
+        await api(`/animales/${animalId}/actos`,{method:"POST",body:JSON.stringify({
+          animalId, concepto:soVal("sc_con"), importe:num("sc_imp"), porcentajeIva:num("sc_iva"), fecha:val("s_fecha")||null
+        })});
+      }
+      toast(conActo?"Cirugía y acto registrados.":"Cirugía registrada.","ok"); vAnimal();
     }, editar?"Guardar":undefined);
 }
 function editarCirugia(id){ const s=(window._cirugiasById||{})[id]; if(!s){ toast("No se encontró la cirugía.","err"); return; } modalCirugia(s.animalId, s); }
