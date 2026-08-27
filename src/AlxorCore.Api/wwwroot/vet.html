@@ -631,13 +631,20 @@ function cpPanelVista(campos){
    aparece un campo de texto para escribir un valor nuevo. soVal() lee el valor
    final (de la lista o el escrito). Se usa en unidades y categorías. */
 const UNIDADES=["ud","caja","blíster","comprimido","cápsula","vial","ampolla","dosis","ml","L","mg","g","kg","sobre","pipeta","frasco"];
-function selConOtra(id, valor, opciones){
+function selConOtra(id, valor, opciones, extra){
   const v=(valor==null?"":String(valor)); const enLista=v!==""&&opciones.includes(v); const mostrar=(v!==""&&!enLista);
   const opts=['<option value="">—</option>']
     .concat(opciones.map(o=>`<option value="${esc(o)}"${o===v?" selected":""}>${esc(o)}</option>`))
     .concat(`<option value="__otra__"${mostrar?" selected":""}>➕ Otra…</option>`).join("");
-  return `<select id="${id}" onchange="soToggle('${id}')">${opts}</select>`+
-    `<input id="${id}_otra" placeholder="Escríbela y se guardará" style="margin-top:6px;display:${mostrar?"block":"none"}" value="${mostrar?esc(v):""}"/>`;
+  const ex = extra?(";"+extra):"";
+  return `<select id="${id}" onchange="soToggle('${id}')${ex}">${opts}</select>`+
+    `<input id="${id}_otra" placeholder="Escríbela y se guardará" style="margin-top:6px;display:${mostrar?"block":"none"}" value="${mostrar?esc(v):""}" oninput="${extra?extra:''}"/>`;
+}
+/* Autorrellena importe e IVA al elegir un concepto del catálogo (por su nombre). */
+function conceptoAutorellena(idSel, idImp, idIva){
+  const p=conceptoPorNombre(soVal(idSel)); if(!p) return;
+  if(idImp){ const el=$(idImp); if(el && (el.value===""||el.value==null)) el.value=p.precioUnitario; }
+  if(idIva){ const el=$(idIva); if(el && p.porcentajeIva!=null) el.value=p.porcentajeIva; }
 }
 function soToggle(id){ const s=$(id),t=$(id+"_otra"); if(!s||!t)return; const on=s.value==="__otra__"; t.style.display=on?"block":"none"; if(on)t.focus(); }
 function soVal(id){ const s=$(id); if(!s)return ""; if(s.value==="__otra__"){ const t=$(id+"_otra"); return (t&&t.value||"").trim(); } return s.value||""; }
@@ -1170,7 +1177,7 @@ async function modalAnimal(clienteId, a){
       <div><label>Especie</label><select id="a_especie" onchange="animalCargarRazas(this.value)">${opcionesEspecie(a&&a.especie)}</select></div>
       <div><label>Sexo</label><select id="a_sexo"><option value="Desconocido"${sx("Desconocido")}>—</option><option value="Macho"${sx("Macho")}>Macho</option><option value="Hembra"${sx("Hembra")}>Hembra</option></select></div>
     </div>
-    <div class="grid-2"><div><label>Raza</label><select id="a_raza"><option value="">—</option></select></div><div><label>Fecha de nacimiento</label><input id="a_fnac" type="date" value="${a&&a.fechaNacimiento?String(a.fechaNacimiento).slice(0,10):""}"/></div></div>
+    <div class="grid-2"><div><label>Raza</label><select id="a_raza" onchange="soToggle('a_raza')"><option value="">—</option></select><input id="a_raza_otra" placeholder="Escribe la raza nueva" style="display:none;margin-top:6px"/></div><div><label>Fecha de nacimiento</label><input id="a_fnac" type="date" value="${a&&a.fechaNacimiento?String(a.fechaNacimiento).slice(0,10):""}"/></div></div>
     <div class="grid-2"><div><label>Microchip</label><input id="a_chip" value="${esc(a&&a.microchip||"")}"/></div><div><label>Peso (kg)</label><input id="a_peso" inputmode="decimal" value="${a&&a.pesoKg!=null?a.pesoKg:""}"/></div></div>
     <label><input type="checkbox" id="a_ester" style="width:auto;margin-right:8px" ${a&&a.esterilizado?"checked":""}/>Esterilizado</label>
     <label>Notas</label><textarea id="a_notas">${esc(a&&a.notas||"")}</textarea>
@@ -1179,10 +1186,14 @@ async function modalAnimal(clienteId, a){
     async()=>{
       if(!val("a_nombre")) throw new Error("El nombre es obligatorio.");
       const cpVals=cpRecoger(campos);
+      // Raza: permite elegir del maestro o escribir una nueva; si es nueva, se añade al maestro.
+      const rz=soVal("a_raza");
+      if(rz){ const esp=val("a_especie"); const existe=[...document.querySelectorAll('#a_raza option')].some(o=>o.value===rz);
+        if(esp && !existe){ try{ await api("/razas",{method:"POST",body:JSON.stringify({especie:esp, nombre:rz})}); }catch(e){} } }
       if(editar){
         await api("/animales/"+a.id,{method:"PUT",body:JSON.stringify({
           nombre:val("a_nombre"), especie:val("a_especie"), sexo:val("a_sexo"),
-          raza:val("a_raza")||null, fechaNacimiento:val("a_fnac")||null, microchip:val("a_chip")||null,
+          raza:rz||null, fechaNacimiento:val("a_fnac")||null, microchip:val("a_chip")||null,
           esterilizado:$("a_ester").checked, pesoKg:num("a_peso"), notas:val("a_notas")||null
         })});
         await cpGuardar("Animal", a.id, cpVals);
@@ -1190,7 +1201,7 @@ async function modalAnimal(clienteId, a){
       } else {
         const creado=await api("/animales",{method:"POST",body:JSON.stringify({
           clienteId, nombre:val("a_nombre"), especie:val("a_especie"), sexo:val("a_sexo"),
-          raza:val("a_raza")||null, fechaNacimiento:val("a_fnac")||null, microchip:val("a_chip")||null,
+          raza:rz||null, fechaNacimiento:val("a_fnac")||null, microchip:val("a_chip")||null,
           esterilizado:$("a_ester").checked, pesoKg:num("a_peso"), notas:val("a_notas")||null
         })});
         await cpGuardar("Animal", creado.id, cpVals);
@@ -1209,7 +1220,8 @@ async function animalCargarRazas(especie, actual){
   const nombres=razas.map(r=>r.nombre);
   // Si la raza actual del animal no está en el maestro, se añade igualmente para no perderla.
   if(prev && !nombres.includes(prev)) nombres.unshift(prev);
-  sel.innerHTML='<option value="">—</option>'+nombres.map(n=>`<option value="${esc(n)}" ${n===prev?"selected":""}>${esc(n)}</option>`).join("");
+  sel.innerHTML='<option value="">—</option>'+nombres.map(n=>`<option value="${esc(n)}" ${n===prev?"selected":""}>${esc(n)}</option>`).join("")+'<option value="__otra__">➕ Otra (escribir)…</option>';
+  soToggle('a_raza');
 }
 /* Alias por compatibilidad con los puntos de entrada de alta. */
 function modalNuevoAnimal(clienteId){ modalAnimal(clienteId); }
@@ -1432,6 +1444,7 @@ async function modalConsulta(animalId, opts){
   const refrescar = opts.alGuardar || vAnimal;
   const c = opts.consulta;              // presente al editar
   const editar = !!(c&&c.id);
+  if(!conceptosCache.length) await cargarConceptos();
   const campos = await cpCargar("Consulta", c&&c.id);
   // El acto facturable solo tiene sentido al registrar una consulta nueva.
   const bloqueActo = editar ? "" : `
@@ -1441,7 +1454,7 @@ async function modalConsulta(animalId, opts){
         Registrar un acto facturable de esta consulta
       </label>
       <div id="k_acto_box" style="display:none;margin-top:11px">
-        <label>Concepto *</label><input id="k_acto_con" placeholder="p. ej. Consulta general" value="Consulta"/>
+        <label>Concepto *</label>${selConOtra("k_acto_con","Consulta",(conceptosCache||[]).map(p=>p.nombre),"conceptoAutorellena('k_acto_con','k_acto_imp','k_acto_iva')")}
         <div class="grid-2"><div><label>Importe (base, €) *</label><input id="k_acto_imp" inputmode="decimal"/></div><div><label>IVA (%)</label><input id="k_acto_iva" inputmode="decimal" placeholder="21"/></div></div>
         <p class="muted" style="font-size:12px;margin:8px 0 0">El acto queda pendiente de facturar; podrás emitir factura o ticket desde Facturación.</p>
       </div>
@@ -1468,7 +1481,7 @@ async function modalConsulta(animalId, opts){
       }
       const conActo=$("k_acto_on").checked;
       if(conActo){
-        if(!val("k_acto_con")) throw new Error("Indica el concepto del acto.");
+        if(!soVal("k_acto_con")) throw new Error("Indica el concepto del acto.");
         if(num("k_acto_imp")==null) throw new Error("Indica el importe del acto.");
       }
       const creada=await api(`/animales/${animalId}/consultas`,{method:"POST",body:JSON.stringify({
@@ -1478,7 +1491,7 @@ async function modalConsulta(animalId, opts){
       if(creada&&creada.id) await cpGuardar("Consulta", creada.id, cpVals);
       if(conActo){
         await api(`/animales/${animalId}/actos`,{method:"POST",body:JSON.stringify({
-          animalId, concepto:val("k_acto_con"), importe:num("k_acto_imp"),
+          animalId, concepto:soVal("k_acto_con"), importe:num("k_acto_imp"),
           porcentajeIva:num("k_acto_iva"), fecha:val("k_fecha")||null
         })});
       }
@@ -1570,17 +1583,16 @@ async function modalActo(animalId){
   if(!conceptosCache.length) await cargarConceptos();
   abrir("Registrar acto clínico", `
     <label>Concepto *</label>
-    <input id="x_concepto" list="dl_conceptos_acto" autocomplete="off" placeholder="Escribe o elige del maestro…" oninput="actoConceptoElegido()"/>
-    ${datalistConceptos("dl_conceptos_acto")}
+    ${selConOtra("x_concepto","",(conceptosCache||[]).map(p=>p.nombre),"conceptoAutorellena('x_concepto','x_importe','x_iva')")}
     <div class="grid-2"><div><label>Importe (base, €) *</label><input id="x_importe" inputmode="decimal"/></div><div><label>IVA (%)</label><input id="x_iva" inputmode="decimal" placeholder="21"/></div></div>
     <label>Fecha</label><input id="x_fecha" type="date" value="${hoyISO()}"/>
     <p class="muted" style="font-size:12px">Elige un concepto del maestro (rellena el importe, siempre editable) o escribe uno libre. El acto queda pendiente de facturar.</p>
     <div class="error" id="modalErr"></div>`,
     async()=>{
-      if(!val("x_concepto")) throw new Error("El concepto es obligatorio.");
+      if(!soVal("x_concepto")) throw new Error("El concepto es obligatorio.");
       if(num("x_importe")==null) throw new Error("Indica el importe.");
       await api(`/animales/${animalId}/actos`,{method:"POST",body:JSON.stringify({
-        animalId, concepto:val("x_concepto"), importe:num("x_importe"),
+        animalId, concepto:soVal("x_concepto"), importe:num("x_importe"),
         porcentajeIva:num("x_iva"), fecha:val("x_fecha")||null
       })});
       toast("Acto registrado.","ok"); vAnimal();
@@ -2024,7 +2036,7 @@ function presuRender(){
   const box=$("pr_lineas"); if(!box) return;
   box.innerHTML=`<table class="tbl-lineas"><thead><tr><th>Concepto</th><th class="num" style="width:60px">Cant.</th><th class="num" style="width:92px">Precio €</th><th style="width:70px">IVA</th><th style="width:30px"></th></tr></thead><tbody>${
     _presuLineas.map((l,i)=>`<tr>
-      <td><input id="pl_con_${i}" list="dl_presu" value="${esc(l.concepto)}" oninput="presuConcepto(${i})"/></td>
+      <td>${selConOtra("pl_con_"+i, l.concepto, (conceptosCache||[]).map(p=>p.nombre), "presuConcepto("+i+")")}</td>
       <td><input id="pl_cant_${i}" class="num" inputmode="decimal" value="${l.cantidad}"/></td>
       <td><input id="pl_imp_${i}" class="num" inputmode="decimal" value="${l.importe==null?"":l.importe}"/></td>
       <td><select id="pl_iva_${i}">${IVAS.map(v=>`<option value="${v}" ${v===l.iva?"selected":""}>${v}%</option>`).join("")}</select></td>
@@ -2036,10 +2048,10 @@ function presuSync(){
   _presuLineas=_presuLineas.map((l,i)=>{
     const con=$("pl_con_"+i), cant=$("pl_cant_"+i), imp=$("pl_imp_"+i), iva=$("pl_iva_"+i);
     if(!con) return l;
-    return {concepto:con.value, cantidad:Number((cant.value||"").replace(",",".")), importe:imp.value===""?null:Number(imp.value.replace(",",".")), iva:Number(iva.value), productoId:l.productoId||null};
+    return {concepto:soVal("pl_con_"+i), cantidad:Number((cant.value||"").replace(",",".")), importe:imp.value===""?null:Number(imp.value.replace(",",".")), iva:Number(iva.value), productoId:l.productoId||null};
   });
 }
-function presuConcepto(i){ const el=$("pl_con_"+i); if(!el) return; const p=conceptoPorNombre(el.value); if(p){ _presuLineas[i].productoId=p.id; const imp=$("pl_imp_"+i); if(imp&&imp.value===""){ imp.value=p.precioUnitario; } const iva=$("pl_iva_"+i); if(iva&&p.porcentajeIva!=null) iva.value=p.porcentajeIva; } else { _presuLineas[i].productoId=null; } }
+function presuConcepto(i){ const p=conceptoPorNombre(soVal("pl_con_"+i)); if(p){ _presuLineas[i].productoId=p.id; const imp=$("pl_imp_"+i); if(imp&&imp.value===""){ imp.value=p.precioUnitario; } const iva=$("pl_iva_"+i); if(iva&&p.porcentajeIva!=null) iva.value=p.porcentajeIva; } else { _presuLineas[i].productoId=null; } }
 function presuAnadir(){ presuSync(); _presuLineas.push({concepto:"",cantidad:1,importe:null,iva:21,productoId:null}); presuRender(); $("pl_con_"+(_presuLineas.length-1))?.focus(); }
 function presuQuitar(i){ presuSync(); _presuLineas.splice(i,1); if(!_presuLineas.length) _presuLineas.push({concepto:"",cantidad:1,importe:null,iva:21,productoId:null}); presuRender(); }
 async function aceptarPresupuesto(id){
@@ -2521,7 +2533,7 @@ function facSync(){
   _facLineas=_facLineas.map((l,i)=>{
     const con=$("fl_con_"+i), cant=$("fl_cant_"+i), imp=$("fl_imp_"+i), iva=$("fl_iva_"+i);
     if(!con) return l;
-    return {concepto:con.value, cantidad:Number((cant.value||"").replace(",",".")), importe:imp.value===""?null:Number(imp.value.replace(",",".")), iva:Number(iva.value), productoId:l.productoId||null};
+    return {concepto:soVal("pl_con_"+i), cantidad:Number((cant.value||"").replace(",",".")), importe:imp.value===""?null:Number(imp.value.replace(",",".")), iva:Number(iva.value), productoId:l.productoId||null};
   });
 }
 function facConcepto(i){
