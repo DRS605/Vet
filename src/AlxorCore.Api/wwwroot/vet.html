@@ -561,6 +561,8 @@ function edadTexto(a){ if(a.edadMeses==null) return "Edad desconocida"; const m=
    Campos personalizados). Aquí van los helpers que los pintan en los formularios de alta/edición
    y recogen/guardan sus valores. La entidad es "Cliente" o "Animal". */
 const CP_TIPOS = [["Texto","Texto corto"],["TextoLargo","Texto largo"],["Numero","Número"],["Fecha","Fecha"],["Booleano","Sí / No"],["Lista","Lista de opciones"]];
+/* Entidades a las que se pueden añadir campos personalizados: [valor, etiqueta de pestaña, nombre]. */
+const CP_ENTIDADES = [["Cliente","👤 Cliente","cliente"],["Animal","🐾 Mascota","mascota"],["Consulta","🩺 Consulta","consulta"],["Articulo","📦 Artículo","artículo"],["Cita","🗓️ Cita","cita"],["Concepto","🏷️ Servicio","servicio/concepto"]];
 function cpTipoNombre(t){ const x=CP_TIPOS.find(p=>p[0]===t); return x?x[1]:t; }
 /* Carga los campos de una ficha con su valor. Para un registro nuevo (sin id) trae solo las
    definiciones activas (valor vacío); para uno existente, definiciones + valor actual. */
@@ -1392,11 +1394,12 @@ async function modalReceta(){
   }, "Generar e imprimir");
 }
 
-function modalConsulta(animalId, opts){
+async function modalConsulta(animalId, opts){
   opts=opts||{};
   const refrescar = opts.alGuardar || vAnimal;
   const c = opts.consulta;              // presente al editar
   const editar = !!(c&&c.id);
+  const campos = await cpCargar("Consulta", c&&c.id);
   // El acto facturable solo tiene sentido al registrar una consulta nueva.
   const bloqueActo = editar ? "" : `
     <div style="border-top:1px solid var(--line);margin-top:15px;padding-top:13px">
@@ -1416,15 +1419,18 @@ function modalConsulta(animalId, opts){
     <label>Diagnóstico</label><textarea id="k_diag">${esc(editar&&c.diagnostico||"")}</textarea>
     <label>Tratamiento</label><textarea id="k_trat">${esc(editar&&c.tratamiento||"")}</textarea>
     <label>Veterinario/a</label><input id="k_vet" value="${esc(editar?(c.veterinario||""):(usuario?.nombre||""))}"/>
+    ${cpHtml(campos)}
     ${bloqueActo}
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("k_fecha")) throw new Error("La fecha es obligatoria.");
+      const cpVals=cpRecoger(campos);
       if(editar){
         await api(`/consultas/${c.id}`,{method:"PUT",body:JSON.stringify({
           fecha:val("k_fecha"), motivo:val("k_motivo")||null, diagnostico:val("k_diag")||null,
           tratamiento:val("k_trat")||null, pesoKg:num("k_peso"), veterinario:val("k_vet")||null
         })});
+        await cpGuardar("Consulta", c.id, cpVals);
         toast("Consulta actualizada.","ok"); refrescar(); return;
       }
       const conActo=$("k_acto_on").checked;
@@ -1432,10 +1438,11 @@ function modalConsulta(animalId, opts){
         if(!val("k_acto_con")) throw new Error("Indica el concepto del acto.");
         if(num("k_acto_imp")==null) throw new Error("Indica el importe del acto.");
       }
-      await api(`/animales/${animalId}/consultas`,{method:"POST",body:JSON.stringify({
+      const creada=await api(`/animales/${animalId}/consultas`,{method:"POST",body:JSON.stringify({
         animalId, fecha:val("k_fecha"), motivo:val("k_motivo")||null, diagnostico:val("k_diag")||null,
         tratamiento:val("k_trat")||null, pesoKg:num("k_peso"), veterinario:val("k_vet")||null
       })});
+      if(creada&&creada.id) await cpGuardar("Consulta", creada.id, cpVals);
       if(conActo){
         await api(`/animales/${animalId}/actos`,{method:"POST",body:JSON.stringify({
           animalId, concepto:val("k_acto_con"), importe:num("k_acto_imp"),
@@ -1727,12 +1734,13 @@ async function vCampos(){ cargando(); await conError(async()=>{
     ? `<table><thead><tr><th>Campo</th><th>Tipo</th><th class="num">Orden</th><th class="num">Acciones</th></tr></thead><tbody>${filas}</tbody></table>`
     : vacio("🧩","Sin campos","Aún no has añadido campos a esta ficha. Crea el primero para ampliar el formulario.", `<button class="btn v" onclick="modalNuevoCampo()">${ICON.plus} Nuevo campo</button>`);
   const tab=(v,l)=>`<span class="sp ${v===entidad?"on":""}" onclick="ir('campos',{entidad:'${v}'})">${l}</span>`;
+  const etq=CP_ENTIDADES.find(e=>e[0]===entidad); const nombreEnt=etq?etq[2]:entidad;
   view(`
     <div style="margin-bottom:12px"><a onclick="ir('ajustes')" class="muted">← Ajustes</a></div>
     <h3 class="sec">Campos personalizados</h3>
-    <p class="subt">Amplía libremente las fichas con los campos que necesite tu clínica. Elige la ficha (cliente o mascota), el nombre del campo y su tipo; aparecerá en el alta y la edición de esa ficha.</p>
-    <div class="species-tabs" style="margin-bottom:14px">${tab("Cliente","👤 Ficha de cliente")} ${tab("Animal","🐾 Ficha de mascota")}</div>
-    ${panel(`Campos de ${entidad==="Cliente"?"cliente":"mascota"}`, tabla, `<button class="btn v small" onclick="modalNuevoCampo()">${ICON.plus} Nuevo campo</button>`)}`);
+    <p class="subt">Amplía libremente las fichas con los campos que necesite tu clínica. Elige la ficha, el nombre del campo y su tipo; aparecerá en el alta y la edición de esa ficha.</p>
+    <div class="species-tabs" style="margin-bottom:14px;flex-wrap:wrap">${CP_ENTIDADES.map(e=>tab(e[0],e[1])).join(" ")}</div>
+    ${panel(`Campos de ${esc(nombreEnt)}`, tabla, `<button class="btn v small" onclick="modalNuevoCampo()">${ICON.plus} Nuevo campo</button>`)}`);
 }); }
 function _camposCampo(c){
   const t=c&&c.tipo||"Texto";
@@ -2109,14 +2117,19 @@ function _camposArticulo(a){
     <label>Notas</label><textarea id="i_notas">${esc(a&&a.notas||"")}</textarea>
     <div class="error" id="modalErr"></div>`;
 }
-function modalArticulo(id){
+async function modalArticulo(id){
   const a=id?(window._invById||{})[id]:null;
-  abrir(a?"Editar artículo":"Nuevo artículo", _camposArticulo(a), async()=>{
+  const campos = await cpCargar("Articulo", a&&a.id);
+  const cuerpoHtml=_camposArticulo(a).replace('<div class="error" id="modalErr"></div>', cpHtml(campos)+'<div class="error" id="modalErr"></div>');
+  abrir(a?"Editar artículo":"Nuevo artículo", cuerpoHtml, async()=>{
     if(!val("i_nombre")) throw new Error("El nombre es obligatorio.");
+    const cpVals=cpRecoger(campos);
     const cuerpo={ nombre:val("i_nombre"), categoria:val("i_cat"), unidad:val("i_uni")||null,
       stock:num("i_stock")||0, stockMinimo:num("i_min")||0, caducidad:val("i_cad")||null, notas:val("i_notas")||null };
-    if(a) await api("/inventario/"+id,{method:"PUT",body:JSON.stringify(cuerpo)});
-    else await api("/inventario",{method:"POST",body:JSON.stringify(cuerpo)});
+    let guardado;
+    if(a){ await api("/inventario/"+id,{method:"PUT",body:JSON.stringify(cuerpo)}); guardado={id}; }
+    else guardado=await api("/inventario",{method:"POST",body:JSON.stringify(cuerpo)});
+    if(guardado&&guardado.id) await cpGuardar("Articulo", guardado.id, cpVals);
     toast("Artículo guardado.","ok"); vInventario();
   }, "Guardar");
 }
@@ -2275,6 +2288,7 @@ async function modalNuevaCita(){
   // Si venimos de una ficha (ctx.clienteId), ese cliente sale preseleccionado.
   const cliSel=ctx.clienteId||clientes[0].id;
   const optsCli=clientes.map(c=>`<option value="${esc(c.id)}" ${c.id===cliSel?"selected":""}>${esc(c.nombre)}</option>`).join("");
+  const campos=await cpCargar("Cita");
   abrir("Nueva cita", `
     <label>Cliente *</label><select id="t_cliente" onchange="citaCargarAnimales(this.value)">${optsCli}</select>
     <label>Animales * <span class="muted" style="font-weight:400">(puedes marcar varios)</span></label>
@@ -2286,16 +2300,20 @@ async function modalNuevaCita(){
     </div>
     <label>Motivo</label><input id="t_motivo"/>
     <label>Veterinario/a</label><input id="t_vet" value="${esc(usuario?.nombre||"")}"/>
+    ${cpHtml(campos)}
     <div class="error" id="modalErr"></div>`,
     async()=>{
       const ids=[...document.querySelectorAll('#t_animales input[type="checkbox"]:checked')].map(el=>el.value);
       if(!ids.length) throw new Error("Selecciona al menos un animal.");
       if(!val("t_dia")||!val("t_hora")) throw new Error("Indica día y hora.");
+      const cpVals=cpRecoger(campos);
       const inicio=`${val("t_dia")}T${val("t_hora")}:00${tz()}`;
       const base={ inicio, duracionMinutos:num("t_dur")||30, tipo:val("t_tipo"), motivo:val("t_motivo")||null, veterinario:val("t_vet")||null };
-      // Una cita por animal seleccionado, en la misma franja.
+      // Una cita por animal seleccionado, en la misma franja. Los campos personalizados
+      // (sala, prioridad, notas de recepción...) se aplican a cada cita creada.
       for(const animalId of ids){
-        await api(`/citas`,{method:"POST",body:JSON.stringify(Object.assign({animalId}, base))});
+        const creada=await api(`/citas`,{method:"POST",body:JSON.stringify(Object.assign({animalId}, base))});
+        if(creada&&creada.id) await cpGuardar("Cita", creada.id, cpVals);
       }
       toast(ids.length>1?`${ids.length} citas creadas.`:"Cita creada.","ok");
       ir("agenda",{dia:val("t_dia")});
@@ -2434,10 +2452,11 @@ async function vConceptos(){ cargando(); await conError(async()=>{
     <p class="subt">El maestro de conceptos facturables de tu clínica, con su importe prefijado. Se reutiliza al registrar actos y al emitir facturas: eliges el concepto y se rellena el importe (siempre editable), o escribes uno libre.</p>
     ${panel("Maestro de conceptos", cuerpo, `<button class="btn v small" onclick="modalConcepto()">${ICON.plus} Nuevo concepto</button>`)}`);
 }); }
-function modalConcepto(p){
+async function modalConcepto(p){
   const editar = !!(p&&p.id);
   const ivaSel = p&&p.porcentajeIva!=null ? p.porcentajeIva : 21;
   const tipoSel = p&&p.tipo ? p.tipo : "Servicio";
+  const campos = await cpCargar("Concepto", p&&p.id);
   abrir(editar?"Editar concepto":"Nuevo concepto", `
     <label>Nombre *</label><input id="co_nombre" value="${esc(p&&p.nombre||"")}" placeholder="p. ej. Consulta general"/>
     <div class="grid-2">
@@ -2449,13 +2468,17 @@ function modalConcepto(p){
       <div><label>Unidad</label><input id="co_uni" value="${esc(p&&p.unidad||"")}" placeholder="ud"/></div>
     </div>
     <label>Tipo</label><select id="co_tipo"><option value="Servicio"${tipoSel==="Servicio"?" selected":""}>Servicio</option><option value="Bien"${tipoSel==="Bien"?" selected":""}>Bien</option></select>
+    ${cpHtml(campos)}
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("co_nombre")) throw new Error("El nombre es obligatorio.");
       if(num("co_precio")==null) throw new Error("Indica el precio.");
+      const cpVals=cpRecoger(campos);
       const body={nombre:val("co_nombre"), precioUnitario:num("co_precio"), codigoIva:codigoIvaDe(val("co_iva")), referencia:val("co_ref")||null, unidad:val("co_uni")||null, tipo:val("co_tipo")};
-      if(editar) await api(`/productos/${p.id}`,{method:"PUT",body:JSON.stringify(body)});
-      else await api(`/productos`,{method:"POST",body:JSON.stringify(body)});
+      let guardado;
+      if(editar){ await api(`/productos/${p.id}`,{method:"PUT",body:JSON.stringify(body)}); guardado={id:p.id}; }
+      else guardado=await api(`/productos`,{method:"POST",body:JSON.stringify(body)});
+      if(guardado&&guardado.id) await cpGuardar("Concepto", guardado.id, cpVals);
       toast(editar?"Concepto actualizado.":"Concepto creado.","ok"); await cargarConceptos(); vConceptos();
     }, editar?"Guardar":"Crear");
 }

@@ -20,6 +20,18 @@ public enum EntidadPersonalizable
 
     /// <summary>Ficha de animal (mascota).</summary>
     Animal,
+
+    /// <summary>Consulta clínica del historial del animal.</summary>
+    Consulta,
+
+    /// <summary>Artículo de inventario (producto/stock).</summary>
+    Articulo,
+
+    /// <summary>Cita de la agenda.</summary>
+    Cita,
+
+    /// <summary>Servicio o concepto facturable del catálogo.</summary>
+    Concepto,
 }
 
 /// <summary>Tipo de dato de un campo personalizado. Determina cómo se pinta y se valida su valor.</summary>

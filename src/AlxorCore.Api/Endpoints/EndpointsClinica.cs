@@ -132,7 +132,7 @@ public static class EndpointsClinica
         var campos = rutas.MapGroup("/campos-personalizados").WithTags("Campos personalizados");
 
         campos.MapGet("", ListarCamposAsync)
-            .WithSummary("Lista los campos personalizados de una entidad (?entidad=Cliente|Animal; ?incluirInactivos= para todos).")
+            .WithSummary("Lista los campos personalizados de una entidad (?entidad=Cliente|Animal|Consulta|Articulo|Cita|Concepto; ?incluirInactivos= para todos).")
             .RequierePermiso(Permisos.AnimalLeer);
 
         campos.MapPost("", CrearCampoAsync)
@@ -569,7 +569,7 @@ public static class EndpointsClinica
 
         if (!TryEntidad(entidad, out var e))
         {
-            return ResultadosHttp.AProblema(Error.Validacion("campo.entidad_invalida", "La entidad debe ser «Cliente» o «Animal»."));
+            return ResultadosHttp.AProblema(Error.Validacion("campo.entidad_invalida", "La entidad indicada no es válida (Cliente, Animal, Consulta, Articulo, Cita o Concepto)."));
         }
 
         return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, e, incluirInactivos ?? false, ct).ConfigureAwait(false));
@@ -601,7 +601,7 @@ public static class EndpointsClinica
 
         if (!TryEntidad(entidad, out var e))
         {
-            return ResultadosHttp.AProblema(Error.Validacion("campo.entidad_invalida", "La entidad debe ser «Cliente» o «Animal»."));
+            return ResultadosHttp.AProblema(Error.Validacion("campo.entidad_invalida", "La entidad indicada no es válida (Cliente, Animal, Consulta, Articulo, Cita o Concepto)."));
         }
 
         return Results.Ok(await caso.EjecutarAsync(contexto.EmpresaId.Value, e, registroId, ct).ConfigureAwait(false));
@@ -616,7 +616,7 @@ public static class EndpointsClinica
 
         if (!TryEntidad(entidad, out var e))
         {
-            return ResultadosHttp.AProblema(Error.Validacion("campo.entidad_invalida", "La entidad debe ser «Cliente» o «Animal»."));
+            return ResultadosHttp.AProblema(Error.Validacion("campo.entidad_invalida", "La entidad indicada no es válida (Cliente, Animal, Consulta, Articulo, Cita o Concepto)."));
         }
 
         var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, e, registroId, valores ?? Array.Empty<DatosValorCampo>(), ct).ConfigureAwait(false);
