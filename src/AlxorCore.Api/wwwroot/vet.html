@@ -675,7 +675,7 @@ const ICON = {
 const NAV_SECCIONES = [
   { t:"", items:[["inicio","Inicio"],["agenda","Agenda"],["clientes","Clientes"]] },
   { t:"Clínica", items:[["atender","Atender"],["vacunas","Vacunas"],["recordatorios","Recordatorios"],["inventario","Inventario"]] },
-  { t:"Facturación", items:[["facturacion","Facturación"],["presupuestos","Presupuestos"],["facturas","Facturas"],["informes","Informes"]] },
+  { t:"Facturación", items:[["facturacion","Facturación"],["presupuestos","Presupuestos"],["facturas","Facturas emitidas"],["informes","Informes"]] },
   { t:"Maestros", items:[["especies","Especies"],["razas","Razas"],["conceptos","Servicios / Conceptos"],["campos","Campos personalizados"]] },
   { t:"Administración", items:[["usuarios","Usuarios"],["ajustes","Ajustes"]] },
 ];
@@ -1455,7 +1455,7 @@ async function modalConsulta(animalId, opts){
       </label>
       <div id="k_acto_box" style="display:none;margin-top:11px">
         <label>Concepto *</label>${selConOtra("k_acto_con","Consulta",(conceptosCache||[]).map(p=>p.nombre),"conceptoAutorellena('k_acto_con','k_acto_imp','k_acto_iva')")}
-        <div class="grid-2"><div><label>Importe (base, €) *</label><input id="k_acto_imp" inputmode="decimal"/></div><div><label>IVA (%)</label><input id="k_acto_iva" inputmode="decimal" placeholder="21"/></div></div>
+        <div class="grid-2"><div><label>Importe (base, €) *</label><input id="k_acto_imp" inputmode="decimal"/></div><div><label>IVA (%)</label><select id="k_acto_iva">${_ivaOpts(21)}</select></div></div>
         <p class="muted" style="font-size:12px;margin:8px 0 0">El acto queda pendiente de facturar; podrás emitir factura o ticket desde Facturación.</p>
       </div>
     </div>`;
@@ -1519,7 +1519,7 @@ async function modalVacunar(animalId, especie){
       </label>
       <div id="va_box" style="display:none;margin-top:11px">
         <label>Concepto *</label>${selConOtra("va_con","Vacunación",(conceptosCache||[]).map(p=>p.nombre),"conceptoAutorellena('va_con','va_imp','va_iva')")}
-        <div class="grid-2"><div><label>Importe (base, €) *</label><input id="va_imp" inputmode="decimal"/></div><div><label>IVA (%)</label><input id="va_iva" inputmode="decimal" placeholder="21"/></div></div>
+        <div class="grid-2"><div><label>Importe (base, €) *</label><input id="va_imp" inputmode="decimal"/></div><div><label>IVA (%)</label><select id="va_iva">${_ivaOpts(21)}</select></div></div>
         <p class="muted" style="font-size:12px;margin:8px 0 0">Queda pendiente de facturar; podrás juntarla con la consulta u otros actos del cliente en una sola factura.</p>
       </div>
     </div>
@@ -1606,7 +1606,7 @@ async function modalActo(animalId){
   abrir("Registrar acto clínico", `
     <label>Concepto *</label>
     ${selConOtra("x_concepto","",(conceptosCache||[]).map(p=>p.nombre),"conceptoAutorellena('x_concepto','x_importe','x_iva')")}
-    <div class="grid-2"><div><label>Importe (base, €) *</label><input id="x_importe" inputmode="decimal"/></div><div><label>IVA (%)</label><input id="x_iva" inputmode="decimal" placeholder="21"/></div></div>
+    <div class="grid-2"><div><label>Importe (base, €) *</label><input id="x_importe" inputmode="decimal"/></div><div><label>IVA (%)</label><select id="x_iva">${_ivaOpts(21)}</select></div></div>
     <label>Fecha</label><input id="x_fecha" type="date" value="${hoyISO()}"/>
     <p class="muted" style="font-size:12px">Elige un concepto del maestro (rellena el importe, siempre editable) o escribe uno libre. El acto queda pendiente de facturar.</p>
     <div class="error" id="modalErr"></div>`,
@@ -2054,6 +2054,38 @@ async function modalPresupuesto(pre){
     }, editar?"Guardar":"Crear");
   presuRender();
 }
+/* Factura DIRECTA: elige cliente, añade líneas (concepto del catálogo o libre,
+   con IVA o «Sin IVA») y emite. Reutiliza el editor de líneas del presupuesto. */
+async function modalFactura(){
+  const clientes=await api("/clientes");
+  if(!clientes.length){ toast("Crea antes un cliente.","err"); return; }
+  if(!conceptosCache.length) await cargarConceptos();
+  _presuLineas=[{concepto:"",cantidad:1,importe:null,iva:21,productoId:null}];
+  const cliSel=ctx.clienteId;
+  const optsCli=clientes.map(c=>`<option value="${esc(c.id)}" ${c.id===cliSel?"selected":""}>${esc(c.nombre)}</option>`).join("");
+  abrir("Nueva factura", `
+    <label>Cliente *</label><select id="fac_cliente">${optsCli}</select>
+    <label style="margin-top:12px">Líneas</label>
+    <div id="pr_lineas"></div>
+    ${datalistConceptos("dl_presu")}
+    <div style="margin-top:8px"><button type="button" class="btn tiny line" onclick="presuAnadir()">${ICON.plus} Añadir línea</button></div>
+    <label>Observaciones</label><textarea id="fac_obs" placeholder="Opcional (p. ej. forma de pago)"></textarea>
+    <div class="error" id="modalErr"></div>`,
+    async()=>{
+      presuSync();
+      const lineas=_presuLineas.filter(l=>(l.concepto||"").trim());
+      if(!lineas.length) throw new Error("Añade al menos una línea con concepto.");
+      for(const l of lineas){
+        if(!(l.cantidad>0)) throw new Error(`La cantidad de «${l.concepto}» debe ser mayor que cero.`);
+        if(l.importe==null) throw new Error(`Indica el precio de «${l.concepto}».`);
+      }
+      const cuerpo={ clienteId:val("fac_cliente"), observaciones:val("fac_obs")||null,
+        lineas:lineas.map(l=>({cantidad:l.cantidad, descripcion:l.concepto.trim(), precioUnitario:l.importe, codigoIva:codigoIvaDe(l.iva)})) };
+      await api("/facturas",{method:"POST",body:JSON.stringify(cuerpo)});
+      toast("Factura emitida.","ok"); ir("facturas");
+    }, "Emitir factura");
+  presuRender();
+}
 function presuRender(){
   const box=$("pr_lineas"); if(!box) return;
   box.innerHTML=`<table class="tbl-lineas"><thead><tr><th>Concepto</th><th class="num" style="width:60px">Cant.</th><th class="num" style="width:92px">Precio €</th><th style="width:70px">IVA</th><th style="width:30px"></th></tr></thead><tbody>${
@@ -2061,7 +2093,7 @@ function presuRender(){
       <td>${selConOtra("pl_con_"+i, l.concepto, (conceptosCache||[]).map(p=>p.nombre), "presuConcepto("+i+")")}</td>
       <td><input id="pl_cant_${i}" class="num" inputmode="decimal" value="${l.cantidad}"/></td>
       <td><input id="pl_imp_${i}" class="num" inputmode="decimal" value="${l.importe==null?"":l.importe}"/></td>
-      <td><select id="pl_iva_${i}">${IVAS.map(v=>`<option value="${v}" ${v===l.iva?"selected":""}>${v}%</option>`).join("")}</select></td>
+      <td><select id="pl_iva_${i}">${_ivaOpts(l.iva)}</select></td>
       <td><button type="button" class="btn tiny line" onclick="presuQuitar(${i})">✕</button></td>
     </tr>`).join("")
   }</tbody></table>`;
@@ -2102,6 +2134,7 @@ async function vFacturasPanel(){ cargando(); await conError(async()=>{
   const razasSet=new Set(); _facPanel.facturas.forEach(f=>((cmap[f.id]||{}).razas||[]).forEach(r=>razasSet.add(r)));
   const razaOpc=['<option value="">Todas las razas</option>'].concat([...razasSet].sort().map(r=>`<option value="${esc(r)}">${esc(r)}</option>`)).join("");
   view(`
+    <div class="toolbar"><div class="grow"></div><button class="btn v" onclick="modalFactura()">${ICON.plus} Nueva factura</button></div>
     <h3 class="sec">Facturas emitidas</h3>
     <p class="subt">Listado de facturas con su estado de cobro. Filtra por fechas, cliente o raza, marca si están pagadas y añade notas internas.</p>
     <div class="toolbar" style="flex-wrap:wrap;gap:8px;align-items:center">
@@ -2493,9 +2526,10 @@ async function vFacturacion(){ cargando(); _actosSel=new Set(); await conError(a
       <button class="btn v" id="btnFacturar" onclick="facturarSeleccion()" disabled>Facturar seleccionados</button></div>`
     : vacio("🧾","Nada por facturar","Cuando registres actos clínicos en las fichas de los animales aparecerán aquí para emitir factura o cobrar con ticket.", `<button class="btn line" onclick="ir('clientes')">Ir a clientes</button>`);
   view(`
-    <h3 class="sec">Actos pendientes</h3>
-    <p class="subt">Selecciona actos de un mismo cliente y emite una factura, o cobra un acto suelto con ticket. <a onclick="ir('conceptos')" style="cursor:pointer">Gestionar servicios / conceptos →</a></p>
-    ${panel("Pendientes de facturar", cuerpo, `<span class="sp">${actos.length} acto${actos.length===1?"":"s"}</span>`)}`);
+    <div class="toolbar"><div class="grow"></div><button class="btn v" onclick="modalFactura()">${ICON.plus} Nueva factura</button></div>
+    <h3 class="sec">Facturación</h3>
+    <p class="subt">La forma rápida: pulsa <b>Nueva factura</b>, elige el cliente y añade las líneas (con IVA o «Sin IVA»). Abajo, si has registrado <b>actos clínicos</b> desde las fichas (consultas, vacunas…), puedes seleccionarlos y facturarlos juntos.</p>
+    ${panel("Actos pendientes de facturar", cuerpo, `<span class="sp">${actos.length} acto${actos.length===1?"":"s"}</span>`)}`);
 }); }
 function toggleActo(id){
   const chk=$("chk-"+id); if(_actosSel.has(id)){ _actosSel.delete(id); chk.classList.remove("on"); } else { _actosSel.add(id); chk.classList.add("on"); }
@@ -2509,7 +2543,7 @@ function toggleActo(id){
 }
 const IVAS = [21,10,4,0];
 function codigoIvaDe(pct){ const p=Number(pct); return IVAS.includes(p)?`IVA${p}`:"IVA21"; }
-function _ivaOpts(sel){ return IVAS.map(v=>`<option value="${v}"${Number(sel)===v?" selected":""}>${v}%</option>`).join(""); }
+function _ivaOpts(sel){ return IVAS.map(v=>`<option value="${v}"${Number(sel)===v?" selected":""}>${v===0?"Sin IVA (0%)":v+"%"}</option>`).join(""); }
 let _facLineas=[];
 async function facturarSeleccion(){
   const ids=[..._actosSel]; if(!ids.length) return;
