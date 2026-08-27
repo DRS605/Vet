@@ -1332,11 +1332,13 @@ function pesoChartPanel(a, consultas){
 /* Panel de adjuntos (fotos/documentos) de la ficha del animal. */
 function adjuntosPanel(animalId, adjuntos){
   const items=(adjuntos||[]).map(x=>{
+    const esDoc=(x.nombreArchivo||"").toLowerCase().endsWith(".html");
     const cuerpo = x.esImagen
       ? `<img id="adj_img_${x.id}" alt="${esc(x.nombreArchivo)}" class="adj-thumb"/>`
-      : `<div class="adj-doc">📄</div>`;
+      : `<div class="adj-doc">${esDoc?"🖨️":"📄"}</div>`;
+    const accion = esDoc ? `abrirDoc('/adjuntos/${x.id}')` : `descargarPdf('/adjuntos/${x.id}',${esc(JSON.stringify(x.nombreArchivo))})`;
     return `<div class="adj-item">
-      <div class="adj-media" onclick="descargarPdf('/adjuntos/${x.id}',${esc(JSON.stringify(x.nombreArchivo))})" title="Abrir / descargar">${cuerpo}</div>
+      <div class="adj-media" onclick="${accion}" title="${esDoc?'Abrir e imprimir':'Abrir / descargar'}">${cuerpo}</div>
       <div class="adj-info"><span title="${esc(x.nombreArchivo)}">${esc(x.nombreArchivo)}</span>
         <button class="adj-del" title="Eliminar" onclick="eliminarAdjunto('${x.id}')">✕</button></div>
     </div>`;
@@ -1378,13 +1380,16 @@ async function datosEmpresa(){
   try{ window._empresaDatos=await api("/empresas/actual"); }catch{ window._empresaDatos={razonSocial:empresa&&empresa.razonSocial||"Clínica",nif:empresa&&empresa.nif||""}; }
   return window._empresaDatos;
 }
-function imprimirDoc(titulo, cuerpoHtml){
+/* HTML completo (con estilos e impresión automática) de un documento imprimible.
+   Se usa para abrir la ventana de impresión y para guardarlo como adjunto reimprimible. */
+function docHtml(titulo, cuerpoHtml){
   const emp=window._empresaDatos||{};
   const dir=[emp.calle,[emp.codigoPostal,emp.poblacion].filter(Boolean).join(" "),emp.provincia].filter(Boolean).join(" · ");
-  const html=`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(titulo)}</title>
+  const logo=emp.logo?`<img src="${esc(emp.logo)}" alt="" style="height:44px;width:auto;max-width:150px;object-fit:contain;margin-bottom:6px">`:"";
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${esc(titulo)}</title>
     <style>
       *{box-sizing:border-box} body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#2e1b0e;margin:0;padding:26mm 20mm;font-size:13px;line-height:1.5}
-      .cab{display:flex;justify-content:space-between;border-bottom:2px solid #f0a500;padding-bottom:10px;margin-bottom:18px}
+      .cab{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #f0a500;padding-bottom:10px;margin-bottom:18px}
       .cab h1{font-size:18px;margin:0}.cab .r{text-align:right;font-size:11px;color:#7a5f49}
       h2{font-size:15px;margin:18px 0 8px}
       .row{margin:3px 0}.row b{display:inline-block;min-width:120px;color:#7a5f49}
@@ -1393,14 +1398,33 @@ function imprimirDoc(titulo, cuerpoHtml){
       .pie{margin-top:40px;font-size:10px;color:#9a8574;text-align:center}
       @media print{body{padding:14mm}}
     </style></head><body>
-    <div class="cab"><div><h1>${esc(emp.razonSocial||"Clínica veterinaria")}</h1><div style="font-size:11px;color:#7a5f49">${esc(emp.nif||"")}${dir?" · "+esc(dir):""}</div></div>
+    <div class="cab"><div>${logo}<h1>${esc(emp.razonSocial||"Clínica veterinaria")}</h1><div style="font-size:11px;color:#7a5f49">${esc(emp.nif||"")}${dir?" · "+esc(dir):""}</div></div>
       <div class="r">${esc(titulo)}<br>${fdate(hoyISO())}</div></div>
     ${cuerpoHtml}
     <div class="pie">Documento generado con Vetis by Alxor</div>
     <script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script>
     </body></html>`;
+}
+function imprimirDoc(titulo, cuerpoHtml){
   const w=window.open("","_blank"); if(!w){ toast("Permite las ventanas emergentes para imprimir.","err"); return; }
-  w.document.open(); w.document.write(html); w.document.close();
+  w.document.open(); w.document.write(docHtml(titulo, cuerpoHtml)); w.document.close();
+}
+/* Guarda el documento como adjunto del animal (queda en su historial y se puede reimprimir). */
+async function guardarDocAnimal(animalId, titulo, cuerpoHtml, nombreArchivo){
+  try{
+    const fd=new FormData();
+    fd.append("archivo", new Blob([docHtml(titulo, cuerpoHtml)],{type:"text/html"}), nombreArchivo);
+    const h={}; if(token) h.Authorization="Bearer "+token;
+    await fetch(API+`/animales/${animalId}/adjuntos`,{method:"POST",headers:h,body:fd});
+  }catch(e){ /* si falla el guardado, la impresión ya se hizo; no interrumpimos */ }
+}
+/* Abre un documento (HTML) guardado en una pestaña nueva; su script lanza la impresión. */
+async function abrirDoc(path){
+  try{
+    const h={}; if(token) h.Authorization="Bearer "+token;
+    const r=await fetch(API+path,{headers:h}); if(!r.ok) throw new Error("Error "+r.status);
+    const b=await r.blob(); const u=URL.createObjectURL(b); window.open(u,"_blank"); setTimeout(()=>URL.revokeObjectURL(u),10000);
+  }catch(e){ toast(e.message||"No se pudo abrir el documento.","err"); }
 }
 function _cabeceraDoc(a, c){
   return `<div class="row"><b>Propietario/a:</b> ${esc(c&&c.nombre||"—")}${c&&c.nifFiscal?" ("+esc(c.nifFiscal)+")":""}</div>
@@ -1420,7 +1444,9 @@ async function modalConsentimiento(){
       <div class="cont">${esc(val("doc_txt")||"")}</div>
       <p style="margin-top:16px">El/la propietario/a autoriza la realización del procedimiento descrito, habiendo sido informado/a de su naturaleza, riesgos y alternativas, y de los cuidados posteriores.</p>
       <div class="firmas"><div class="firma">Firma del propietario/a</div><div class="firma">Firma y nº colegiado/a del veterinario/a</div></div>`;
-    imprimirDoc("Consentimiento informado", cuerpo); cerrarModal();
+    imprimirDoc("Consentimiento informado", cuerpo);
+    await guardarDocAnimal(a.id, "Consentimiento informado", cuerpo, `Consentimiento - ${val("doc_proc")} - ${hoyISO()}.html`);
+    toast("Consentimiento generado y guardado en el historial del animal.","ok"); vAnimal(); cerrarModal();
   }, "Generar e imprimir");
 }
 async function modalReceta(){
@@ -1435,7 +1461,9 @@ async function modalReceta(){
       <div class="row"><b>Veterinario/a:</b> ${esc(soVal("doc_vet")||"")}</div>
       <h2 style="margin-top:14px">Rp.</h2><div class="cont">${esc(val("doc_txt"))}</div>
       <div class="firmas"><div class="firma">Firma y nº colegiado/a</div></div>`;
-    imprimirDoc("Receta veterinaria", cuerpo); cerrarModal();
+    imprimirDoc("Receta veterinaria", cuerpo);
+    await guardarDocAnimal(a.id, "Receta veterinaria", cuerpo, `Receta - ${hoyISO()}.html`);
+    toast("Receta generada y guardada en el historial del animal.","ok"); vAnimal(); cerrarModal();
   }, "Generar e imprimir");
 }
 
