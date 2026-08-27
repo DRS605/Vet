@@ -13,9 +13,11 @@ Escribir-Log 'ALXOR Vet - DETENER'
 Escribir-Log '============================================================'
 
 # Primero la app (usa la BD), luego PostgreSQL (solo si es el portable).
-Detener-App
-
 $config = Leer-Config
+$puertoApp = 0
+if ($config -and $config.AppPuerto) { $puertoApp = [int]$config.AppPuerto }
+Detener-App -Puerto $puertoApp
+
 if (Usa-PostgresExistente -Config $config) {
     Escribir-Log 'PostgreSQL es un servicio del usuario (existente); no se detiene.' 'OK'
 } else {

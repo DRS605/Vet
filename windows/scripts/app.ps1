@@ -67,17 +67,45 @@ function App-EnMarcha {
     return $false
 }
 
+# Mata CUALQUIER instancia de la app (por nombre de proceso, aunque sea de otra
+# carpeta/version) y libera el puerto. Es la clave para que "Arrancar" siempre
+# levante la version ACTUAL: si quedara una version anterior escuchando en el
+# puerto, el navegador seguiria viendo la vieja. Solo hay un producto, asi que
+# matar por nombre es seguro.
+function Matar-InstanciasApp {
+    param([int]$Puerto)
+    $muertos = 0
+    Get-Process -Name 'AlxorCore.Api' -ErrorAction SilentlyContinue | ForEach-Object {
+        try { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue; $muertos++ } catch { }
+    }
+    # Por si otro proceso ocupara el puerto de la app, liberarlo tambien.
+    if ($Puerto) {
+        try {
+            $pids = Get-NetTCPConnection -LocalPort $Puerto -State Listen -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty OwningProcess -Unique
+            foreach ($procId in $pids) {
+                if ($procId -and $procId -ne 0) { try { Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue; $muertos++ } catch { } }
+            }
+        } catch { }
+    }
+    if ($muertos -gt 0) {
+        Escribir-Log "Cerradas $muertos instancia(s) anterior(es) de la aplicacion (para arrancar la version actual)." 'OK'
+        Start-Sleep -Milliseconds 900
+    }
+    return $muertos
+}
+
 function Arrancar-App {
     param([Parameter(Mandatory=$true)] $Config)
     $Puerto = $Config.AppPuerto
-    if (App-EnMarcha) {
-        Escribir-Log 'La aplicacion ya estaba en marcha.' 'OK'
-        return $true
-    }
     if (-not (Test-Path $RutaExe)) {
         Escribir-Log "No se encuentra el ejecutable en $RutaExe" 'ERROR'
         return $false
     }
+
+    # SIEMPRE se cierra cualquier version anterior antes de arrancar (evita que
+    # una instalacion previa en otra carpeta siga sirviendo la version antigua).
+    Matar-InstanciasApp -Puerto $Puerto | Out-Null
 
     # Toda la configuracion se pasa por variables de entorno del PROCESO
     # (heredadas por el hijo, incluido cmd). No se escribe nada junto al .exe.
@@ -108,10 +136,13 @@ function Arrancar-App {
 }
 
 function Detener-App {
-    $procs = Procesos-App
-    if ($procs) {
-        Escribir-Log 'Deteniendo la aplicacion...'
-        foreach ($p in $procs) { Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue }
+    param([int]$Puerto = 0)
+    Escribir-Log 'Deteniendo la aplicacion...'
+    # Mata CUALQUIER instancia por nombre (aunque sea de otra carpeta/version) y
+    # libera el puerto. Asi "Detener" funciona aunque la version en marcha sea de
+    # una instalacion anterior en otra carpeta.
+    $muertos = Matar-InstanciasApp -Puerto $Puerto
+    if ($muertos -gt 0) {
         Escribir-Log 'Aplicacion detenida.' 'OK'
     } else {
         Escribir-Log 'La aplicacion no estaba en marcha.'

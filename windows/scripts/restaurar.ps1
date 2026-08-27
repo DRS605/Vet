@@ -45,7 +45,9 @@ try {
     }
 
     Escribir-Log 'Deteniendo la aplicación antes de restaurar...'
-    try { Detener-App } catch { }
+    $puertoApp = 0
+    if ($config.AppPuerto) { $puertoApp = [int]$config.AppPuerto }
+    try { Detener-App -Puerto $puertoApp } catch { }
 
     $pgRestore = Ruta-Binario 'pg_restore.exe'
     Escribir-Log "Restaurando '$fichero' en la base '$bd'..."
