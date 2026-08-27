@@ -110,7 +110,7 @@ internal sealed class GeneradorPdfFacturaQuestPdf : IGeneradorPdfFactura
                             encabezado.Cell().Element(Th).AlignRight().Text("Cantidad").Bold();
                             encabezado.Cell().Element(Th).AlignRight().Text("Precio").Bold();
                             encabezado.Cell().Element(Th).AlignRight().Text("IVA").Bold();
-                            encabezado.Cell().Element(Th).AlignRight().Text("Base").Bold();
+                            encabezado.Cell().Element(Th).AlignRight().Text("Total").Bold();
                         });
 
                         foreach (var linea in factura.Lineas)
@@ -118,9 +118,9 @@ internal sealed class GeneradorPdfFacturaQuestPdf : IGeneradorPdfFactura
                             static IContainer Td(IContainer c) => c.BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).PaddingVertical(5).PaddingHorizontal(4);
                             tabla.Cell().Element(Td).Text(linea.Descripcion);
                             tabla.Cell().Element(Td).AlignRight().Text(Redondeo.Formatear(linea.Cantidad));
-                            tabla.Cell().Element(Td).AlignRight().Text(Redondeo.Formatear(linea.PrecioUnitario));
+                            tabla.Cell().Element(Td).AlignRight().Text($"{Redondeo.Formatear(linea.PrecioUnitario)} €");
                             tabla.Cell().Element(Td).AlignRight().Text($"{linea.PorcentajeIva:0}%");
-                            tabla.Cell().Element(Td).AlignRight().Text(Redondeo.Formatear(linea.Base));
+                            tabla.Cell().Element(Td).AlignRight().Text($"{Redondeo.Formatear(linea.Base + linea.CuotaIva)} €");
                         }
                     });
 
