@@ -24,6 +24,86 @@ using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// --- Despliegue en la nube (PaaS) -------------------------------------------
+// 1) Puerto dinámico: muchos proveedores (Render, Railway, Heroku...) inyectan
+//    el puerto por la variable de entorno PORT. Si está presente, escuchamos
+//    ahí; si no, se mantiene ASPNETCORE_URLS (contenedor local o Fly.io con
+//    puerto fijo, y el paquete Windows self-contained).
+var puertoNube = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrWhiteSpace(puertoNube))
+{
+    builder.WebHost.UseUrls($"http://+:{puertoNube}");
+}
+
+// 2) Cadena de conexión: los PaaS suelen ofrecer la base de datos como una URL
+//    estándar (DATABASE_URL = postgres://usuario:clave@host:puerto/basedatos).
+//    Si no se ha fijado ConnectionStrings:AlxorCore explícitamente, traducimos
+//    esa URL al formato clave-valor de Npgsql para que todos los módulos la
+//    consuman igual que en local.
+if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("AlxorCore")))
+{
+    var urlBd = Environment.GetEnvironmentVariable("DATABASE_URL");
+    if (!string.IsNullOrWhiteSpace(urlBd))
+    {
+        builder.Configuration["ConnectionStrings:AlxorCore"] = CadenaNpgsqlDesdeUrl(urlBd);
+    }
+}
+
+// Traduce una URL estilo postgres://usuario:clave@host:puerto/basedatos?sslmode=...
+// a una cadena de conexión Npgsql (clave=valor). Escapa los valores según la
+// regla ADO.NET (comillas dobles si hay ; = ' " o espacios en los extremos) para
+// que una contraseña con caracteres especiales no rompa la cadena.
+static string CadenaNpgsqlDesdeUrl(string url)
+{
+    var uri = new Uri(url);
+    var credenciales = uri.UserInfo.Split(':', 2);
+    var usuario = Uri.UnescapeDataString(credenciales[0]);
+    var clave = credenciales.Length > 1 ? Uri.UnescapeDataString(credenciales[1]) : string.Empty;
+    var baseDatos = Uri.UnescapeDataString(uri.AbsolutePath.Trim('/'));
+    var puerto = uri.Port > 0 ? uri.Port : 5432;
+
+    // Modo SSL: si la URL lo indica, se respeta; por defecto Prefer (intenta TLS
+    // y si el servidor no lo ofrece, texto plano), que funciona tanto con la BD
+    // interna de un PaaS como con una externa gestionada.
+    var modoSsl = "Prefer";
+    foreach (var par in uri.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
+    {
+        var kv = par.Split('=', 2);
+        if (kv.Length == 2 && kv[0].Equals("sslmode", StringComparison.OrdinalIgnoreCase))
+        {
+            modoSsl = kv[1].ToLowerInvariant() switch
+            {
+                "disable" => "Disable",
+                "allow" => "Allow",
+                "prefer" => "Prefer",
+                "require" => "Require",
+                "verify-ca" => "VerifyCA",
+                "verify-full" => "VerifyFull",
+                _ => "Prefer",
+            };
+        }
+    }
+
+    static string Escapar(string valor)
+    {
+        if (string.IsNullOrEmpty(valor)) { return valor ?? string.Empty; }
+        var necesitaComillas = valor.Contains(';', StringComparison.Ordinal)
+            || valor.Contains('=', StringComparison.Ordinal)
+            || valor.Contains('\'', StringComparison.Ordinal)
+            || valor.Contains('"', StringComparison.Ordinal)
+            || valor != valor.Trim();
+        if (necesitaComillas)
+        {
+            return "\"" + valor.Replace("\"", "\"\"") + "\"";
+        }
+        return valor;
+    }
+
+    return $"Host={Escapar(uri.Host)};Port={puerto};Database={Escapar(baseDatos)};"
+         + $"Username={Escapar(usuario)};Password={Escapar(clave)};"
+         + $"SSL Mode={modoSsl};Trust Server Certificate=true";
+}
+
 // --- Contexto de empresa (multiempresa) ---
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ContextoEmpresaHttp>();

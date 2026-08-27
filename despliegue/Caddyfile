@@ -1,0 +1,19 @@
+# Caddy: proxy inverso con HTTPS automático (Let's Encrypt) para ALXOR Vet.
+# El dominio y el correo ACME llegan como variables de entorno desde el compose
+# (DOMINIO_PUBLICO y ACME_EMAIL en el .env). Caddy obtiene y renueva el
+# certificado TLS él solo; no hay que tocar nada más.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$DOMINIO_PUBLICO} {
+	encode zstd gzip
+
+	# La raíz "/" lleva directamente a la aplicación veterinaria.
+	redir / /vet.html
+
+	# Todo lo demás (la SPA, la API /clientes, /portal, /salud, la cartilla...)
+	# se reenvía a la API dentro de la red interna del compose.
+	reverse_proxy api:8080
+}

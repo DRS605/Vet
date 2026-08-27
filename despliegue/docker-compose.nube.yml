@@ -1,0 +1,91 @@
+# ALXOR Vet — despliegue en la NUBE (servidor propio con dominio e internet).
+#
+# Pensado para un VPS (p. ej. OVHcloud) con Docker. Levanta la pila completa
+# detrás de un proxy Caddy que da HTTPS automático (Let's Encrypt):
+#   - postgres : base de datos (no se publica al exterior).
+#   - api      : la aplicación .NET (no se publica directamente; solo vía Caddy).
+#   - caddy    : proxy inverso público en 80/443 con certificado TLS automático.
+#
+# Uso (desde la raíz del repositorio, en el servidor):
+#   1) El dominio DOMINIO_PUBLICO debe apuntar por DNS (registro A) a la IP del
+#      servidor, y los puertos 80 y 443 deben estar abiertos.
+#   2) cp despliegue/.env.ejemplo despliegue/.env  y rellena DOMINIO_PUBLICO,
+#      ACME_EMAIL, POSTGRES_PASSWORD, JWT_CLAVE_SECRETA y CORREO_BASE_URL.
+#   3) docker compose -f despliegue/docker-compose.nube.yml --env-file despliegue/.env up -d --build
+#   4) Abre https://TU_DOMINIO  ->  te lleva a la app; pulsa "Crear cuenta".
+#
+# Actualizar a la última versión (centralizado, una sola vez para todos):
+#   git pull && docker compose -f despliegue/docker-compose.nube.yml --env-file despliegue/.env up -d --build
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: alxor-vet-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en el .env}
+      POSTGRES_DB: ${POSTGRES_DB:-alxor}
+    volumes:
+      - alxor-vet-datos:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # La BD NO se publica: solo la usa la API dentro de la red interna del compose.
+
+  api:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: alxor-vet-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__AlxorCore: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-alxor};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en el .env}"
+      Jwt__ClaveSecreta: ${JWT_CLAVE_SECRETA:?define JWT_CLAVE_SECRETA en el .env}
+
+      # Correo SMTP (opcional). Pon CORREO_BASE_URL=https://TU_DOMINIO para que
+      # los enlaces de los correos apunten a la dirección pública.
+      Correo__Habilitado: ${CORREO_HABILITADO:-false}
+      Correo__Host: ${CORREO_HOST:-}
+      Correo__Puerto: ${CORREO_PUERTO:-587}
+      Correo__UsarStartTls: ${CORREO_STARTTLS:-true}
+      Correo__Usuario: ${CORREO_USUARIO:-}
+      Correo__Clave: ${CORREO_CLAVE:-}
+      Correo__Remitente: ${CORREO_REMITENTE:-no-responder@alxor.local}
+      Correo__RemitenteNombre: ${CORREO_REMITENTE_NOMBRE:-Clínica Veterinaria}
+      Correo__BaseUrl: ${CORREO_BASE_URL:-http://localhost:8080}
+
+      Recordatorios__AutomaticoHabilitado: ${RECORDATORIOS_AUTOMATICO:-false}
+      Recordatorios__HoraEjecucion: ${RECORDATORIOS_HORA:-08:00}
+      Recordatorios__DiasAntelacion: ${RECORDATORIOS_DIAS:-30}
+    # Sin 'ports': la API no se expone directamente; solo la alcanza Caddy.
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: alxor-vet-caddy
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      DOMINIO_PUBLICO: ${DOMINIO_PUBLICO:?define DOMINIO_PUBLICO en el .env}
+      ACME_EMAIL: ${ACME_EMAIL:-admin@example.com}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - alxor-vet-caddy-datos:/data
+      - alxor-vet-caddy-config:/config
+
+volumes:
+  alxor-vet-datos:
+  alxor-vet-caddy-datos:
+  alxor-vet-caddy-config:

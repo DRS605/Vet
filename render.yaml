@@ -1,0 +1,60 @@
+# =============================================================================
+#  ALXOR Vet - Despliegue en la nube (Render.com) como "Blueprint"
+#  Define TODO el servicio: la aplicación web (contenedor Docker) + la base de
+#  datos PostgreSQL gestionada. Con esto, publicar es conectar el repositorio en
+#  Render y pulsar "Apply": no hay que descomprimir ni actualizar nada nunca más.
+#
+#  Pasos (ver docs/veterinaria/desplegar-nube.md para el detalle con imágenes):
+#    1. Entra en https://dashboard.render.com  ->  New  ->  Blueprint
+#    2. Conecta el repositorio DRS605/Vet (rama main)
+#    3. Render lee este fichero y crea la web + la base de datos. Pulsa "Apply".
+#    4. Al terminar, abre la URL pública (https://alxor-vet.onrender.com/vet.html)
+#       y crea tu cuenta con "Crear cuenta".
+#
+#  Coste orientativo (planes de pago mínimos, always-on): web ~7 $/mes +
+#  PostgreSQL ~6 $/mes. Para PROBAR sin coste puedes cambiar temporalmente el
+#  plan de la base de datos a "free" (caduca a los 30 días y borra los datos:
+#  NO usar en la clínica de verdad).
+# =============================================================================
+
+databases:
+  - name: alxor-vet-db
+    databaseName: alxor
+    user: alxor
+    region: frankfurt          # Europa (Fráncfort). Más cerca de España.
+    plan: basic-256mb          # plan de pago más pequeño; cambia a "free" solo para probar
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: alxor-vet
+    runtime: docker
+    repo: https://github.com/DRS605/Vet
+    branch: main
+    region: frankfurt
+    plan: starter              # always-on (~7 $/mes). "free" se duerme y tarda en despertar
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /salud
+    autoDeploy: true           # cada push a main vuelve a desplegar solo
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # La app crea/migra el esquema de la BD sola en el primer arranque.
+      - key: Migraciones__AplicarAlArrancar
+        value: "true"
+      # Secreto JWT: lo genera Render (aleatorio y fuerte) y queda fijo.
+      - key: Jwt__ClaveSecreta
+        generateValue: true
+      - key: Jwt__Emisor
+        value: alxor-vet
+      - key: Jwt__Audiencia
+        value: alxor-vet
+      - key: Jwt__MinutosExpiracion
+        value: "60"
+      # Cadena de conexión: Render inyecta la URL de la BD de arriba. Program.cs
+      # la traduce automáticamente al formato de Npgsql.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: alxor-vet-db
+          property: connectionString
