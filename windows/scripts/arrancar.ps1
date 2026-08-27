@@ -49,6 +49,11 @@ try {
 
     if (-not (Arrancar-App -Config $config)) { throw 'La aplicacion no arranco correctamente.' }
 
+    # Reapunta el autoarranque de Windows a ESTA carpeta: si el usuario descomprimio
+    # una version nueva en otra carpeta, a partir de ahora el PC arrancara esta y no
+    # la antigua. (Combinado con Matar-InstanciasApp, elimina el "sigue igual".)
+    Actualizar-AccesoInicio
+
     $url = "http://localhost:$($config.AppPuerto)/vet.html"
     Escribir-Log "Abriendo el navegador en $url" 'OK'
     try { Start-Process $url } catch { Escribir-Log "Abrelo a mano en: $url" 'AVISO' }

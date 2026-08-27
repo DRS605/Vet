@@ -130,22 +130,10 @@ function Crear-TareaBackup {
 }
 
 function Crear-AccesoInicio {
-    try {
-        $carpetaInicio = [Environment]::GetFolderPath('Startup')
-        $destino = Join-Path $carpetaInicio 'ALXOR Vet.lnk'
-        $objetivo = Join-Path $RaizPaquete 'Arrancar ALXOR Vet.bat'
-        if (-not (Test-Path $objetivo)) { Escribir-Log 'No se encontro el .bat de arranque; no se crea el acceso directo.' 'AVISO'; return }
-        $ws = New-Object -ComObject WScript.Shell
-        $lnk = $ws.CreateShortcut($destino)
-        $lnk.TargetPath = $objetivo
-        $lnk.WorkingDirectory = $RaizPaquete
-        $lnk.WindowStyle = 7   # minimizado
-        $lnk.Description = 'Arranca ALXOR Vet al iniciar sesion'
-        $lnk.Save()
-        Escribir-Log "Acceso directo creado en el Inicio de Windows: $destino" 'OK'
-    } catch {
-        Escribir-Log "No se pudo crear el acceso directo de inicio: $_" 'AVISO'
-    }
+    # Delega en la funcion comun (comun.ps1): (re)crea el acceso directo de Inicio
+    # apuntando a ESTA carpeta. El mismo mecanismo lo reusa 'Arrancar' en cada
+    # arranque, de modo que la ultima carpeta ejecutada gana el autoarranque.
+    Actualizar-AccesoInicio
 }
 
 # --- Instalacion -------------------------------------------------------------
