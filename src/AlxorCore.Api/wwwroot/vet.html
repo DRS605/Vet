@@ -1505,22 +1505,44 @@ function anularConsulta(id){
 }
 async function modalVacunar(animalId, especie){
   let pautas=[]; try{ pautas=await api(`/vacunas/pautas?especie=${encodeURIComponent(especie)}`); }catch{}
+  if(!conceptosCache.length) await cargarConceptos();
   const opts=`<option value="">— Sin pauta (nombre manual) —</option>`+pautas.map(p=>`<option value="${p.id}" data-n="${esc(p.nombre)}" data-m="${p.periodicidadRefuerzoMeses||""}">${esc(p.nombre)}</option>`).join("");
   abrir("Registrar vacunación", `
     <label>Pauta (${especie})</label><select id="v_pauta" onchange="_vacPautaChange()">${opts}</select>
     <label>Nombre de la vacuna *</label><input id="v_nombre" placeholder="p. ej. Polivalente (DHPPi/L)"/>
     <div class="grid-2"><div><label>Fecha *</label><input id="v_fecha" type="date" value="${hoyISO()}"/></div><div><label>Próxima dosis</label><input id="v_prox" type="date"/></div></div>
     <div class="grid-2"><div><label>Lote</label><input id="v_lote"/></div><div><label>Veterinario/a</label>${vetSelect("v_vet", usuario?.nombre||"")}</div></div>
+    <div style="border-top:1px solid var(--line);margin-top:15px;padding-top:13px">
+      <label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin:0;color:var(--ink);font-weight:600">
+        <input type="checkbox" id="va_on" style="width:auto;margin:0" onchange="$('va_box').style.display=this.checked?'block':'none'"/>
+        Facturar esta vacuna
+      </label>
+      <div id="va_box" style="display:none;margin-top:11px">
+        <label>Concepto *</label>${selConOtra("va_con","Vacunación",(conceptosCache||[]).map(p=>p.nombre),"conceptoAutorellena('va_con','va_imp','va_iva')")}
+        <div class="grid-2"><div><label>Importe (base, €) *</label><input id="va_imp" inputmode="decimal"/></div><div><label>IVA (%)</label><input id="va_iva" inputmode="decimal" placeholder="21"/></div></div>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">Queda pendiente de facturar; podrás juntarla con la consulta u otros actos del cliente en una sola factura.</p>
+      </div>
+    </div>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("v_fecha")) throw new Error("La fecha es obligatoria.");
       const pautaId=val("v_pauta")||null;
       if(!pautaId && !val("v_nombre")) throw new Error("Indica una pauta o un nombre de vacuna.");
+      const conActo=$("va_on")&&$("va_on").checked;
+      if(conActo){
+        if(!soVal("va_con")) throw new Error("Indica el concepto para facturar la vacuna.");
+        if(num("va_imp")==null) throw new Error("Indica el importe de la vacuna.");
+      }
       await api(`/animales/${animalId}/vacunas`,{method:"POST",body:JSON.stringify({
         animalId, fechaAplicacion:val("v_fecha"), pautaVacunalId:pautaId, nombre:val("v_nombre")||null,
         lote:val("v_lote")||null, proximaDosis:val("v_prox")||null, veterinario:soVal("v_vet")||null
       })});
-      toast("Vacunación registrada.","ok"); vAnimal();
+      if(conActo){
+        await api(`/animales/${animalId}/actos`,{method:"POST",body:JSON.stringify({
+          animalId, concepto:soVal("va_con"), importe:num("va_imp"), porcentajeIva:num("va_iva"), fecha:val("v_fecha")||null
+        })});
+      }
+      toast(conActo?"Vacunación y acto registrados.":"Vacunación registrada.","ok"); vAnimal();
     });
 }
 function _vacPautaChange(){ const s=$("v_pauta"); const o=s.options[s.selectedIndex]; if(o&&o.dataset.n) $("v_nombre").value=o.dataset.n; }
