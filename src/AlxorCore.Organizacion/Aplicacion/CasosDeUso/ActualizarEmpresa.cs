@@ -69,3 +69,31 @@ public sealed class ActualizarEmpresa
         return Resultado.Ok(EmpresaDto.Desde(empresa));
     }
 }
+
+/// <summary>Caso de uso: establecer (o quitar) el logo de la empresa activa.</summary>
+public sealed class ActualizarLogoEmpresa
+{
+    private readonly IRepositorioEmpresas _empresas;
+    private readonly IUnidadDeTrabajoOrganizacion _unidadDeTrabajo;
+    private readonly IReloj _reloj;
+
+    public ActualizarLogoEmpresa(IRepositorioEmpresas empresas, IUnidadDeTrabajoOrganizacion unidadDeTrabajo, IReloj reloj)
+    {
+        _empresas = empresas;
+        _unidadDeTrabajo = unidadDeTrabajo;
+        _reloj = reloj;
+    }
+
+    public async Task<Resultado<EmpresaDto>> EjecutarAsync(Guid empresaId, string? logo, CancellationToken ct = default)
+    {
+        var empresa = await _empresas.ObtenerPorIdAsync(empresaId, ct).ConfigureAwait(false);
+        if (empresa is null)
+        {
+            return Resultado.Fallo<EmpresaDto>(Error.NoEncontrado("empresa.no_encontrada", "La empresa no existe."));
+        }
+
+        empresa.EstablecerLogo(logo, _reloj);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok(EmpresaDto.Desde(empresa));
+    }
+}

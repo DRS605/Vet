@@ -15,7 +15,8 @@ public sealed record EmpresaDto(
     string Calle,
     string CodigoPostal,
     string Poblacion,
-    string Provincia)
+    string Provincia,
+    string? Logo)
 {
     public static EmpresaDto Desde(Empresa empresa) =>
         new(
@@ -30,7 +31,8 @@ public sealed record EmpresaDto(
             empresa.Direccion.Calle,
             empresa.Direccion.CodigoPostal,
             empresa.Direccion.Poblacion,
-            empresa.Direccion.Provincia);
+            empresa.Direccion.Provincia,
+            empresa.Logo);
 }
 
 /// <summary>Resumen de una empresa a la que pertenece un usuario, con su rol.</summary>

@@ -57,6 +57,9 @@ public sealed class Empresa : RaizAgregado<Guid>
 
     public DateTimeOffset ActualizadoEn { get; private set; }
 
+    /// <summary>Logo de la clínica como data URI (opcional). Se muestra en la cabecera de la app.</summary>
+    public string? Logo { get; private set; }
+
     public static Resultado<Empresa> Crear(Nif nif, string? razonSocial, Direccion direccion, RegimenIva regimenIva, IReloj reloj)
     {
         ArgumentNullException.ThrowIfNull(nif);
@@ -115,6 +118,14 @@ public sealed class Empresa : RaizAgregado<Guid>
 
         Iban = string.IsNullOrWhiteSpace(iban) ? null : iban.Replace(" ", string.Empty, StringComparison.Ordinal).ToUpperInvariant();
         IdentificadorAcreedor = string.IsNullOrWhiteSpace(identificadorAcreedor) ? null : identificadorAcreedor.Replace(" ", string.Empty, StringComparison.Ordinal).ToUpperInvariant();
+        ActualizadoEn = reloj.AhoraUtc;
+    }
+
+    /// <summary>Establece (o quita, con <c>null</c>) el logo de la clínica.</summary>
+    public void EstablecerLogo(string? logo, IReloj reloj)
+    {
+        ArgumentNullException.ThrowIfNull(reloj);
+        Logo = string.IsNullOrWhiteSpace(logo) ? null : logo;
         ActualizadoEn = reloj.AhoraUtc;
     }
 }

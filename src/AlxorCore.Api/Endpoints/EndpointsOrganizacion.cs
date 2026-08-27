@@ -47,6 +47,10 @@ public static class EndpointsOrganizacion
             .WithSummary("Fija los datos de cobro por domiciliación (IBAN e identificador del acreedor SEPA).")
             .RequierePermiso(Permisos.EmpresaAjustes);
 
+        empresas.MapPut("/actual/logo", ActualizarLogoAsync)
+            .WithSummary("Establece (o quita) el logo de la empresa activa (data URI).")
+            .RequierePermiso(Permisos.EmpresaAjustes);
+
         var series = rutas.MapGroup("/series").WithTags("Series");
 
         series.MapGet("", ListarSeriesAsync)
@@ -157,6 +161,17 @@ public static class EndpointsOrganizacion
         }
 
         var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, comando, ct).ConfigureAwait(false);
+        return resultado.AOk();
+    }
+
+    private static async Task<IResult> ActualizarLogoAsync(LogoPeticion peticion, IContextoEmpresa contexto, ActualizarLogoEmpresa caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var resultado = await caso.EjecutarAsync(contexto.EmpresaId.Value, peticion?.Logo, ct).ConfigureAwait(false);
         return resultado.AOk();
     }
 

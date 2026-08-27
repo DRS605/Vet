@@ -22,5 +22,8 @@ public sealed record ActualizarEmpresaPeticion(
     string? Provincia = null,
     RegimenIva RegimenIva = RegimenIva.General);
 
+/// <summary>Cuerpo para establecer (o quitar, con null) el logo de la empresa activa (data URI).</summary>
+public sealed record LogoPeticion(string? Logo);
+
 /// <summary>Cuerpo para crear una serie de numeración.</summary>
 public sealed record CrearSeriePeticion(TipoDocumento TipoDocumento, int Ejercicio, string Prefijo);

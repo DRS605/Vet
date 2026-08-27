@@ -446,7 +446,7 @@
     <aside class="sidebar">
       <div class="head"><div class="wordmark" style="font-size:17px"><span class="mark"><svg viewBox="0 0 100 100" aria-hidden="true"><path d="M70 15.4 A40 40 0 1 0 70 84.6" fill="none" stroke="#E07E22" stroke-width="6" stroke-linecap="round"/><path d="M70 84.6 A40 40 0 0 0 70 15.4" fill="none" stroke="#C9A46B" stroke-width="6" stroke-linecap="round"/><g fill="none" stroke="#F2EAD9" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"><path d="M42 32 C40 45 45 51 50 52"/><path d="M58 32 C60 45 55 51 50 52"/><path d="M50 52 C50 63 52 69 59 69"/></g><circle cx="42" cy="30" r="3.1" fill="#F2EAD9"/><circle cx="58" cy="30" r="3.1" fill="#F2EAD9"/><circle cx="63" cy="69" r="9" fill="#0e2036" stroke="#F2EAD9" stroke-width="3.4"/><g fill="#F2EAD9"><ellipse cx="63" cy="71" rx="3.1" ry="2.4"/><circle cx="60" cy="66.6" r="1.5"/><circle cx="63" cy="65.3" r="1.6"/><circle cx="66" cy="66.6" r="1.5"/></g></svg></span> <span class="stack"><span class="name">Vetis</span><span class="by">by Alxor</span></span></div></div>
       <nav id="nav" class="nav-scroll"></nav>
-      <div class="userbox"><div class="avatar" id="sideAvatar">V</div><div class="who"><b id="sideNombre">Usuario</b><br><span id="sideEmpresa">—</span></div></div>
+      <div class="userbox" onclick="ir('usuarios')" style="cursor:pointer" title="Gestionar usuarios de la clínica"><div class="avatar" id="sideAvatar">V</div><div class="who"><b id="sideNombre">Usuario</b><br><span id="sideEmpresa">—</span></div></div>
       <button class="btn line logout" onclick="cerrarSesion()" title="Cerrar sesión"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg> Cerrar sesión</button>
       <div id="appver" class="appver" title="Versión instalada de la aplicación"></div>
     </aside>
@@ -792,12 +792,22 @@ async function activarEmpresa(emp){
   const sel=await api("/empresas/"+emp.id+"/seleccionar",{method:"POST"});
   token=sel.token; empresa=emp; arrancar();
 }
+/* Pinta la esquina superior derecha: el logo de la clínica si lo tiene, o el nombre. */
+function pintarEmpresaChip(){
+  const chip=$("empresaChip"); if(!chip) return;
+  const logo=empresa&&empresa.logo, nombre=esc(empresa&&empresa.razonSocial||"");
+  chip.innerHTML = logo
+    ? `<img src="${esc(logo)}" alt="" style="height:22px;width:auto;max-width:130px;border-radius:4px;object-fit:contain;vertical-align:middle"/> <span class="cname">${nombre}</span>`
+    : `🏥 <span class="cname">${nombre}</span>`;
+}
 async function arrancar(){
   $("login").style.display="none"; $("empresaSel").style.display="none"; $("app").style.display="grid";
   pintarAvatares();
   $("sideNombre").textContent=usuario?.nombre||"Usuario";
   $("sideEmpresa").textContent=empresa.razonSocial;
-  $("empresaChip").innerHTML=`🏥 <span class="cname">${esc(empresa.razonSocial)}</span>`;
+  // Trae el logo (y datos frescos) de la empresa activa para la cabecera.
+  try{ const ea=await api("/empresas/actual"); if(ea){ empresa=Object.assign({}, empresa, {razonSocial:ea.razonSocial||empresa.razonSocial, nif:ea.nif||empresa.nif, logo:ea.logo||null}); $("sideEmpresa").textContent=empresa.razonSocial; } }catch(e){}
+  pintarEmpresaChip();
   $("nav").innerHTML=NAV_SECCIONES.map(s=>
     (s.t?`<div class="navlabel">${s.t}</div>`:"")+
     s.items.map(([k,l])=>`<a data-k="${k}" onclick="ir('${k}')">${ICON[k]}<span>${l}</span></a>`).join("")
@@ -2612,6 +2622,16 @@ async function vAjustes(){ cargando(); await conError(async()=>{
           <div class="error" id="e_err"></div>
           <div class="form-actions"><button class="btn" id="btnEmpresa" onclick="guardarEmpresa()">Guardar cambios</button></div>
         </div>`)}
+      ${panel("Logo de la clínica", `
+        <div class="form">
+          <p class="muted" style="margin:0 0 10px;font-size:12.5px">Aparece en la esquina superior derecha. PNG, JPG o SVG, preferiblemente cuadrado y con fondo transparente. Máx. 400 KB.</p>
+          <div id="logoPrev" style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
+            ${emp.logo?`<img src="${esc(emp.logo)}" alt="Logo" style="height:56px;width:auto;max-width:180px;border:1px solid var(--line);border-radius:10px;padding:6px;background:#fff;object-fit:contain"/>`:'<span class="muted">Sin logo</span>'}
+          </div>
+          <input type="file" id="logoFile" accept="image/png,image/jpeg,image/svg+xml" onchange="subirLogoEmpresa(this)"/>
+          <div class="error" id="logo_err"></div>
+          ${emp.logo?`<div class="form-actions"><button class="btn line" onclick="quitarLogoEmpresa()">Quitar logo</button></div>`:""}
+        </div>`)}
       ${panel("Mi perfil", `
         <div class="form">
           <label>Nombre</label><input id="p_nombre" value="${esc(usuario&&usuario.nombre||"")}"/>
@@ -2643,12 +2663,32 @@ async function guardarEmpresa(){
       calle:val("e_calle"), codigoPostal:val("e_cp"), poblacion:val("e_pob"), provincia:val("e_prov"),
       regimenIva:val("e_iva")
     })});
-    empresa=Object.assign({}, empresa, {razonSocial:emp.razonSocial, nif:emp.nif});
+    empresa=Object.assign({}, empresa, {razonSocial:emp.razonSocial, nif:emp.nif, logo:emp.logo!==undefined?emp.logo:empresa.logo});
     $("sideEmpresa").textContent=empresa.razonSocial;
-    $("empresaChip").innerHTML=`🏥 <span class="cname">${esc(empresa.razonSocial)}</span>`;
+    pintarEmpresaChip();
     toast("Datos guardados.","ok");
   }catch(e){ err.textContent=e.message; }
   finally{ btn.disabled=false; }
+}
+async function subirLogoEmpresa(input){
+  const f=input&&input.files&&input.files[0]; const err=$("logo_err"); if(err)err.textContent="";
+  if(!f) return;
+  if(f.size>400*1024){ if(err)err.textContent="La imagen supera 400 KB. Usa una más ligera."; input.value=""; return; }
+  const reader=new FileReader();
+  reader.onload=async()=>{
+    try{
+      const dataUrl=String(reader.result);
+      const emp=await api("/empresas/actual/logo",{method:"PUT",body:JSON.stringify({logo:dataUrl})});
+      empresa=Object.assign({}, empresa, {logo:(emp&&emp.logo)||dataUrl});
+      pintarEmpresaChip(); toast("Logo actualizado.","ok"); vAjustes();
+    }catch(e){ if(err)err.textContent=e.message||"No se pudo guardar el logo."; }
+  };
+  reader.onerror=()=>{ if(err)err.textContent="No se pudo leer la imagen."; };
+  reader.readAsDataURL(f);
+}
+async function quitarLogoEmpresa(){
+  try{ await api("/empresas/actual/logo",{method:"PUT",body:JSON.stringify({logo:null})}); empresa=Object.assign({}, empresa, {logo:null}); pintarEmpresaChip(); toast("Logo quitado.","ok"); vAjustes(); }
+  catch(e){ toast(e.message||"No se pudo quitar el logo.","err"); }
 }
 async function guardarPerfil(){
   const err=$("p_err"); err.textContent=""; const btn=$("btnPerfil"); btn.disabled=true;

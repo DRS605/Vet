@@ -43,6 +43,7 @@ public static class RegistroServicios
         servicios.AddScoped<ConsultarEstadoInstalacion>();
         servicios.AddScoped<ActualizarDatosCobro>();
         servicios.AddScoped<ActualizarEmpresa>();
+        servicios.AddScoped<ActualizarLogoEmpresa>();
         servicios.AddScoped<ListarMisEmpresas>();
         servicios.AddScoped<ObtenerEmpresa>();
         servicios.AddScoped<SeleccionarEmpresa>();
