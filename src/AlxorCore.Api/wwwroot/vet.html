@@ -91,6 +91,7 @@
     .sidebar .spacer{flex:1;}
     .sidebar .logout{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:10px;color:var(--muted);font-size:13px;padding:9px;}
     .sidebar .logout:hover{color:var(--neg);border-color:var(--neg);}
+    .appver{font-size:10.5px;color:var(--muted);text-align:center;padding:8px 6px 2px;opacity:.75;letter-spacing:.02em;}
     .userbox{display:flex;align-items:center;gap:10px;padding:10px 6px 2px;border-top:1px solid var(--line);}
     .userbox .who b{font-size:12.5px;} .userbox .who span{font-size:11.5px;color:var(--muted);}
     .avatar{width:32px;height:32px;border-radius:50%;background:var(--grad);color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px;flex:none;overflow:hidden;}
@@ -447,6 +448,7 @@
       <nav id="nav" class="nav-scroll"></nav>
       <div class="userbox"><div class="avatar" id="sideAvatar">V</div><div class="who"><b id="sideNombre">Usuario</b><br><span id="sideEmpresa">—</span></div></div>
       <button class="btn line logout" onclick="cerrarSesion()" title="Cerrar sesión"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg> Cerrar sesión</button>
+      <div id="appver" class="appver" title="Versión instalada de la aplicación"></div>
     </aside>
     <div class="main">
       <header class="topbar">
@@ -776,8 +778,23 @@ async function arrancar(){
     (s.t?`<div class="navlabel">${s.t}</div>`:"")+
     s.items.map(([k,l])=>`<a data-k="${k}" onclick="ir('${k}')">${ICON[k]}<span>${l}</span></a>`).join("")
   ).join("");
+  cargarVersion();
   await cargarEspecies();
   ir("inicio");
+}
+/* Sello de versión: lee /version.json (generado al empaquetar) y lo muestra en la
+   barra lateral. Sirve para saber SIEMPRE, de un vistazo, qué build está sirviendo
+   el servidor. El parámetro _ evita que el navegador lo cachee. */
+async function cargarVersion(){
+  const el=$("appver"); if(!el) return;
+  try{
+    const r=await fetch(`/version.json?_=${Date.now()}`,{cache:"no-store"});
+    if(!r.ok) throw 0;
+    const v=await r.json();
+    const etiqueta=v.version||"—";
+    const fecha=v.empaquetado?String(v.empaquetado).slice(0,10):"";
+    el.textContent=`Vetis ${etiqueta}${fecha?" · "+fecha:""}`;
+  }catch(e){ el.textContent="Vetis"; }
 }
 
 /* ---------- router ---------- */

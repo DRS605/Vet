@@ -33,6 +33,17 @@ cp "$WIN/scripts/"*.ps1 "$STAGE/scripts/"
 cp -r "$PUB/." "$STAGE/app/"
 rm -f "$STAGE/app/"*.pdb
 
+# Sello de versión: se escribe en wwwroot/version.json y la SPA lo muestra en la
+# barra lateral. Así, tras actualizar, se ve de un vistazo qué build está corriendo.
+FECHA_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+SHA="$(git -C "$RAIZ" rev-parse --short HEAD 2>/dev/null || echo local)"
+VERSION="$(date -u +v%Y.%m.%d)-$SHA"
+mkdir -p "$STAGE/app/wwwroot"
+cat > "$STAGE/app/wwwroot/version.json" <<JSON
+{ "version": "$VERSION", "empaquetado": "$FECHA_UTC", "commit": "$SHA" }
+JSON
+echo "Sello de version: $VERSION ($FECHA_UTC)"
+
 mkdir -p "$DIST"
 rm -f "$DIST/ALXORVet-Windows.zip"
 ( cd "$(dirname "$STAGE")" && zip -r -q ALXORVet-Windows.zip ALXOR-Vet )

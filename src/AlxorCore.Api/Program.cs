@@ -220,7 +220,24 @@ if (app.Environment.IsDevelopment())
 
 // Sirve la interfaz web (SPA) desde wwwroot, en el mismo origen que la API (sin CORS).
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    // El HTML y el sello de versión NUNCA se cachean: así, tras actualizar el
+    // paquete, el navegador siempre recibe la interfaz nueva (evita el clásico
+    // "sigue viéndose la versión vieja"). Los demás estáticos usan la caché normal.
+    OnPrepareResponse = ctx =>
+    {
+        var nombre = ctx.File.Name;
+        if (nombre.EndsWith(".html", StringComparison.OrdinalIgnoreCase)
+            || nombre.Equals("version.json", StringComparison.OrdinalIgnoreCase))
+        {
+            var cabeceras = ctx.Context.Response.Headers;
+            cabeceras["Cache-Control"] = "no-cache, no-store, must-revalidate";
+            cabeceras["Pragma"] = "no-cache";
+            cabeceras["Expires"] = "0";
+        }
+    },
+});
 
 app.UseAuthentication();
 app.UseAuthorization();
