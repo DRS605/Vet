@@ -38,7 +38,8 @@ rm -f "$STAGE/app/"*.pdb
 # barra lateral. Así, tras actualizar, se ve de un vistazo qué build está corriendo.
 FECHA_UTC="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 SHA="$(git -C "$RAIZ" rev-parse --short HEAD 2>/dev/null || echo local)"
-VERSION="$(date -u +v%Y.%m.%d)-$SHA"
+# Versión de producto: se lee del fichero VERSION en la raíz (p. ej. 1.0.0).
+VERSION="$(tr -d ' \t\r\n' < "$RAIZ/VERSION" 2>/dev/null || echo 1.0.0)"
 mkdir -p "$STAGE/app/wwwroot"
 cat > "$STAGE/app/wwwroot/version.json" <<JSON
 { "version": "$VERSION", "empaquetado": "$FECHA_UTC", "commit": "$SHA" }

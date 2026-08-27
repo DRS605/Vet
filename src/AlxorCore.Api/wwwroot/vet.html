@@ -622,6 +622,22 @@ function cpPanelVista(campos){
   return panel("Datos adicionales", `<div class="cp-list">${filas}</div>`);
 }
 
+/* ---------- Desplegable ampliable (con opción «Otra…») ----------
+   Renderiza un <select> con las opciones dadas más «Otra…»; al elegir «Otra…»
+   aparece un campo de texto para escribir un valor nuevo. soVal() lee el valor
+   final (de la lista o el escrito). Se usa en unidades y categorías. */
+const UNIDADES=["ud","caja","blíster","comprimido","cápsula","vial","ampolla","dosis","ml","L","mg","g","kg","sobre","pipeta","frasco"];
+function selConOtra(id, valor, opciones){
+  const v=(valor==null?"":String(valor)); const enLista=v!==""&&opciones.includes(v); const mostrar=(v!==""&&!enLista);
+  const opts=['<option value="">—</option>']
+    .concat(opciones.map(o=>`<option value="${esc(o)}"${o===v?" selected":""}>${esc(o)}</option>`))
+    .concat(`<option value="__otra__"${mostrar?" selected":""}>➕ Otra…</option>`).join("");
+  return `<select id="${id}" onchange="soToggle('${id}')">${opts}</select>`+
+    `<input id="${id}_otra" placeholder="Escríbela y se guardará" style="margin-top:6px;display:${mostrar?"block":"none"}" value="${mostrar?esc(v):""}"/>`;
+}
+function soToggle(id){ const s=$(id),t=$(id+"_otra"); if(!s||!t)return; const on=s.value==="__otra__"; t.style.display=on?"block":"none"; if(on)t.focus(); }
+function soVal(id){ const s=$(id); if(!s)return ""; if(s.value==="__otra__"){ const t=$(id+"_otra"); return (t&&t.value||"").trim(); } return s.value||""; }
+
 const ICON = {
   inicio:'<svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>',
   agenda:'<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
@@ -640,17 +656,19 @@ const ICON = {
   presupuestos:'<svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6"/><path d="M9 14l2 2 4-4"/></svg>',
   facturas:'<svg viewBox="0 0 24 24"><path d="M6 2h12v20l-3-2-3 2-3-2-3 2z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>',
   informes:'<svg viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>',
-  inventario:'<svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>'
+  inventario:'<svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>',
+  razas:'<svg viewBox="0 0 24 24"><circle cx="6.5" cy="12.5" r="2.2"/><circle cx="17.5" cy="12.5" r="2.2"/><circle cx="10" cy="7.5" r="2"/><circle cx="14" cy="7.5" r="2"/><path d="M12 13c-2.4 0-4 1.7-4 3.6S9.6 20 12 20s4-1.5 4-3.4S14.4 13 12 13z"/></svg>',
+  atender:'<svg viewBox="0 0 24 24"><path d="M6 3v6a4 4 0 0 0 8 0V3"/><path d="M5 3h2M13 3h2M10 15v1a5 5 0 0 0 10 0v-1"/><circle cx="20" cy="13.5" r="2.1"/></svg>'
 };
 /* Menú por bloques: cada sección tiene un título y sus opciones. */
 const NAV_SECCIONES = [
   { t:"", items:[["inicio","Inicio"],["agenda","Agenda"],["clientes","Clientes"]] },
-  { t:"Clínica", items:[["vacunas","Vacunas"],["recordatorios","Recordatorios"],["inventario","Inventario"]] },
+  { t:"Clínica", items:[["atender","Atender"],["vacunas","Vacunas"],["recordatorios","Recordatorios"],["inventario","Inventario"]] },
   { t:"Facturación", items:[["facturacion","Facturación"],["presupuestos","Presupuestos"],["facturas","Facturas"],["informes","Informes"]] },
-  { t:"Maestros", items:[["especies","Especies"],["conceptos","Servicios / Conceptos"],["campos","Campos personalizados"]] },
+  { t:"Maestros", items:[["especies","Especies"],["razas","Razas"],["conceptos","Servicios / Conceptos"],["campos","Campos personalizados"]] },
   { t:"Administración", items:[["usuarios","Usuarios"],["ajustes","Ajustes"]] },
 ];
-const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",vacunas:"Vacunas",especies:"Especies",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",usuarios:"Usuarios",presupuestos:"Presupuestos",facturas:"Facturas emitidas",informes:"Informes",inventario:"Inventario",ajustes:"Ajustes"};
+const TITULOS = {inicio:"Inicio",agenda:"Agenda",clientes:"Clientes",cliente:"Ficha de cliente",animal:"Ficha de animal",atender:"Atención clínica",vacunas:"Vacunas",especies:"Especies",razas:"Razas",recordatorios:"Recordatorios",facturacion:"Facturación",conceptos:"Servicios / Conceptos",campos:"Campos personalizados",usuarios:"Usuarios",presupuestos:"Presupuestos",facturas:"Facturas emitidas",informes:"Informes",inventario:"Inventario",ajustes:"Ajustes"};
 
 /* ---------- fetch con Bearer ---------- */
 async function api(path, opts={}){
@@ -806,7 +824,7 @@ function ir(k, params){
   closeMenu(); vista=k; ctx=Object.assign({}, params||{});
   document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active", a.dataset.k===k || (k==="cliente"&&a.dataset.k==="clientes") || (k==="animal"&&a.dataset.k==="clientes")));
   $("viewTitle").textContent=TITULOS[k]||k;
-  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,vacunas:vVacunas,especies:vEspecies,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,usuarios:vUsuarios,presupuestos:vPresupuestos,facturas:vFacturasPanel,informes:vInformesClientes,inventario:vInventario,ajustes:vAjustes}[k];
+  const fn={inicio:vInicio,agenda:vAgenda,clientes:vClientes,cliente:vCliente,animal:vAnimal,atender:vAtender,vacunas:vVacunas,especies:vEspecies,razas:vRazas,recordatorios:vRecordatorios,facturacion:vFacturacion,conceptos:vConceptos,campos:vCampos,usuarios:vUsuarios,presupuestos:vPresupuestos,facturas:vFacturasPanel,informes:vInformesClientes,inventario:vInventario,ajustes:vAjustes}[k];
   (fn||vInicio)();
 }
 const view = h => $("view").innerHTML=h;
@@ -1680,6 +1698,70 @@ function darBajaEspecie(id, nombre){
 }
 
 /* ---------- RAZAS (maestro por especie) ---------- */
+/* Pantalla de RAZAS: todas las razas dadas de alta, agrupadas por especie.
+   Consultar aquí + gestionar por especie (mismo mantenimiento que en Especies). */
+async function vRazas(){ cargando(); await conError(async()=>{
+  if(!especiesCache.length) await cargarEspecies();
+  const activas=especiesCache.filter(e=>e.activo!==false);
+  const bloques=await Promise.all(activas.map(async e=>{
+    let razas=[]; try{ razas=await api(`/razas?especie=${encodeURIComponent(e.nombre)}`); }catch{}
+    const lista = razas.length
+      ? `<div class="rz-list">${razas.map(r=>`<span class="pill b">${esc(r.nombre)}</span>`).join("")}</div>`
+      : `<span class="muted">Sin razas todavía.</span>`;
+    return panel(`${emojiEspecie(e.nombre)} ${esc(e.nombre)}`, `<div style="padding:4px 2px">${lista}</div>`,
+      `<button class="btn tiny v" onclick='modalRazas(${JSON.stringify(e.nombre)})'>Gestionar</button>`);
+  }));
+  view(`
+    <h3 class="sec">Razas</h3>
+    <p class="subt">Todas las razas dadas de alta, por especie. Pulsa «Gestionar» para añadir, editar o dar de baja. También aparecen como desplegable al crear o editar un animal.</p>
+    ${activas.length?bloques.join(""):vacio("🐾","Sin especies","Primero da de alta especies en el maestro de Especies.")}`);
+}); }
+
+/* Pantalla ATENDER: el segundo camino para las acciones clínicas. Busca el
+   animal y registra consulta / vacunación / cirugía / acto sin pasar por la
+   ficha del cliente (los mismos modales que en la ficha del animal). */
+async function vAtender(){ cargando(); await conError(async()=>{
+  const [animales, clientes]=await Promise.all([api("/animales"), api("/clientes").catch(()=>[])]);
+  const cliById={}; (clientes||[]).forEach(c=>cliById[c.id]=c);
+  window._atAnimales=animales; window._atCli=cliById;
+  view(`
+    <h3 class="sec">Atención clínica</h3>
+    <p class="subt">Busca el animal y registra directamente una consulta, vacunación, cirugía o acto —sin pasar por la ficha del cliente. También puedes hacerlo desde la ficha: ambos caminos valen.</p>
+    <div class="panel"><div style="padding:14px">
+      <input id="atBuscar" placeholder="Buscar animal por nombre, chip, raza o propietario…" oninput="atFiltrar()" autofocus/>
+      <div id="atLista" style="margin-top:12px"></div>
+    </div></div>`);
+  atFiltrar();
+}); }
+function atFiltrar(){
+  const box=$("atLista"); if(!box) return;
+  const q=(val("atBuscar")||"").toLowerCase().trim();
+  const cli=window._atCli||{}; const arr=(window._atAnimales||[]);
+  const norm=s=>(s==null?"":String(s)).toLowerCase();
+  const res=arr.filter(a=>{ const c=cli[a.clienteId];
+    return !q || norm(a.nombre).includes(q) || norm(a.microchip).includes(q) || norm(a.raza).includes(q) || norm(a.especie).includes(q) || (c&&norm(c.nombre).includes(q)); }).slice(0,60);
+  box.innerHTML = res.length ? res.map(a=>{
+    const c=cli[a.clienteId];
+    return `<div class="rem"><div class="ic">${emojiEspecie(a.especie)}</div>
+      <div class="info"><b>${esc(a.nombre)}</b><p>${esc(a.raza||a.especie)}${c?" · "+esc(c.nombre):""}${a.microchip?" · Chip "+esc(a.microchip):""}</p></div>
+      <div class="act" style="flex-wrap:wrap;gap:6px;justify-content:flex-end">
+        <button class="btn tiny" onclick="atAccion('consulta','${a.id}','${a.clienteId}')">Consulta</button>
+        <button class="btn tiny v" onclick="atAccion('vacunar','${a.id}','${a.clienteId}',${esc(JSON.stringify(a.especie))})">Vacunar</button>
+        <button class="btn tiny line" onclick="atAccion('cirugia','${a.id}','${a.clienteId}')">Cirugía</button>
+        <button class="btn tiny line" onclick="atAccion('acto','${a.id}','${a.clienteId}')">Acto</button>
+        <button class="btn tiny line" onclick="ir('animal',{animalId:'${a.id}',clienteId:'${a.clienteId}'})">Ficha</button>
+      </div></div>`;
+  }).join("") : `<span class="muted">${q?"Sin resultados.":"Escribe para buscar un animal."}</span>`;
+}
+/* Fija el contexto del animal (para que el refresco tras guardar muestre su ficha) y abre el modal. */
+function atAccion(tipo, animalId, clienteId, especie){
+  ctx={animalId, clienteId};
+  if(tipo==="consulta") modalConsulta(animalId);
+  else if(tipo==="vacunar") modalVacunar(animalId, especie||"");
+  else if(tipo==="cirugia") modalCirugia(animalId);
+  else if(tipo==="acto") modalActo(animalId);
+}
+
 async function modalRazas(especie){
   abrir(`Razas de ${esc(especie)}`, `
     <div style="display:flex;gap:8px;align-items:center">
@@ -2108,10 +2190,15 @@ async function vInventario(){ cargando(); await conError(async()=>{
 }); }
 function _camposArticulo(a){
   const cat=(a&&a.categoria)||"Medicamento";
-  const catOpc=CAT_INV.map(([v,l])=>`<option value="${v}" ${v===cat?"selected":""}>${l}</option>`).join("");
+  const base=CAT_INV.map(c=>c[0]);
+  const extra=[...new Set(Object.values(window._invById||{}).map(x=>x&&x.categoria).filter(c=>c&&!base.includes(c)))];
+  const catOpc=CAT_INV.map(([v,l])=>`<option value="${v}"${v===cat?" selected":""}>${l}</option>`).join("")
+    +extra.map(c=>`<option value="${esc(c)}"${c===cat?" selected":""}>${esc(c)}</option>`).join("")
+    +`<option value="__otra__">➕ Otra categoría…</option>`;
+  const unis=[...new Set(UNIDADES.concat(Object.values(window._invById||{}).map(x=>x&&x.unidad).filter(Boolean)))];
   return `
     <label>Nombre *</label><input id="i_nombre" value="${esc(a&&a.nombre||"")}" placeholder="p. ej. Amoxicilina 250 mg"/>
-    <div class="grid-2"><div><label>Categoría</label><select id="i_cat">${catOpc}</select></div><div><label>Unidad</label><input id="i_uni" value="${esc(a&&a.unidad||"")}" placeholder="uds, ml, comprimidos…"/></div></div>
+    <div class="grid-2"><div><label>Categoría</label><select id="i_cat" onchange="soToggle('i_cat')">${catOpc}</select><input id="i_cat_otra" placeholder="Nueva categoría" style="margin-top:6px;display:none"/></div><div><label>Unidad</label>${selConOtra("i_uni", a&&a.unidad, unis)}</div></div>
     <div class="grid-2"><div><label>Stock actual</label><input id="i_stock" inputmode="decimal" value="${a&&a.stock!=null?a.stock:0}"/></div><div><label>Stock mínimo</label><input id="i_min" inputmode="decimal" value="${a&&a.stockMinimo!=null?a.stockMinimo:0}"/></div></div>
     <label>Caducidad</label><input id="i_cad" type="date" value="${a&&a.caducidad?String(a.caducidad).slice(0,10):""}"/>
     <label>Notas</label><textarea id="i_notas">${esc(a&&a.notas||"")}</textarea>
@@ -2124,7 +2211,7 @@ async function modalArticulo(id){
   abrir(a?"Editar artículo":"Nuevo artículo", cuerpoHtml, async()=>{
     if(!val("i_nombre")) throw new Error("El nombre es obligatorio.");
     const cpVals=cpRecoger(campos);
-    const cuerpo={ nombre:val("i_nombre"), categoria:val("i_cat"), unidad:val("i_uni")||null,
+    const cuerpo={ nombre:val("i_nombre"), categoria:soVal("i_cat")||"Otro", unidad:soVal("i_uni")||null,
       stock:num("i_stock")||0, stockMinimo:num("i_min")||0, caducidad:val("i_cad")||null, notas:val("i_notas")||null };
     let guardado;
     if(a){ await api("/inventario/"+id,{method:"PUT",body:JSON.stringify(cuerpo)}); guardado={id}; }
@@ -2465,7 +2552,7 @@ async function modalConcepto(p){
     </div>
     <div class="grid-2">
       <div><label>Referencia</label><input id="co_ref" value="${esc(p&&p.referencia||"")}" placeholder="opcional"/></div>
-      <div><label>Unidad</label><input id="co_uni" value="${esc(p&&p.unidad||"")}" placeholder="ud"/></div>
+      <div><label>Unidad</label>${selConOtra("co_uni", p&&p.unidad, [...new Set(UNIDADES.concat((conceptosCache||[]).map(x=>x&&x.unidad).filter(Boolean)))])}</div>
     </div>
     <label>Tipo</label><select id="co_tipo"><option value="Servicio"${tipoSel==="Servicio"?" selected":""}>Servicio</option><option value="Bien"${tipoSel==="Bien"?" selected":""}>Bien</option></select>
     ${cpHtml(campos)}
@@ -2474,7 +2561,7 @@ async function modalConcepto(p){
       if(!val("co_nombre")) throw new Error("El nombre es obligatorio.");
       if(num("co_precio")==null) throw new Error("Indica el precio.");
       const cpVals=cpRecoger(campos);
-      const body={nombre:val("co_nombre"), precioUnitario:num("co_precio"), codigoIva:codigoIvaDe(val("co_iva")), referencia:val("co_ref")||null, unidad:val("co_uni")||null, tipo:val("co_tipo")};
+      const body={nombre:val("co_nombre"), precioUnitario:num("co_precio"), codigoIva:codigoIvaDe(val("co_iva")), referencia:val("co_ref")||null, unidad:soVal("co_uni")||null, tipo:val("co_tipo")};
       let guardado;
       if(editar){ await api(`/productos/${p.id}`,{method:"PUT",body:JSON.stringify(body)}); guardado={id:p.id}; }
       else guardado=await api(`/productos`,{method:"POST",body:JSON.stringify(body)});
