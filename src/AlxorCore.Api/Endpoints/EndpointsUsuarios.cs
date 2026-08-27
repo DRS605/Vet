@@ -14,8 +14,14 @@ public sealed record InvitarPeticion(string Email, string? Nombre, string Rol, s
 /// <summary>Cuerpo para cambiar el rol de un miembro.</summary>
 public sealed record CambiarRolPeticion(string Rol);
 
+/// <summary>Cuerpo para marcar/desmarcar a un miembro como veterinario/a.</summary>
+public sealed record MarcarVeterinarioPeticion(bool Es);
+
 /// <summary>Vista de un miembro de la empresa (membresía + datos del usuario).</summary>
-public sealed record MiembroDto(Guid UsuarioId, string Email, string Nombre, bool EmailVerificado, string Rol, string RolNombre, string Estado, bool EsYo);
+public sealed record MiembroDto(Guid UsuarioId, string Email, string Nombre, bool EmailVerificado, string Rol, string RolNombre, string Estado, bool EsYo, bool EsVeterinario);
+
+/// <summary>Veterinario/a de la empresa (para elegir en consultas, vacunas, cirugías y actos).</summary>
+public sealed record VeterinarioDto(Guid UsuarioId, string Nombre);
 
 /// <summary>
 /// Endpoints de <b>gestión de usuarios de la empresa</b>. Orquestan la identidad (usuarios) y la
@@ -42,9 +48,20 @@ public static class EndpointsUsuarios
             .WithSummary("Cambia el rol de un miembro.")
             .RequierePermiso(Permisos.UsuarioGestionar);
 
+        usuarios.MapPost("/{usuarioId:guid}/veterinario", MarcarVeterinarioAsync)
+            .WithSummary("Marca o desmarca a un miembro como veterinario/a.")
+            .RequierePermiso(Permisos.UsuarioGestionar);
+
         usuarios.MapPost("/{usuarioId:guid}/revocar", RevocarAsync)
             .WithSummary("Revoca el acceso de un miembro a la empresa.")
             .RequierePermiso(Permisos.UsuarioGestionar);
+
+        // Lista de veterinarios/as: la puede leer CUALQUIER miembro (no solo el propietario),
+        // para rellenar el desplegable de veterinario/a en las fichas clínicas.
+        var vets = rutas.MapGroup("/veterinarios").WithTags("Veterinarios");
+        vets.MapGet("", ListarVeterinariosAsync)
+            .WithSummary("Lista los veterinarios/as de la empresa activa.")
+            .RequireAuthorization();
 
         return rutas;
     }
@@ -68,10 +85,42 @@ public static class EndpointsUsuarios
             resumenes.TryGetValue(m.UsuarioId, out var u);
             return new MiembroDto(
                 m.UsuarioId, u?.Email ?? "—", u?.Nombre ?? "—", u?.EmailVerificado ?? false,
-                m.RolCodigo, m.RolNombre, m.Estado, m.UsuarioId == yo);
+                m.RolCodigo, m.RolNombre, m.Estado, m.UsuarioId == yo, m.EsVeterinario);
         }).ToList();
 
         return Results.Ok(miembros);
+    }
+
+    private static async Task<IResult> MarcarVeterinarioAsync(
+        Guid usuarioId, MarcarVeterinarioPeticion peticion, IContextoEmpresa contexto, MarcarVeterinarioMembresia caso, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        return (await caso.EjecutarAsync(contexto.EmpresaId.Value, usuarioId, peticion?.Es ?? false, ct).ConfigureAwait(false)).ASinContenido();
+    }
+
+    private static async Task<IResult> ListarVeterinariosAsync(
+        IContextoEmpresa contexto, ListarMembresias membresias, IConsultaUsuarios usuarios, CancellationToken ct)
+    {
+        if (contexto.EmpresaId is null)
+        {
+            return ResultadosHttp.AProblema(Error.Validacion("empresa.no_seleccionada", "Selecciona una empresa primero."));
+        }
+
+        var lista = (await membresias.EjecutarAsync(contexto.EmpresaId.Value, ct).ConfigureAwait(false))
+            .Where(m => m.EsVeterinario && m.Estado == "Activa").ToList();
+        var resumenes = (await usuarios.ListarResumenesAsync(lista.Select(m => m.UsuarioId).ToList(), ct).ConfigureAwait(false))
+            .ToDictionary(u => u.Id);
+        var vets = lista.Select(m =>
+        {
+            resumenes.TryGetValue(m.UsuarioId, out var u);
+            return new VeterinarioDto(m.UsuarioId, u?.Nombre ?? "—");
+        }).OrderBy(v => v.Nombre, StringComparer.OrdinalIgnoreCase).ToList();
+
+        return Results.Ok(vets);
     }
 
     private static async Task<IResult> InvitarAsync(

@@ -58,6 +58,7 @@ internal sealed class ConfiguracionMembresia : IEntityTypeConfiguration<Membresi
         builder.Property(m => m.RolCodigo).HasColumnName("rol_codigo").HasMaxLength(30).IsRequired();
         builder.Property(m => m.Estado).HasColumnName("estado").HasMaxLength(20).HasConversion<string>().IsRequired();
         builder.Property(m => m.CreadoEn).HasColumnName("creado_en").IsRequired();
+        builder.Property(m => m.EsVeterinario).HasColumnName("es_veterinario").HasDefaultValue(false).IsRequired();
 
         builder.HasIndex(m => new { m.UsuarioId, m.EmpresaId }).IsUnique().HasDatabaseName("ux_membresia_usuario_empresa");
         builder.Ignore(m => m.EventosDominio);

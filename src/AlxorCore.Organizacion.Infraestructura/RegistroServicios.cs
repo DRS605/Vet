@@ -51,6 +51,7 @@ public static class RegistroServicios
         servicios.AddScoped<ListarMembresias>();
         servicios.AddScoped<AgregarMembresia>();
         servicios.AddScoped<CambiarRolMembresia>();
+        servicios.AddScoped<MarcarVeterinarioMembresia>();
         servicios.AddScoped<RevocarMembresia>();
 
         return servicios;

@@ -37,6 +37,9 @@ public sealed class Membresia : RaizAgregado<Guid>
 
     public DateTimeOffset CreadoEn { get; private set; }
 
+    /// <summary>Marca si este miembro es veterinario/a en la empresa (para elegirlo en actos clínicos).</summary>
+    public bool EsVeterinario { get; private set; }
+
     public bool EstaActiva => Estado == EstadoMembresia.Activa;
 
     /// <summary>Crea la membresía del propietario al dar de alta una empresa.</summary>
@@ -69,4 +72,7 @@ public sealed class Membresia : RaizAgregado<Guid>
         ArgumentNullException.ThrowIfNull(rol);
         RolCodigo = rol.Codigo;
     }
+
+    /// <summary>Marca o desmarca a este miembro como veterinario/a de la empresa.</summary>
+    public void MarcarVeterinario(bool es) => EsVeterinario = es;
 }

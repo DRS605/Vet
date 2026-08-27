@@ -544,6 +544,10 @@ async function cargarEspecies(){ try{ especiesCache = await api("/especies"); }c
 /* Maestro de conceptos facturables (productos del Catálogo). */
 let conceptosCache = [];
 async function cargarConceptos(){ try{ conceptosCache = await api("/productos"); }catch{ conceptosCache = []; } return conceptosCache; }
+let veterinariosCache = [];
+async function cargarVeterinarios(){ try{ veterinariosCache = await api("/veterinarios"); }catch{ veterinariosCache = []; } return veterinariosCache; }
+/* Desplegable de veterinario/a: los marcados en Usuarios + «Otra…» para escribir uno libre. */
+function vetSelect(id, valor){ return selConOtra(id, valor, (veterinariosCache||[]).map(v=>v.nombre)); }
 /* <datalist> con los conceptos del maestro (para autocompletar el campo Concepto). */
 function datalistConceptos(id){ return `<datalist id="${id}">${conceptosCache.map(p=>`<option value="${esc(p.nombre)}"></option>`).join("")}</datalist>`; }
 /* Busca un concepto del maestro por nombre exacto (sin distinguir mayúsculas), o null si es texto libre. */
@@ -799,6 +803,7 @@ async function arrancar(){
     s.items.map(([k,l])=>`<a data-k="${k}" onclick="ir('${k}')">${ICON[k]}<span>${l}</span></a>`).join("")
   ).join("");
   cargarVersion();
+  cargarVeterinarios();
   await cargarEspecies();
   ir("inicio");
 }
@@ -1401,11 +1406,11 @@ async function modalReceta(){
   await datosEmpresa();
   abrir("Receta / prescripción", `
     <label>Medicación e indicaciones *</label><textarea id="doc_txt" rows="6" placeholder="Medicamento, dosis, pauta y duración. Un renglón por línea."></textarea>
-    <label>Veterinario/a</label><input id="doc_vet" value="${esc(usuario&&usuario.nombre||"")}"/>
+    <label>Veterinario/a</label>${vetSelect("doc_vet", usuario&&usuario.nombre||"")}
     <div class="error" id="modalErr"></div>`, async()=>{
     if(!val("doc_txt")) throw new Error("Escribe la medicación.");
     const cuerpo=`<h2>Prescripción veterinaria</h2>${_cabeceraDoc(a,c)}
-      <div class="row"><b>Veterinario/a:</b> ${esc(val("doc_vet")||"")}</div>
+      <div class="row"><b>Veterinario/a:</b> ${esc(soVal("doc_vet")||"")}</div>
       <h2 style="margin-top:14px">Rp.</h2><div class="cont">${esc(val("doc_txt"))}</div>
       <div class="firmas"><div class="firma">Firma y nº colegiado/a</div></div>`;
     imprimirDoc("Receta veterinaria", cuerpo); cerrarModal();
@@ -1436,7 +1441,7 @@ async function modalConsulta(animalId, opts){
     <label>Motivo</label><input id="k_motivo" value="${esc(editar?(c.motivo||""):(opts.motivo||""))}"/>
     <label>Diagnóstico</label><textarea id="k_diag">${esc(editar&&c.diagnostico||"")}</textarea>
     <label>Tratamiento</label><textarea id="k_trat">${esc(editar&&c.tratamiento||"")}</textarea>
-    <label>Veterinario/a</label><input id="k_vet" value="${esc(editar?(c.veterinario||""):(usuario?.nombre||""))}"/>
+    <label>Veterinario/a</label>${vetSelect("k_vet", editar?(c.veterinario||""):(usuario?.nombre||""))}
     ${cpHtml(campos)}
     ${bloqueActo}
     <div class="error" id="modalErr"></div>`,
@@ -1446,7 +1451,7 @@ async function modalConsulta(animalId, opts){
       if(editar){
         await api(`/consultas/${c.id}`,{method:"PUT",body:JSON.stringify({
           fecha:val("k_fecha"), motivo:val("k_motivo")||null, diagnostico:val("k_diag")||null,
-          tratamiento:val("k_trat")||null, pesoKg:num("k_peso"), veterinario:val("k_vet")||null
+          tratamiento:val("k_trat")||null, pesoKg:num("k_peso"), veterinario:soVal("k_vet")||null
         })});
         await cpGuardar("Consulta", c.id, cpVals);
         toast("Consulta actualizada.","ok"); refrescar(); return;
@@ -1482,7 +1487,7 @@ async function modalVacunar(animalId, especie){
     <label>Pauta (${especie})</label><select id="v_pauta" onchange="_vacPautaChange()">${opts}</select>
     <label>Nombre de la vacuna *</label><input id="v_nombre" placeholder="p. ej. Polivalente (DHPPi/L)"/>
     <div class="grid-2"><div><label>Fecha *</label><input id="v_fecha" type="date" value="${hoyISO()}"/></div><div><label>Próxima dosis</label><input id="v_prox" type="date"/></div></div>
-    <div class="grid-2"><div><label>Lote</label><input id="v_lote"/></div><div><label>Veterinario/a</label><input id="v_vet" value="${esc(usuario?.nombre||"")}"/></div></div>
+    <div class="grid-2"><div><label>Lote</label><input id="v_lote"/></div><div><label>Veterinario/a</label>${vetSelect("v_vet", usuario?.nombre||"")}</div></div>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("v_fecha")) throw new Error("La fecha es obligatoria.");
@@ -1490,7 +1495,7 @@ async function modalVacunar(animalId, especie){
       if(!pautaId && !val("v_nombre")) throw new Error("Indica una pauta o un nombre de vacuna.");
       await api(`/animales/${animalId}/vacunas`,{method:"POST",body:JSON.stringify({
         animalId, fechaAplicacion:val("v_fecha"), pautaVacunalId:pautaId, nombre:val("v_nombre")||null,
-        lote:val("v_lote")||null, proximaDosis:val("v_prox")||null, veterinario:val("v_vet")||null
+        lote:val("v_lote")||null, proximaDosis:val("v_prox")||null, veterinario:soVal("v_vet")||null
       })});
       toast("Vacunación registrada.","ok"); vAnimal();
     });
@@ -1503,7 +1508,7 @@ function editarVacuna(id){
   abrir("Editar vacunación", `
     <label>Nombre de la vacuna *</label><input id="ve_nombre" value="${esc(v.nombre||"")}"/>
     <div class="grid-2"><div><label>Fecha *</label><input id="ve_fecha" type="date" value="${v.fechaAplicacion?String(v.fechaAplicacion).slice(0,10):""}"/></div><div><label>Próxima dosis</label><input id="ve_prox" type="date" value="${v.proximaDosis?String(v.proximaDosis).slice(0,10):""}"/></div></div>
-    <div class="grid-2"><div><label>Lote</label><input id="ve_lote" value="${esc(v.lote||"")}"/></div><div><label>Veterinario/a</label><input id="ve_vet" value="${esc(v.veterinario||"")}"/></div></div>
+    <div class="grid-2"><div><label>Lote</label><input id="ve_lote" value="${esc(v.lote||"")}"/></div><div><label>Veterinario/a</label>${vetSelect("ve_vet", v.veterinario||"")}</div></div>
     <label>Notas</label><textarea id="ve_notas">${esc(v.notas||"")}</textarea>
     <div class="error" id="modalErr"></div>`,
     async()=>{
@@ -1511,7 +1516,7 @@ function editarVacuna(id){
       if(!val("ve_nombre")) throw new Error("El nombre de la vacuna es obligatorio.");
       await api("/vacunas/"+id,{method:"PUT",body:JSON.stringify({
         fechaAplicacion:val("ve_fecha"), pautaVacunalId:v.pautaVacunalId||null, nombre:val("ve_nombre")||null,
-        lote:val("ve_lote")||null, proximaDosis:val("ve_prox")||null, veterinario:val("ve_vet")||null, notas:val("ve_notas")||null
+        lote:val("ve_lote")||null, proximaDosis:val("ve_prox")||null, veterinario:soVal("ve_vet")||null, notas:val("ve_notas")||null
       })});
       toast("Vacunación actualizada.","ok"); vAnimal();
     }, "Guardar");
@@ -1526,7 +1531,7 @@ function modalCirugia(animalId, s){
     <label>Nombre *</label><input id="s_nombre" placeholder="p. ej. Esterilización (OVH)" value="${esc(s&&s.nombre||"")}"/>
     <div class="grid-2"><div><label>Fecha *</label><input id="s_fecha" type="date" value="${editar&&s.fecha?String(s.fecha).slice(0,10):hoyISO()}"/></div><div><label>Próxima revisión</label><input id="s_rev" type="date" value="${s&&s.proximaRevision?String(s.proximaRevision).slice(0,10):""}"/></div></div>
     <label>Descripción</label><textarea id="s_desc">${esc(s&&s.descripcion||"")}</textarea>
-    <div class="grid-2"><div><label>Cirujano/a</label><input id="s_cir" value="${esc(editar?(s.cirujano||""):(usuario?.nombre||""))}"/></div><div><label>Anestesia</label><input id="s_anes" value="${esc(s&&s.anestesia||"")}"/></div></div>
+    <div class="grid-2"><div><label>Cirujano/a</label>${vetSelect("s_cir", editar?(s.cirujano||""):(usuario?.nombre||""))}</div><div><label>Anestesia</label><input id="s_anes" value="${esc(s&&s.anestesia||"")}"/></div></div>
     <div class="error" id="modalErr"></div>`,
     async()=>{
       if(!val("s_nombre")) throw new Error("El nombre es obligatorio.");
@@ -1534,7 +1539,7 @@ function modalCirugia(animalId, s){
       if(editar){
         await api("/cirugias/"+s.id,{method:"PUT",body:JSON.stringify({
           fecha:val("s_fecha"), nombre:val("s_nombre"), descripcion:val("s_desc")||null,
-          cirujano:val("s_cir")||null, anestesia:val("s_anes")||null,
+          cirujano:soVal("s_cir")||null, anestesia:val("s_anes")||null,
           complicaciones:s.complicaciones||null, proximaRevision:val("s_rev")||null
         })});
         toast("Cirugía actualizada.","ok"); vAnimal(); return;
@@ -1881,10 +1886,11 @@ async function vUsuarios(){ cargando(); await conError(async()=>{
     return `<tr>
       <td><div style="display:flex;align-items:center;gap:10px"><span class="avatar mini">${esc(iniciales(m.nombre||m.email))}</span><div><b>${esc(m.nombre||"—")}</b>${m.esYo?' <span class="pill b">Tú</span>':""}${estado}<br><span class="muted">${esc(m.email)}</span>${verif}</div></div></td>
       <td>${m.esYo?rolNombre(m.rol):`<select onchange="cambiarRolUsuario('${m.usuarioId}',this.value)">${rolSel}</select>`}</td>
+      <td style="text-align:center"><input type="checkbox" ${m.esVeterinario?"checked":""} onchange="marcarVeterinario('${m.usuarioId}',this.checked)" style="width:auto;margin:0" title="Marcar si atiende como veterinario/a"/></td>
       <td class="num">${m.esYo?'<span class="muted">—</span>':`<button class="btn tiny line" onclick="revocarUsuario('${m.usuarioId}',${esc(JSON.stringify(m.nombre||m.email))})">Revocar acceso</button>`}</td>
     </tr>`;
   }).join("");
-  const tabla=`<table><thead><tr><th>Usuario</th><th>Rol</th><th class="num">Acciones</th></tr></thead><tbody>${filas}</tbody></table>`;
+  const tabla=`<table><thead><tr><th>Usuario</th><th>Rol</th><th style="text-align:center">Veterinario/a</th><th class="num">Acciones</th></tr></thead><tbody>${filas}</tbody></table>`;
   view(`
     <h3 class="sec">Usuarios</h3>
     <p class="subt">Las personas que pueden entrar en la clínica y con qué rol. <b>Propietario</b>: acceso total. <b>Usuario</b>: operativa diaria (sin ajustes ni usuarios). <b>Solo lectura</b>: consulta.</p>
@@ -1922,6 +1928,10 @@ function modalInvitarUsuario(){
 async function cambiarRolUsuario(id, rol){
   try{ await api(`/usuarios/${id}/rol`,{method:"POST",body:JSON.stringify({rol})}); toast("Rol actualizado.","ok"); }
   catch(e){ toast(e.message,"err"); vUsuarios(); }
+}
+async function marcarVeterinario(id, es){
+  try{ await api(`/usuarios/${id}/veterinario`,{method:"POST",body:JSON.stringify({es})}); await cargarVeterinarios(); toast(es?"Marcado como veterinario/a.":"Ya no figura como veterinario/a.","ok"); }
+  catch(e){ toast(e.message||"No se pudo guardar.","err"); vUsuarios(); }
 }
 function revocarUsuario(id, nombre){
   abrir("Revocar acceso", `<p>¿Seguro que quieres revocar el acceso de «${esc(nombre)}» a esta clínica? Podrás volver a invitarle más adelante.</p><div class="error" id="modalErr"></div>`, async()=>{

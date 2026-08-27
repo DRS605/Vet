@@ -7,7 +7,7 @@ using AlxorCore.Organizacion.Dominio;
 namespace AlxorCore.Organizacion.Aplicacion.CasosDeUso;
 
 /// <summary>Vista de una membresía (usuario + rol dentro de una empresa).</summary>
-public sealed record MembresiaDto(Guid UsuarioId, string RolCodigo, string RolNombre, string Estado);
+public sealed record MembresiaDto(Guid UsuarioId, string RolCodigo, string RolNombre, string Estado, bool EsVeterinario);
 
 /// <summary>Caso de uso: listar las membresías de una empresa.</summary>
 public sealed class ListarMembresias
@@ -20,7 +20,7 @@ public sealed class ListarMembresias
     {
         var membresias = await _membresias.ListarPorEmpresaAsync(empresaId, ct).ConfigureAwait(false);
         return membresias
-            .Select(m => new MembresiaDto(m.UsuarioId, m.RolCodigo, NombreRol(m.RolCodigo), m.Estado.ToString()))
+            .Select(m => new MembresiaDto(m.UsuarioId, m.RolCodigo, NombreRol(m.RolCodigo), m.Estado.ToString(), m.EsVeterinario))
             .ToList();
     }
 
@@ -64,13 +64,13 @@ public sealed class AgregarMembresia
             existente.Reactivar();
             existente.CambiarRol(rol.Valor);
             await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
-            return Resultado.Ok(new MembresiaDto(usuarioId, rol.Valor.Codigo, rol.Valor.Nombre, existente.Estado.ToString()));
+            return Resultado.Ok(new MembresiaDto(usuarioId, rol.Valor.Codigo, rol.Valor.Nombre, existente.Estado.ToString(), existente.EsVeterinario));
         }
 
         var membresia = Membresia.Crear(usuarioId, empresaId, rol.Valor, _reloj);
         _membresias.Agregar(membresia);
         await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
-        return Resultado.Ok(new MembresiaDto(usuarioId, rol.Valor.Codigo, rol.Valor.Nombre, membresia.Estado.ToString()));
+        return Resultado.Ok(new MembresiaDto(usuarioId, rol.Valor.Codigo, rol.Valor.Nombre, membresia.Estado.ToString(), membresia.EsVeterinario));
     }
 }
 
@@ -101,6 +101,32 @@ public sealed class CambiarRolMembresia
         }
 
         membresia.CambiarRol(rol.Valor);
+        await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
+        return Resultado.Ok();
+    }
+}
+
+/// <summary>Caso de uso: marcar o desmarcar a un miembro como veterinario/a de la empresa.</summary>
+public sealed class MarcarVeterinarioMembresia
+{
+    private readonly IRepositorioMembresias _membresias;
+    private readonly IUnidadDeTrabajoOrganizacion _unidadDeTrabajo;
+
+    public MarcarVeterinarioMembresia(IRepositorioMembresias membresias, IUnidadDeTrabajoOrganizacion unidadDeTrabajo)
+    {
+        _membresias = membresias;
+        _unidadDeTrabajo = unidadDeTrabajo;
+    }
+
+    public async Task<Resultado> EjecutarAsync(Guid empresaId, Guid usuarioId, bool esVeterinario, CancellationToken ct = default)
+    {
+        var membresia = await _membresias.ObtenerAsync(usuarioId, empresaId, ct).ConfigureAwait(false);
+        if (membresia is null)
+        {
+            return Resultado.Fallo(Error.NoEncontrado("membresia.no_encontrada", "El usuario no es miembro de la empresa."));
+        }
+
+        membresia.MarcarVeterinario(esVeterinario);
         await _unidadDeTrabajo.GuardarCambiosAsync(ct).ConfigureAwait(false);
         return Resultado.Ok();
     }
