@@ -11,8 +11,11 @@ namespace AlxorCore.Documentos.Infraestructura;
 /// <summary>Genera el PDF de una factura con QuestPDF. Diseño limpio con el logo y color de la clínica.</summary>
 internal sealed class GeneradorPdfFacturaQuestPdf : IGeneradorPdfFactura
 {
-    // Color de acento de la marca (naranja Vetis). QuestPDF convierte el hex a Color.
-    private const string Acento = "#E07E22";
+    // Colores de la marca Vetis. QuestPDF convierte el hex a Color de forma implícita.
+    private const string Acento = "#E07E22";   // naranja
+    private const string Marino = "#0E2036";   // azul marino (cabecera/pie)
+    private const string Crema = "#EFEEE6";    // crema (fondos suaves)
+    private const string Tarjeta = "#F5F6F8";  // gris muy claro (tarjetas)
 
     public byte[] Generar(FacturaDto factura, EmpresaDto emisor)
     {
@@ -40,114 +43,129 @@ internal sealed class GeneradorPdfFacturaQuestPdf : IGeneradorPdfFactura
     private static byte[] GenerarFacturaA4(FacturaDto factura, EmpresaDto emisor)
     {
         var logo = LogoBytes(emisor);
+        var dir = DireccionEmisor(emisor);
         var documento = Document.Create(contenedor =>
         {
             contenedor.Page(pagina =>
             {
                 pagina.Size(PageSizes.A4);
-                pagina.Margin(40);
-                pagina.DefaultTextStyle(x => x.FontSize(10).FontColor(Colors.Grey.Darken4));
+                pagina.Margin(0);
+                pagina.DefaultTextStyle(x => x.FontSize(11).FontColor(Colors.Grey.Darken4));
 
-                pagina.Header().Column(cab =>
+                // Banda de cabecera a todo el ancho, en azul marino de la marca.
+                pagina.Header().Background(Marino).PaddingVertical(28).PaddingHorizontal(40).Row(fila =>
                 {
-                    cab.Item().Row(fila =>
+                    fila.RelativeItem().Row(izq =>
                     {
-                        fila.RelativeItem().Row(izq =>
+                        if (logo is not null)
                         {
-                            if (logo is not null)
-                            {
-                                izq.ConstantItem(56).PaddingRight(12).AlignMiddle().Image(logo);
-                            }
+                            izq.ConstantItem(72).PaddingRight(16).AlignMiddle()
+                                .Background(Colors.White).Padding(6).Height(72).Image(logo).FitArea();
+                        }
 
-                            izq.RelativeItem().AlignMiddle().Column(col =>
-                            {
-                                col.Item().Text(emisor.RazonSocial).Bold().FontSize(16);
-                                col.Item().Text($"NIF: {emisor.Nif}").FontColor(Colors.Grey.Darken2);
-                                var dir = DireccionEmisor(emisor);
-                                if (!string.IsNullOrWhiteSpace(dir))
-                                {
-                                    col.Item().Text(dir).FontSize(9).FontColor(Colors.Grey.Darken1);
-                                }
-                            });
-                        });
-                        fila.ConstantItem(200).AlignRight().Column(col =>
+                        izq.RelativeItem().AlignMiddle().Column(col =>
                         {
-                            col.Item().Text("FACTURA").Bold().FontSize(18).FontColor(Acento);
-                            col.Item().Text(factura.NumeroCompleto).Bold();
-                            col.Item().Text($"Fecha: {factura.FechaEmision:dd/MM/yyyy}").FontColor(Colors.Grey.Darken2);
+                            col.Item().Text(emisor.RazonSocial).Bold().FontSize(21).FontColor(Colors.White);
+                            col.Item().PaddingTop(2).Text($"NIF: {emisor.Nif}").FontSize(10).FontColor("#B9C2CE");
+                            if (!string.IsNullOrWhiteSpace(dir))
+                            {
+                                col.Item().Text(dir).FontSize(9).FontColor("#B9C2CE");
+                            }
                         });
                     });
-                    cab.Item().PaddingTop(10).LineHorizontal(2).LineColor(Acento);
+                    fila.ConstantItem(190).AlignMiddle().Column(col =>
+                    {
+                        col.Item().AlignRight().Text("FACTURA").Bold().FontSize(28).FontColor(Acento);
+                        col.Item().AlignRight().PaddingTop(2).Text(factura.NumeroCompleto).Bold().FontSize(12).FontColor(Colors.White);
+                        col.Item().AlignRight().Text($"{factura.FechaEmision:dd/MM/yyyy}").FontSize(10).FontColor("#B9C2CE");
+                    });
                 });
 
-                pagina.Content().PaddingVertical(18).Column(col =>
+                pagina.Content().PaddingHorizontal(40).PaddingTop(26).Column(col =>
                 {
-                    col.Item().PaddingBottom(12).Column(cliente =>
+                    // Tarjeta de cliente con fondo suave, para dar peso visual.
+                    col.Item().Background(Tarjeta).Border(1).BorderColor(Colors.Grey.Lighten2).Padding(14).Row(cli =>
                     {
-                        cliente.Item().Text("CLIENTE").Bold().FontSize(9).FontColor(Acento);
-                        cliente.Item().PaddingTop(2).Text(factura.ClienteNombre).Bold();
-                        if (!string.IsNullOrWhiteSpace(factura.ClienteNif))
+                        cli.RelativeItem().Column(c =>
                         {
-                            cliente.Item().Text($"NIF: {factura.ClienteNif}").FontColor(Colors.Grey.Darken2);
-                        }
+                            c.Item().Text("FACTURAR A").Bold().FontSize(9).FontColor(Acento).LineHeight(1f);
+                            c.Item().PaddingTop(4).Text(factura.ClienteNombre).Bold().FontSize(13);
+                            if (!string.IsNullOrWhiteSpace(factura.ClienteNif))
+                            {
+                                c.Item().Text($"NIF: {factura.ClienteNif}").FontColor(Colors.Grey.Darken2);
+                            }
+                        });
+                        cli.ConstantItem(170).AlignRight().Column(c =>
+                        {
+                            c.Item().Text("FECHA DE EMISIÓN").Bold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                            c.Item().Text($"{factura.FechaEmision:dd/MM/yyyy}").Bold();
+                            if (factura.FechaVencimiento != factura.FechaEmision)
+                            {
+                                c.Item().PaddingTop(4).Text("VENCIMIENTO").Bold().FontSize(9).FontColor(Colors.Grey.Darken1);
+                                c.Item().Text($"{factura.FechaVencimiento:dd/MM/yyyy}").Bold();
+                            }
+                        });
                     });
 
-                    col.Item().Table(tabla =>
+                    col.Item().PaddingTop(20).Table(tabla =>
                     {
                         tabla.ColumnsDefinition(columnas =>
                         {
                             columnas.RelativeColumn(4);
                             columnas.RelativeColumn(1);
+                            columnas.RelativeColumn(1.3f);
                             columnas.RelativeColumn(1);
-                            columnas.RelativeColumn(1);
-                            columnas.RelativeColumn(1);
+                            columnas.RelativeColumn(1.3f);
                         });
 
                         tabla.Header(encabezado =>
                         {
-                            static IContainer Th(IContainer c) => c.Background(Colors.Grey.Lighten3).PaddingVertical(5).PaddingHorizontal(4);
-                            encabezado.Cell().Element(Th).Text("Descripción").Bold();
-                            encabezado.Cell().Element(Th).AlignRight().Text("Cantidad").Bold();
-                            encabezado.Cell().Element(Th).AlignRight().Text("Precio").Bold();
-                            encabezado.Cell().Element(Th).AlignRight().Text("IVA").Bold();
-                            encabezado.Cell().Element(Th).AlignRight().Text("Total").Bold();
+                            static IContainer Th(IContainer c) => c.Background(Marino).PaddingVertical(8).PaddingHorizontal(8);
+                            encabezado.Cell().Element(Th).Text("Descripción").Bold().FontColor(Colors.White);
+                            encabezado.Cell().Element(Th).AlignRight().Text("Cant.").Bold().FontColor(Colors.White);
+                            encabezado.Cell().Element(Th).AlignRight().Text("Precio").Bold().FontColor(Colors.White);
+                            encabezado.Cell().Element(Th).AlignRight().Text("IVA").Bold().FontColor(Colors.White);
+                            encabezado.Cell().Element(Th).AlignRight().Text("Total").Bold().FontColor(Colors.White);
                         });
 
+                        var fila = 0;
                         foreach (var linea in factura.Lineas)
                         {
-                            static IContainer Td(IContainer c) => c.BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).PaddingVertical(5).PaddingHorizontal(4);
+                            var fondo = fila++ % 2 == 0 ? "#FFFFFF" : Crema;
+                            IContainer Td(IContainer c) => c.Background(fondo).BorderBottom(0.5f).BorderColor(Colors.Grey.Lighten2).PaddingVertical(7).PaddingHorizontal(8);
                             tabla.Cell().Element(Td).Text(linea.Descripcion);
                             tabla.Cell().Element(Td).AlignRight().Text(Redondeo.Formatear(linea.Cantidad));
                             tabla.Cell().Element(Td).AlignRight().Text($"{Redondeo.Formatear(linea.PrecioUnitario)} €");
-                            tabla.Cell().Element(Td).AlignRight().Text($"{linea.PorcentajeIva:0}%");
-                            tabla.Cell().Element(Td).AlignRight().Text($"{Redondeo.Formatear(linea.Base + linea.CuotaIva)} €");
+                            tabla.Cell().Element(Td).AlignRight().Text(linea.PorcentajeIva == 0 ? "Sin IVA" : $"{linea.PorcentajeIva:0}%");
+                            tabla.Cell().Element(Td).AlignRight().Text($"{Redondeo.Formatear(linea.Base + linea.CuotaIva)} €").SemiBold();
                         }
                     });
 
-                    col.Item().AlignRight().PaddingTop(16).Width(230).Column(totales =>
+                    col.Item().AlignRight().PaddingTop(18).Width(260).Column(totales =>
                     {
-                        totales.Item().Row(f => { f.RelativeItem().Text("Base imponible"); f.ConstantItem(90).AlignRight().Text($"{Redondeo.Formatear(factura.BaseImponible)} €"); });
-                        totales.Item().Row(f => { f.RelativeItem().Text("IVA"); f.ConstantItem(90).AlignRight().Text($"{Redondeo.Formatear(factura.CuotaIva)} €"); });
+                        totales.Item().PaddingHorizontal(4).Row(f => { f.RelativeItem().Text("Base imponible").FontColor(Colors.Grey.Darken2); f.ConstantItem(110).AlignRight().Text($"{Redondeo.Formatear(factura.BaseImponible)} €"); });
+                        totales.Item().PaddingHorizontal(4).PaddingTop(3).Row(f => { f.RelativeItem().Text("IVA").FontColor(Colors.Grey.Darken2); f.ConstantItem(110).AlignRight().Text($"{Redondeo.Formatear(factura.CuotaIva)} €"); });
                         if (factura.RecargoTotal > 0)
                         {
-                            totales.Item().Row(f => { f.RelativeItem().Text("Recargo equiv."); f.ConstantItem(90).AlignRight().Text($"{Redondeo.Formatear(factura.RecargoTotal)} €"); });
+                            totales.Item().PaddingHorizontal(4).PaddingTop(3).Row(f => { f.RelativeItem().Text("Recargo equiv.").FontColor(Colors.Grey.Darken2); f.ConstantItem(110).AlignRight().Text($"{Redondeo.Formatear(factura.RecargoTotal)} €"); });
                         }
 
                         if (factura.RetencionIrpf > 0)
                         {
-                            totales.Item().Row(f => { f.RelativeItem().Text($"Retención IRPF ({factura.PorcentajeIrpf:0}%)"); f.ConstantItem(90).AlignRight().Text($"-{Redondeo.Formatear(factura.RetencionIrpf)} €"); });
+                            totales.Item().PaddingHorizontal(4).PaddingTop(3).Row(f => { f.RelativeItem().Text($"Retención IRPF ({factura.PorcentajeIrpf:0}%)").FontColor(Colors.Grey.Darken2); f.ConstantItem(110).AlignRight().Text($"-{Redondeo.Formatear(factura.RetencionIrpf)} €"); });
                         }
 
-                        totales.Item().PaddingTop(6).BorderTop(1.5f).BorderColor(Acento).PaddingTop(6).Row(f =>
+                        // Caja de TOTAL destacada (fondo naranja, texto blanco) para que salte a la vista.
+                        totales.Item().PaddingTop(10).Background(Acento).PaddingVertical(11).PaddingHorizontal(14).Row(f =>
                         {
-                            f.RelativeItem().Text("TOTAL").Bold().FontSize(14).FontColor(Acento);
-                            f.ConstantItem(100).AlignRight().Text($"{Redondeo.Formatear(factura.Total)} €").Bold().FontSize(14).FontColor(Acento);
+                            f.RelativeItem().AlignMiddle().Text("TOTAL").Bold().FontSize(15).FontColor(Colors.White);
+                            f.ConstantItem(130).AlignRight().AlignMiddle().Text($"{Redondeo.Formatear(factura.Total)} €").Bold().FontSize(17).FontColor(Colors.White);
                         });
                     });
 
                     if (!string.IsNullOrWhiteSpace(factura.Observaciones))
                     {
-                        col.Item().PaddingTop(22).Column(obs =>
+                        col.Item().PaddingTop(24).Background(Tarjeta).Border(1).BorderColor(Colors.Grey.Lighten2).Padding(12).Column(obs =>
                         {
                             obs.Item().Text("OBSERVACIONES").Bold().FontSize(9).FontColor(Acento);
                             obs.Item().PaddingTop(3).Text(factura.Observaciones).FontColor(Colors.Grey.Darken2);
@@ -155,13 +173,23 @@ internal sealed class GeneradorPdfFacturaQuestPdf : IGeneradorPdfFactura
                     }
                 });
 
-                pagina.Footer().AlignCenter().Text(texto =>
+                // Pie a todo el ancho, en azul marino, con nota de agradecimiento.
+                pagina.Footer().Background(Marino).PaddingVertical(14).PaddingHorizontal(40).Column(pie =>
                 {
-                    texto.Span(emisor.RazonSocial).FontColor(Colors.Grey.Medium).FontSize(9);
-                    if (!string.IsNullOrWhiteSpace(emisor.Nif))
+                    pie.Item().AlignCenter().Text("Gracias por confiar el cuidado de tu mascota en nosotros").FontColor(Colors.White).FontSize(10);
+                    pie.Item().AlignCenter().PaddingTop(2).Text(texto =>
                     {
-                        texto.Span($"  ·  NIF {emisor.Nif}").FontColor(Colors.Grey.Medium).FontSize(9);
-                    }
+                        texto.Span(emisor.RazonSocial).FontColor("#B9C2CE").FontSize(9);
+                        if (!string.IsNullOrWhiteSpace(emisor.Nif))
+                        {
+                            texto.Span($"  ·  NIF {emisor.Nif}").FontColor("#B9C2CE").FontSize(9);
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(dir))
+                        {
+                            texto.Span($"  ·  {dir}").FontColor("#B9C2CE").FontSize(9);
+                        }
+                    });
                 });
             });
         });

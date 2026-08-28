@@ -1893,8 +1893,8 @@ function atAccion(tipo, animalId, clienteId, especie){
 async function modalRazas(especie){
   abrir(`Razas de ${esc(especie)}`, `
     <div style="display:flex;gap:8px;align-items:center">
-      <input id="rz_nueva" placeholder="Nueva raza (p. ej. Labrador)" onkeydown="if(event.key==='Enter'){event.preventDefault();razaCrear(${JSON.stringify(especie)});}"/>
-      <button type="button" class="btn v" style="flex:none" onclick="razaCrear(${JSON.stringify(especie)})">${ICON.plus} Añadir</button>
+      <input id="rz_nueva" placeholder="Nueva raza (p. ej. Labrador)" onkeydown="if(event.key==='Enter'){event.preventDefault();razaCrear(${esc(JSON.stringify(especie))});}"/>
+      <button type="button" class="btn v" style="flex:none" onclick="razaCrear(${esc(JSON.stringify(especie))})">${ICON.plus} Añadir</button>
     </div>
     <div id="rz_lista" style="margin-top:12px"><span class="muted">Cargando…</span></div>
     <div class="error" id="modalErr" style="margin-top:8px"></div>`, null, "Cerrar");
