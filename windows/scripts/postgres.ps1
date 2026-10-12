@@ -123,34 +123,15 @@ function Arrancar-Postgres {
     }
 
     Escribir-Log "Arrancando PostgreSQL en el puerto $Puerto..."
-    # IMPORTANTE: NO se canaliza la salida de pg_ctl con '| ForEach-Object'. El proceso
-    # servidor (postgres) hereda el handle de la tuberia y esta no se cierra nunca, por
-    # lo que PowerShell se queda esperando para siempre (el cuelgue tras "servidor
-    # iniciado"). Se usa Start-Process -Wait, que espera SOLO a que termine pg_ctl.
-    #
-    # Los argumentos van como UNA cadena con comillas explicitas: Start-Process NO
-    # entrecomilla los elementos de un array, y las rutas de datos y log contienen un
-    # espacio ("ALXOR Vet"), por lo que sin comillas pg_ctl las parte en dos.
-    $salidaTmp = Join-Path $DirLogs 'pg_ctl.out.tmp'
-    $errorTmp  = Join-Path $DirLogs 'pg_ctl.err.tmp'
-    $opcionesServidor = "-p $Puerto -c listen_addresses=localhost"
-    $lineaArgs = "-D `"$DirDatos`" -l `"$LogPostgres`" -o `"$opcionesServidor`" -w start"
-    try {
-        Start-Process -FilePath $pgCtl -ArgumentList $lineaArgs -NoNewWindow -Wait `
-            -RedirectStandardOutput $salidaTmp -RedirectStandardError $errorTmp | Out-Null
-    } catch {
-        Escribir-Log "No se pudo lanzar pg_ctl: $_" 'ERROR'
-        return $false
-    }
-    foreach ($f in @($salidaTmp, $errorTmp)) {
-        if (Test-Path $f) {
-            Get-Content $f -ErrorAction SilentlyContinue | Where-Object { "$_".Trim() -ne '' } |
-                ForEach-Object { Escribir-Log "  pg_ctl: $_" }
-            Remove-Item $f -Force -ErrorAction SilentlyContinue
-        }
-    }
+    # CLAVE: se arranca con el operador de llamada '&' SIN canalizar (| ...) ni redirigir
+    # la salida a fichero. Cualquier tuberia o redireccion de flujo se cuelga, porque el
+    # proceso servidor (postgres) hereda ese handle y no lo cierra nunca mientras vive
+    # (ese era el cuelgue tras "servidor iniciado"). Dejando que pg_ctl escriba en la
+    # consola, PowerShell solo espera a que termine PG_CTL (lo hace al acabar '-w start'),
+    # no al servidor. Ademas '&' entrecomilla bien las rutas con espacios ("ALXOR Vet").
+    & $pgCtl -D $DirDatos -l $LogPostgres -o "-p $Puerto -c listen_addresses=localhost" -w start
 
-    # Esperamos hasta ~40s a que acepte conexiones (por si pg_ctl devolvio antes de tiempo).
+    # Confirmacion propia por TCP (hasta ~40s), por si pg_ctl devolvio antes de tiempo.
     for ($i = 0; $i -lt 40; $i++) {
         if (Postgres-EnMarcha -Puerto $Puerto) { Escribir-Log 'PostgreSQL en marcha.' 'OK'; return $true }
         Start-Sleep -Seconds 1
