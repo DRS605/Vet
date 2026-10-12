@@ -2231,6 +2231,7 @@ async function vFacturasPanel(){ cargando(); await conError(async()=>{
       <input id="fp_cliente" placeholder="Cliente…" oninput="facPanelRender()" style="min-width:150px"/>
       <select id="fp_raza" onchange="facPanelRender()">${razaOpc}</select>
       <select id="fp_estado" onchange="facPanelRender()"><option value="">Cobro: todas</option><option value="pendiente">Pendientes de cobro</option><option value="pagada">Pagadas</option></select>
+      <select id="fp_tipo" onchange="facPanelRender()"><option value="">Facturas y tickets</option><option value="factura">Solo facturas</option><option value="ticket">Solo tickets</option></select>
     </div>
     <div id="fp_tabla"></div>`);
   facPanelRender();
@@ -2242,11 +2243,14 @@ async function vFacturasPanel(){ cargando(); await conError(async()=>{
 }); }
 function facPanelRender(){
   const box=$("fp_tabla"); if(!box) return;
-  const desde=val("fp_desde"), hasta=val("fp_hasta"), cli=(val("fp_cliente")||"").toLowerCase(), raza=val("fp_raza"), est=val("fp_estado");
+  const desde=val("fp_desde"), hasta=val("fp_hasta"), cli=(val("fp_cliente")||"").toLowerCase(), raza=val("fp_raza"), est=val("fp_estado"), tipo=val("fp_tipo");
   const rows=_facPanel.facturas.filter(f=>{
     if(desde && String(f.fechaEmision).slice(0,10)<desde) return false;
     if(hasta && String(f.fechaEmision).slice(0,10)>hasta) return false;
     if(cli && !(f.clienteNombre||"").toLowerCase().includes(cli)) return false;
+    const esTicket=String(f.tipo||"").toLowerCase()==="simplificada";
+    if(tipo==="ticket" && !esTicket) return false;
+    if(tipo==="factura" && esTicket) return false;
     const c=_facPanel.clinica[f.id];
     if(raza && !(((c||{}).razas||[]).includes(raza))) return false;
     const s=_facPanel.saldos[f.id]; const pagada=s?Number(s.pendiente)<=0:false;
@@ -2268,7 +2272,7 @@ function facPanelRender(){
     if(!pagada && pend!=null && pend>0) acc+=` <button class="btn tiny v" onclick="marcarCobrada('${f.id}',${pend})">Cobrada</button>`;
     acc+=` <button class="btn tiny line" onclick="editarNotaFactura('${f.id}')">Nota</button>`;
     return `<tr>
-      <td><b>${esc(f.numeroCompleto)}</b>${nota}</td>
+      <td><b>${esc(f.numeroCompleto)}</b>${String(f.tipo||"").toLowerCase()==="simplificada"?' <span class="pill b">Ticket</span>':""}${nota}</td>
       <td class="muted">${fdate(f.fechaEmision)}</td>
       <td>${esc(f.clienteNombre)}</td>
       <td>${chips||'<span class="muted">—</span>'}</td>
@@ -2617,13 +2621,17 @@ async function vFacturacion(){ cargando(); _actosSel=new Set(); await conError(a
         <td>${a?esc(a.nombre):"—"}</td><td class="muted">${c?esc(c.nombre):"—"}</td>
         <td class="num">${eur(x.importe)}</td><td class="num muted">${x.porcentajeIva}%</td>
         <td class="num"><button class="btn tiny line" onclick="cobrarTicket('${x.id}')">Ticket</button></td></tr>`;}).join("")}</tbody></table>
-    <div class="barfoot"><div class="tot">Seleccionados <b id="selCount">0</b> · <span id="selTot">${eur(0)}</span></div>
-      <button class="btn v" id="btnFacturar" onclick="facturarSeleccion()" disabled>Facturar seleccionados</button></div>`
-    : vacio("🧾","Nada por facturar","Cuando registres actos clínicos en las fichas de los animales aparecerán aquí para emitir factura o cobrar con ticket.", `<button class="btn line" onclick="ir('clientes')">Ir a clientes</button>`);
+    <div class="barfoot"><div class="tot">Seleccionados <b id="selCount">0</b> · <span id="selTot">${eur(0)}</span> <span id="selAviso" class="muted" style="font-size:12px"></span></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn v" id="btnFacturaYa" onclick="facturarDirecto()" disabled>⚡ Factura</button>
+        <button class="btn line" id="btnTicket" onclick="ticketSinIva()" disabled>🧾 Ticket sin IVA</button>
+        <button class="btn line" id="btnFacturar" onclick="facturarSeleccion()" disabled>✏️ Revisar…</button>
+      </div></div>`
+    : vacio("🧾","Nada por facturar","Cuando registres actos clínicos en las fichas de los animales (consultas, vacunas, recetas…) aparecerán aquí para emitir factura o ticket en un clic.", `<button class="btn line" onclick="ir('clientes')">Ir a clientes</button>`);
   view(`
     <div class="toolbar"><div class="grow"></div><button class="btn v" onclick="modalFactura()">${ICON.plus} Nueva factura</button></div>
     <h3 class="sec">Facturación</h3>
-    <p class="subt">La forma rápida: pulsa <b>Nueva factura</b>, elige el cliente y añade las líneas (con IVA o «Sin IVA»). Abajo, si has registrado <b>actos clínicos</b> desde las fichas (consultas, vacunas…), puedes seleccionarlos y facturarlos juntos.</p>
+    <p class="subt">Marca abajo los actos de un cliente (consulta, medicación…) y en un clic: <b>⚡ Factura</b> emite la factura, o <b>🧾 Ticket sin IVA</b> emite un ticket simplificado. <b>✏️ Revisar…</b> abre el detalle editable. También puedes crear una <b>Nueva factura</b> a mano.</p>
     ${panel("Actos pendientes de facturar", cuerpo, `<span class="sp">${actos.length} acto${actos.length===1?"":"s"}</span>`)}`);
 }); }
 function toggleActo(id){
@@ -2631,10 +2639,39 @@ function toggleActo(id){
   const actos=(window._actosCache||[]).filter(a=>_actosSel.has(a.id));
   const total=actos.reduce((s,a)=>s+a.importe*(1+(a.porcentajeIva||0)/100),0);
   $("selCount").textContent=_actosSel.size; $("selTot").textContent=eur(total);
-  // Solo se puede facturar si todos son del mismo cliente.
+  // Solo se puede emitir si hay selección y todos son del mismo cliente.
   const clientes=new Set(actos.map(a=>a.clienteId));
-  const btn=$("btnFacturar"); btn.disabled=_actosSel.size===0 || clientes.size>1;
-  btn.textContent = clientes.size>1 ? "Selecciona un solo cliente" : "Facturar seleccionados";
+  const ok = _actosSel.size>0 && clientes.size===1;
+  ["btnFacturaYa","btnTicket","btnFacturar"].forEach(b=>{ const el=$(b); if(el) el.disabled=!ok; });
+  const av=$("selAviso"); if(av) av.textContent = clientes.size>1 ? "· selecciona de un solo cliente" : "";
+}
+// Factura directa (un clic): emite la factura de los actos seleccionados sin pasar por el formulario.
+async function facturarDirecto(){
+  const ids=[..._actosSel]; if(!ids.length) return;
+  const btn=$("btnFacturaYa"); if(btn) btn.disabled=true;
+  try{
+    const f=await api(`/actos/facturar`,{method:"POST",body:JSON.stringify({actoIds:ids})});
+    toast(f&&f.numeroCompleto?`Factura ${f.numeroCompleto} emitida.`:"Factura emitida.","ok");
+    if(f&&f.id) descargarPdf(`/facturas/${f.id}/pdf`, `factura-${f.numeroCompleto||f.id}.pdf`);
+    vFacturacion();
+  }catch(e){ toast(e.message||"No se pudo emitir la factura.","err"); if(btn) btn.disabled=false; }
+}
+// Ticket sin IVA (un clic): emite una factura simplificada con las líneas a IVA 0 y marca los actos.
+async function ticketSinIva(){
+  const ids=[..._actosSel]; if(!ids.length) return;
+  const actos=(window._actosCache||[]).filter(a=>_actosSel.has(a.id));
+  const clientes=new Set(actos.map(a=>a.clienteId));
+  if(clientes.size>1){ toast("Selecciona actos de un solo cliente.","err"); return; }
+  const btn=$("btnTicket"); if(btn) btn.disabled=true;
+  try{
+    const lineas=actos.map(a=>({cantidad:1, descripcion:a.concepto, precioUnitario:a.importe, codigoIva:"IVA0"}));
+    const t=await api(`/tickets`,{method:"POST",body:JSON.stringify({clienteId:actos[0].clienteId, lineas})});
+    // Marca los actos como cobrados con ticket (salen de pendientes).
+    for(const a of actos){ try{ await api(`/actos/${a.id}/ticket`,{method:"POST"}); }catch(e){} }
+    toast(t&&t.numeroCompleto?`Ticket ${t.numeroCompleto} emitido (sin IVA).`:"Ticket emitido.","ok");
+    if(t&&t.id) descargarPdf(`/facturas/${t.id}/pdf`, `ticket-${t.numeroCompleto||t.id}.pdf`);
+    vFacturacion();
+  }catch(e){ toast(e.message||"No se pudo emitir el ticket.","err"); if(btn) btn.disabled=false; }
 }
 const IVAS = [21,10,4,0];
 function codigoIvaDe(pct){ const p=Number(pct); return IVAS.includes(p)?`IVA${p}`:"IVA21"; }
