@@ -96,9 +96,11 @@ function Inicializar-Cluster {
 
 function Postgres-EnMarcha {
     param([int]$Puerto)
+    # Deteccion fiable: si acepta conexiones TCP en el puerto, esta en marcha.
+    # (No dependemos de postmaster.pid, que puede quedar huerfano o borrado a mano.)
+    if (Probar-PuertoTcp -Equipo 'localhost' -Puerto $Puerto -TimeoutMs 2000) { return $true }
     $pgCtl = Join-Path $BinPostgres 'pg_ctl.exe'
     if (-not (Test-Path $pgCtl)) { return $false }
-    # pg_ctl status: codigo 0 = en marcha, 3 = parado.
     & $pgCtl -D $DirDatos status *> $null
     return ($LASTEXITCODE -eq 0)
 }
@@ -110,17 +112,49 @@ function Arrancar-Postgres {
         return $true
     }
     $pgCtl = Join-Path $BinPostgres 'pg_ctl.exe'
+
+    # Si no acepta conexiones pero queda un postmaster.pid de un cierre brusco, ese
+    # fichero de bloqueo sobrante impide arrancar ("otro servidor puede estar en
+    # ejecucion"). Como ya hemos comprobado que NO esta escuchando, se elimina.
+    $pidFile = Join-Path $DirDatos 'postmaster.pid'
+    if (Test-Path $pidFile) {
+        Escribir-Log 'postmaster.pid sobrante de un cierre anterior; se elimina para poder arrancar.' 'AVISO'
+        Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+    }
+
     Escribir-Log "Arrancando PostgreSQL en el puerto $Puerto..."
-    # -w espera a que acepte conexiones; solo escucha en localhost (no se expone en red).
-    & $pgCtl -D $DirDatos -l $LogPostgres -o "-p $Puerto -c listen_addresses=localhost" -w start *>&1 |
-        ForEach-Object { Escribir-Log "  pg_ctl: $_" }
-    if (Postgres-EnMarcha -Puerto $Puerto) {
-        Escribir-Log 'PostgreSQL en marcha.' 'OK'
-        return $true
+    # IMPORTANTE: NO se canaliza la salida de pg_ctl con '| ForEach-Object'. El proceso
+    # servidor (postgres) hereda el handle de la tuberia y esta no se cierra nunca, por
+    # lo que PowerShell se queda esperando para siempre (el cuelgue que veiamos tras
+    # "servidor iniciado"). Se arranca con Start-Process -Wait, que espera SOLO a que
+    # termine pg_ctl (no al servidor), y se redirige su salida a ficheros temporales.
+    $salidaTmp = Join-Path $DirLogs 'pg_ctl.out.tmp'
+    $errorTmp  = Join-Path $DirLogs 'pg_ctl.err.tmp'
+    $argumentos = @('-D', $DirDatos, '-l', $LogPostgres, '-o', "-p $Puerto -c listen_addresses=localhost", '-w', 'start')
+    try {
+        Start-Process -FilePath $pgCtl -ArgumentList $argumentos -NoNewWindow -Wait `
+            -RedirectStandardOutput $salidaTmp -RedirectStandardError $errorTmp | Out-Null
+    } catch {
+        Escribir-Log "No se pudo lanzar pg_ctl: $_" 'ERROR'
+        return $false
+    }
+    foreach ($f in @($salidaTmp, $errorTmp)) {
+        if (Test-Path $f) {
+            Get-Content $f -ErrorAction SilentlyContinue | Where-Object { "$_".Trim() -ne '' } |
+                ForEach-Object { Escribir-Log "  pg_ctl: $_" }
+            Remove-Item $f -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Esperamos hasta ~40s a que acepte conexiones (por si pg_ctl devolvio antes de tiempo).
+    for ($i = 0; $i -lt 40; $i++) {
+        if (Postgres-EnMarcha -Puerto $Puerto) { Escribir-Log 'PostgreSQL en marcha.' 'OK'; return $true }
+        Start-Sleep -Seconds 1
     }
     Escribir-Log 'PostgreSQL no arranco (revisa logs\postgres.log).' 'ERROR'
     return $false
 }
+
 
 function Detener-Postgres {
     $pgCtl = Join-Path $BinPostgres 'pg_ctl.exe'
