@@ -1248,6 +1248,8 @@ async function vAnimal(){ cargando(); await conError(async()=>{
   window._pautasCache=null;
   // Cachés por id para prerrellenar los modales de edición del historial y la ficha del animal.
   window._animalActual=a; window._clienteActual=cliente;
+  // Actos de este animal pendientes de cobro (para el cobro rápido desde la ficha).
+  window._actosPendAnimal=(actos||[]).filter(x=>String(x.estado).toLowerCase()==="pendiente");
   window._consultasById={}; consultas.forEach(c=>window._consultasById[c.id]=c);
   window._vacunasById={}; vacunas.forEach(v=>window._vacunasById[v.id]=v);
   window._cirugiasById={}; cirugias.forEach(s=>window._cirugiasById[s.id]=s);
@@ -1303,6 +1305,13 @@ async function vAnimal(){ cargando(); await conError(async()=>{
       <button class="btn line" onclick="modalConsentimiento()">📄 Consentimiento</button>
       <button class="btn line" onclick="modalReceta()">💊 Receta</button>
     </div>
+    ${(window._actosPendAnimal&&window._actosPendAnimal.length)?`
+    <div class="panel" style="margin:12px 0;border-left:4px solid var(--honey-ink)">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:12px 16px">
+        <div style="flex:1;min-width:180px"><b>💶 ${window._actosPendAnimal.length} acto${window._actosPendAnimal.length===1?"":"s"} pendiente${window._actosPendAnimal.length===1?"":"s"} de cobro</b> · ${eur(window._actosPendAnimal.reduce((s,x)=>s+x.importe*(1+(x.porcentajeIva||0)/100),0))}</div>
+        <button class="btn v" onclick="cobrarFichaFactura()">⚡ Factura</button>
+        <button class="btn line" onclick="cobrarFichaTicket()">🧾 Ticket sin IVA</button>
+      </div></div>`:""}
     ${cpPanelVista(camposAni)}
     ${pesoChartPanel(a, consultas)}
     ${adjuntosPanel(a.id, adjuntos)}
@@ -2622,7 +2631,8 @@ async function vFacturacion(){ cargando(); _actosSel=new Set(); await conError(a
         <td class="num">${eur(x.importe)}</td><td class="num muted">${x.porcentajeIva}%</td>
         <td class="num"><button class="btn tiny line" onclick="cobrarTicket('${x.id}')">Ticket</button></td></tr>`;}).join("")}</tbody></table>
     <div class="barfoot"><div class="tot">Seleccionados <b id="selCount">0</b> · <span id="selTot">${eur(0)}</span> <span id="selAviso" class="muted" style="font-size:12px"></span></div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin:0;font-size:13px"><input type="checkbox" id="fp_siniva" style="width:auto;margin:0"/> Factura sin IVA</label>
         <button class="btn v" id="btnFacturaYa" onclick="facturarDirecto()" disabled>⚡ Factura</button>
         <button class="btn line" id="btnTicket" onclick="ticketSinIva()" disabled>🧾 Ticket sin IVA</button>
         <button class="btn line" id="btnFacturar" onclick="facturarSeleccion()" disabled>✏️ Revisar…</button>
@@ -2650,7 +2660,13 @@ async function facturarDirecto(){
   const ids=[..._actosSel]; if(!ids.length) return;
   const btn=$("btnFacturaYa"); if(btn) btn.disabled=true;
   try{
-    const f=await api(`/actos/facturar`,{method:"POST",body:JSON.stringify({actoIds:ids})});
+    const body={actoIds:ids};
+    // Si se marca "Factura sin IVA", se envían las líneas a IVA 0 (el acto conserva su importe base).
+    if($("fp_siniva")&&$("fp_siniva").checked){
+      const actos=(window._actosCache||[]).filter(a=>_actosSel.has(a.id));
+      body.lineas=actos.map(a=>({cantidad:1, descripcion:a.concepto, precioUnitario:a.importe, codigoIva:"IVA0"}));
+    }
+    const f=await api(`/actos/facturar`,{method:"POST",body:JSON.stringify(body)});
     toast(f&&f.numeroCompleto?`Factura ${f.numeroCompleto} emitida.`:"Factura emitida.","ok");
     if(f&&f.id) descargarPdf(`/facturas/${f.id}/pdf`, `factura-${f.numeroCompleto||f.id}.pdf`);
     vFacturacion();
@@ -2672,6 +2688,28 @@ async function ticketSinIva(){
     if(t&&t.id) descargarPdf(`/facturas/${t.id}/pdf`, `ticket-${t.numeroCompleto||t.id}.pdf`);
     vFacturacion();
   }catch(e){ toast(e.message||"No se pudo emitir el ticket.","err"); if(btn) btn.disabled=false; }
+}
+// Cobro rápido desde la ficha del animal: factura los actos pendientes de este animal.
+async function cobrarFichaFactura(){
+  const pend=window._actosPendAnimal||[]; if(!pend.length) return;
+  try{
+    const f=await api(`/actos/facturar`,{method:"POST",body:JSON.stringify({actoIds:pend.map(a=>a.id)})});
+    toast(f&&f.numeroCompleto?`Factura ${f.numeroCompleto} emitida.`:"Factura emitida.","ok");
+    if(f&&f.id) descargarPdf(`/facturas/${f.id}/pdf`, `factura-${f.numeroCompleto||f.id}.pdf`);
+    vAnimal();
+  }catch(e){ toast(e.message||"No se pudo facturar.","err"); }
+}
+async function cobrarFichaTicket(){
+  const pend=window._actosPendAnimal||[]; if(!pend.length) return;
+  const cli=(window._animalActual&&window._animalActual.clienteId)||null;
+  try{
+    const lineas=pend.map(a=>({cantidad:1, descripcion:a.concepto, precioUnitario:a.importe, codigoIva:"IVA0"}));
+    const t=await api(`/tickets`,{method:"POST",body:JSON.stringify({clienteId:cli, lineas})});
+    for(const a of pend){ try{ await api(`/actos/${a.id}/ticket`,{method:"POST"}); }catch(e){} }
+    toast(t&&t.numeroCompleto?`Ticket ${t.numeroCompleto} emitido (sin IVA).`:"Ticket emitido.","ok");
+    if(t&&t.id) descargarPdf(`/facturas/${t.id}/pdf`, `ticket-${t.numeroCompleto||t.id}.pdf`);
+    vAnimal();
+  }catch(e){ toast(e.message||"No se pudo emitir el ticket.","err"); }
 }
 const IVAS = [21,10,4,0];
 function codigoIvaDe(pct){ const p=Number(pct); return IVAS.includes(p)?`IVA${p}`:"IVA21"; }
@@ -2804,7 +2842,7 @@ async function vAjustes(){ cargando(); await conError(async()=>{
   const sexoOpc = SEXOS.map(([v,l])=>`<option value="${v}"${(usuario&&usuario.sexo)===v?" selected":""}>${l}</option>`).join("");
   view(`
     <h3 class="sec">Ajustes</h3>
-    <p class="subt">Datos de tu clínica y de tu perfil.</p>
+    <p class="subt">Datos de tu clínica y de tu perfil. <a href="manual.html" target="_blank" class="btn tiny v" style="text-decoration:none;margin-left:8px">📖 Manual de usuario</a></p>
     <div class="ajustes-grid">
       ${panel("Datos de la empresa", `
         <div class="form">

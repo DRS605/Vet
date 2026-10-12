@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Manual de usuario · Vetis by Alxor</title>
+<style>
+  :root{
+    --navy:#0E2036; --orange:#E07E22; --cream:#EFEEE6; --ink:#1c2430;
+    --muted:#5b6672; --line:#e3e6ea; --bg:#f6f7f9; --card:#fff;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:900px;margin:0 auto;padding:0 20px}
+  header{background:var(--navy);color:#fff;padding:34px 0}
+  header .wrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .logo{width:64px;height:64px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:30px;flex:none}
+  header h1{margin:0;font-size:26px}
+  header .sub{margin:2px 0 0;color:#b9c2ce;font-size:14px}
+  .badge{margin-left:auto;background:var(--orange);color:#fff;padding:6px 12px;border-radius:999px;font-weight:700;font-size:13px}
+  nav.toc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 22px;margin:26px 0}
+  nav.toc h2{margin:0 0 10px;font-size:15px;text-transform:uppercase;letter-spacing:.04em;color:var(--orange)}
+  nav.toc ol{margin:0;padding-left:20px;columns:2;column-gap:28px}
+  nav.toc a{color:var(--ink);text-decoration:none}
+  nav.toc a:hover{color:var(--orange)}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:6px 26px 22px;margin:0 0 20px}
+  section h2{color:var(--navy);border-bottom:3px solid var(--orange);padding-bottom:8px;display:inline-block;margin:26px 0 4px;font-size:21px}
+  section h3{color:var(--navy);font-size:17px;margin:20px 0 4px}
+  p,li{color:var(--ink)}
+  .muted{color:var(--muted)}
+  .step{counter-reset:none}
+  ol.steps{counter-reset:item;list-style:none;padding:0;margin:12px 0}
+  ol.steps>li{position:relative;padding:4px 0 10px 40px;margin:0}
+  ol.steps>li::before{counter-increment:item;content:counter(item);position:absolute;left:0;top:2px;width:26px;height:26px;background:var(--orange);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px}
+  .tip{background:#fff7ec;border-left:4px solid var(--orange);border-radius:8px;padding:10px 14px;margin:12px 0}
+  .warn{background:#fdecea;border-left:4px solid #d9534f;border-radius:8px;padding:10px 14px;margin:12px 0}
+  .key{display:inline-block;background:var(--navy);color:#fff;border-radius:6px;padding:1px 8px;font-size:13px;font-weight:600}
+  .btnx{display:inline-block;background:var(--orange);color:#fff;border-radius:7px;padding:1px 9px;font-size:14px;font-weight:600;white-space:nowrap}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}
+  th{background:var(--cream)}
+  code{background:#eef0f3;border-radius:5px;padding:1px 6px;font-size:14px}
+  footer{color:var(--muted);text-align:center;padding:28px 0 50px;font-size:14px}
+  .no-print{}
+  @media print{
+    body{background:#fff}
+    header{background:var(--navy)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    section,nav.toc{border:none;box-shadow:none;break-inside:avoid}
+    .no-print{display:none}
+    a{color:var(--ink);text-decoration:none}
+  }
+  @media(max-width:640px){ nav.toc ol{columns:1} header h1{font-size:22px} }
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <div class="logo">🐾</div>
+  <div><h1>Vetis by Alxor</h1><div class="sub">Manual de usuario · gestión veterinaria</div></div>
+  <span class="badge">Guía rápida</span>
+</div></header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <h2>Contenido</h2>
+  <ol>
+    <li><a href="#inicio">Arrancar el programa</a></li>
+    <li><a href="#alta">Dar de alta tu clínica</a></li>
+    <li><a href="#pantalla">La pantalla principal</a></li>
+    <li><a href="#clientes">Clientes y mascotas</a></li>
+    <li><a href="#razas">Especies y razas</a></li>
+    <li><a href="#consulta">Pasar consulta</a></li>
+    <li><a href="#vacunas">Vacunas y cirugías</a></li>
+    <li><a href="#recetas">Recetas y consentimientos</a></li>
+    <li><a href="#cobrar">Cobrar: factura o ticket</a></li>
+    <li><a href="#facturas">Facturas emitidas y tickets</a></li>
+    <li><a href="#conceptos">Servicios e inventario</a></li>
+    <li><a href="#ajustes">Logo, usuarios y veterinarios</a></li>
+    <li><a href="#copias">Copias de seguridad</a></li>
+    <li><a href="#problemas">Problemas frecuentes</a></li>
+  </ol>
+  <p class="muted no-print" style="margin:12px 0 0">Consejo: pulsa <span class="key">Ctrl</span>+<span class="key">P</span> para imprimir este manual o guardarlo en PDF.</p>
+</nav>
+
+<section id="inicio">
+<h2>1. Arrancar el programa</h2>
+<p>Vetis se instala en el ordenador de la clínica y se abre en el navegador (Chrome o Edge). No necesita internet para el día a día.</p>
+<ol class="steps">
+  <li>Haz doble clic en <b>Arrancar ALXOR Vet</b> (en el escritorio o en la carpeta del programa).</li>
+  <li>Se abre una ventana negra que prepara todo. <b>No la cierres ni hagas clic dentro.</b> Déjala trabajar.</li>
+  <li>Al cabo de unos segundos se abre el navegador solo con Vetis. Si no, abre tú el navegador y entra en <code>localhost:8090/vet.html</code>.</li>
+</ol>
+<div class="tip">La primera vez puede tardar un par de minutos (está preparando la base de datos). Es normal.</div>
+<div class="tip">Si acabas de actualizar y ves la versión de antes, pulsa <span class="key">Ctrl</span>+<span class="key">F5</span> en el navegador para recargar.</div>
+</section>
+
+<section id="alta">
+<h2>2. Dar de alta tu clínica</h2>
+<p>La primera vez, un asistente te guía en 3 pasos:</p>
+<ol class="steps">
+  <li><b>Datos de la clínica</b>: nombre, NIF/CIF, dirección y régimen de IVA.</li>
+  <li><b>Usuario administrador</b>: tu nombre, correo y contraseña (con ella entrarás cada día).</li>
+  <li><b>Cuadro de vacunas</b>: marca las pautas que uses; podrás cambiarlas luego.</li>
+</ol>
+<p>Pulsa <span class="btnx">Crear mi clínica</span> y ya puedes empezar. Para entrar en el futuro usarás tu correo y contraseña.</p>
+</section>
+
+<section id="pantalla">
+<h2>3. La pantalla principal</h2>
+<p>A la izquierda tienes el menú:</p>
+<table>
+  <tr><th>Sección</th><th>Para qué</th></tr>
+  <tr><td>Inicio</td><td>Resumen del día: agenda, pendientes, avisos.</td></tr>
+  <tr><td>Agenda</td><td>Citas del día y próximas.</td></tr>
+  <tr><td>Clientes</td><td>Dueños y sus mascotas.</td></tr>
+  <tr><td>Atender</td><td>Buscar rápido un animal para atenderlo.</td></tr>
+  <tr><td>Facturación</td><td>Cobrar los actos (factura o ticket).</td></tr>
+  <tr><td>Facturas emitidas</td><td>Consultar facturas y tickets ya hechos.</td></tr>
+  <tr><td>Inventario / Servicios</td><td>Artículos y conceptos con su precio.</td></tr>
+  <tr><td>Ajustes</td><td>Logo, datos de la clínica, usuarios.</td></tr>
+</table>
+<p class="muted">Arriba a la derecha aparece el logo/nombre de tu clínica. Abajo a la izquierda, tu usuario: al pulsarlo abres la gestión de usuarios.</p>
+</section>
+
+<section id="clientes">
+<h2>4. Clientes y mascotas</h2>
+<ol class="steps">
+  <li>Entra en <b>Clientes</b> y pulsa <span class="btnx">+ Nuevo cliente</span>. Rellena nombre, teléfono, etc.</li>
+  <li>Dentro de la ficha del cliente, pulsa <span class="btnx">+ Nueva mascota</span> para añadir sus animales (especie, raza, sexo, chip…).</li>
+  <li>Al pulsar sobre una mascota entras en su <b>ficha</b>: ahí está todo su historial clínico.</li>
+</ol>
+<div class="tip">En la raza puedes elegir <b>➕ Otra (escribir)…</b> para teclear una raza nueva: se guarda sola en el maestro para la próxima vez.</div>
+</section>
+
+<section id="razas">
+<h2>5. Especies y razas</h2>
+<p>En <b>Maestros → Especies</b> gestionas las especies (con su emoji) y, pulsando <b>Gestionar</b> en cada una, sus <b>razas</b>. En <b>Maestros → Razas</b> ves todas las razas por especie. Escribe la raza nueva arriba y pulsa <span class="btnx">+ Añadir</span>.</p>
+</section>
+
+<section id="consulta">
+<h2>6. Pasar consulta</h2>
+<p>Desde la ficha del animal, pulsa <span class="btnx">+ Nueva consulta</span>:</p>
+<ol class="steps">
+  <li>Rellena motivo, diagnóstico, tratamiento, peso y veterinario/a.</li>
+  <li>Abajo verás <b>💶 Cobrar esta consulta</b> <b>ya marcado</b>, con el precio puesto solo. Si esta consulta no se cobra, desmárcalo.</li>
+  <li>Si quieres recetar, marca <b>Emitir receta al terminar</b> y al guardar se abre sola la receta.</li>
+  <li>Pulsa <b>Guardar</b>. La consulta queda en el historial y el cobro queda pendiente en <b>Facturación</b>.</li>
+</ol>
+<div class="tip">Cobrar es un paso natural: casi todo lo que haces (consulta, vacuna, medicación) se puede marcar para cobrar y luego lo facturas junto en un clic.</div>
+</section>
+
+<section id="vacunas">
+<h2>7. Vacunas y cirugías</h2>
+<p>En la ficha del animal tienes botones para <b>Vacunar</b>, <b>Nueva cirugía</b> y <b>Registrar acto</b>. Todos permiten marcar un importe para cobrarlo después. Las vacunas crean además un <b>recordatorio</b> de la próxima dosis.</p>
+</section>
+
+<section id="recetas">
+<h2>8. Recetas y consentimientos</h2>
+<ul>
+  <li><b>💊 Receta</b>: escribe la medicación y pautas. Al generar, se imprime y se guarda en el historial del animal para reimprimirla cuando quieras. Puedes marcar <b>💶 Cobrar la medicación</b> para que se añada a Facturación.</li>
+  <li><b>📄 Consentimiento</b>: genera el documento de consentimiento y queda guardado en la ficha.</li>
+</ul>
+<p class="muted">Los documentos guardados aparecen en la ficha del animal; se reabren y reimprimen cuando haga falta.</p>
+</section>
+
+<section id="cobrar">
+<h2>9. Cobrar: factura o ticket</h2>
+<p>Tras pasar la consulta y recetar, cobrar es <b>un clic</b>. Hay dos sitios:</p>
+
+<h3>Desde la ficha del animal</h3>
+<p>Si el animal tiene cobros pendientes, aparece un recuadro <b>💶 X actos pendientes de cobro</b> con dos botones:</p>
+<ul>
+  <li><span class="btnx">⚡ Factura</span> — emite la factura con todo y te descarga el PDF.</li>
+  <li><span class="btnx">🧾 Ticket sin IVA</span> — emite un ticket simplificado sin IVA.</li>
+</ul>
+
+<h3>Desde Facturación</h3>
+<ol class="steps">
+  <li>Entra en <b>Facturación</b>. Abajo están los <b>actos pendientes</b>.</li>
+  <li>Marca los de un mismo cliente (consulta, medicación…).</li>
+  <li>Elige:
+    <ul>
+      <li><span class="btnx">⚡ Factura</span> — factura normal (con IVA). Si marcas <b>Factura sin IVA</b>, se emite sin IVA.</li>
+      <li><span class="btnx">🧾 Ticket sin IVA</span> — ticket simplificado sin IVA.</li>
+      <li><span class="btnx">✏️ Revisar…</span> — abre el detalle para ajustar importes o añadir líneas antes de emitir.</li>
+    </ul>
+  </li>
+</ol>
+<div class="tip">También puedes hacer una <b>Nueva factura</b> a mano (arriba a la derecha) eligiendo cliente y escribiendo las líneas.</div>
+<div class="warn">Todos los actos de una misma factura o ticket deben ser <b>del mismo cliente</b>. Si mezclas clientes, el programa te avisa.</div>
+</section>
+
+<section id="facturas">
+<h2>10. Facturas emitidas y tickets</h2>
+<p>En <b>Facturas emitidas</b> ves todo lo cobrado. Puedes:</p>
+<ul>
+  <li>Filtrar por <b>fechas</b>, <b>cliente</b>, <b>raza</b> y <b>estado de cobro</b>.</li>
+  <li>Filtrar por tipo: <b>Facturas / Solo facturas / Solo tickets</b>. Los tickets llevan la etiqueta <b>Ticket</b>.</li>
+  <li>Descargar el <b>PDF</b>, marcar una factura como <b>Cobrada</b> y añadir una <b>nota</b> interna.</li>
+</ul>
+</section>
+
+<section id="conceptos">
+<h2>11. Servicios e inventario</h2>
+<p>En <b>Servicios / Conceptos</b> creas tus servicios facturables (Consulta, Vacunación, Cirugía…) con su <b>precio</b> e IVA. Al cobrar, el importe se rellena solo (siempre editable). En <b>Inventario</b> gestionas artículos con stock.</p>
+</section>
+
+<section id="ajustes">
+<h2>12. Logo, usuarios y veterinarios</h2>
+<ul>
+  <li><b>Logo de la clínica</b>: en <b>Ajustes</b>, súbelo (PNG o JPG). Aparece arriba a la derecha y en las facturas.</li>
+  <li><b>Usuarios</b>: pulsa tu usuario (abajo a la izquierda) o entra en <b>Usuarios</b> para invitar a compañeros y dar permisos.</li>
+  <li><b>Veterinarios</b>: marca qué usuarios son veterinarios; aparecerán en los desplegables de consulta, vacuna, etc.</li>
+</ul>
+</section>
+
+<section id="copias">
+<h2>13. Copias de seguridad</h2>
+<p>El programa hace una <b>copia diaria automática</b>. También puedes lanzarla a mano con <b>Copia de seguridad ALXOR Vet</b>, y restaurarla con <b>Restaurar ALXOR Vet</b>. Guarda de vez en cuando una copia en un disco externo o pendrive.</p>
+</section>
+
+<section id="problemas">
+<h2>14. Problemas frecuentes</h2>
+<table>
+  <tr><th>Qué pasa</th><th>Qué hacer</th></tr>
+  <tr><td>Veo una versión antigua tras actualizar</td><td>Pulsa <span class="key">Ctrl</span>+<span class="key">F5</span> en el navegador.</td></tr>
+  <tr><td>La ventana negra se queda parada</td><td>No hagas clic dentro (eso la congela). Déjala. Si la seleccionaste, pulsa <span class="key">Esc</span>.</td></tr>
+  <tr><td>El navegador dice "no se puede conectar"</td><td>Espera 1 minuto (está arrancando) y refresca con <span class="key">F5</span>. Comprueba que la ventana negra sigue abierta.</td></tr>
+  <tr><td>No me deja cobrar varios actos juntos</td><td>Deben ser del mismo cliente. Selecciona solo los de un cliente.</td></tr>
+  <tr><td>No encuentro una raza</td><td>Escríbela en la ficha del animal con "➕ Otra…", o añádela en Maestros → Razas.</td></tr>
+</table>
+<div class="tip">Para cualquier duda, contacta con tu proveedor de Vetis.</div>
+</section>
+
+<footer>
+  Vetis by Alxor · Manual de usuario · <span class="muted">Hecho con cariño para que gestionar tu clínica sea un paseo.</span>
+</footer>
+
+</div>
+</body>
+</html>
