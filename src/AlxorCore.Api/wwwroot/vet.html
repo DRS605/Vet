@@ -1476,6 +1476,8 @@ async function modalReceta(){
   abrir("Receta / prescripción", `
     <label>Medicación e indicaciones *</label><textarea id="doc_txt" rows="6" placeholder="Medicamento, dosis, pauta y duración. Un renglón por línea."></textarea>
     <label>Veterinario/a</label>${vetSelect("doc_vet", usuario&&usuario.nombre||"")}
+    <label style="margin-top:12px;display:flex;align-items:center;gap:9px;cursor:pointer"><input type="checkbox" id="doc_fact_on" style="width:auto;margin:0" onchange="$('doc_fact_box').style.display=this.checked?'block':'none'"/> 💶 Cobrar la medicación (se añade a Facturación)</label>
+    <div id="doc_fact_box" style="display:none;margin-top:8px"><div class="grid-2"><div><label>Importe (base, €)</label><input id="doc_fact_imp" inputmode="decimal"/></div><div><label>IVA (%)</label><select id="doc_fact_iva">${_ivaOpts(21)}</select></div></div></div>
     <div class="error" id="modalErr"></div>`, async()=>{
     if(!val("doc_txt")) throw new Error("Escribe la medicación.");
     const cuerpo=`<h2>Prescripción veterinaria</h2>${_cabeceraDoc(a,c)}
@@ -1484,6 +1486,10 @@ async function modalReceta(){
       <div class="firmas"><div class="firma">Firma y nº colegiado/a</div></div>`;
     imprimirDoc("Receta veterinaria", cuerpo);
     await guardarDocAnimal(a.id, "Receta veterinaria", cuerpo, `Receta - ${hoyISO()}.html`);
+    // Si se marca, la medicación se añade como acto pendiente de cobro (aparece en Facturación).
+    if($("doc_fact_on")&&$("doc_fact_on").checked && num("doc_fact_imp")!=null){
+      await api(`/animales/${a.id}/actos`,{method:"POST",body:JSON.stringify({animalId:a.id, concepto:"Medicación recetada", importe:num("doc_fact_imp"), porcentajeIva:num("doc_fact_iva"), fecha:hoyISO()})});
+    }
     toast("Receta generada y guardada en el historial del animal.","ok"); vAnimal(); cerrarModal();
   }, "Generar e imprimir");
 }
@@ -1499,13 +1505,13 @@ async function modalConsulta(animalId, opts){
   const bloqueActo = editar ? "" : `
     <div style="border-top:1px solid var(--line);margin-top:15px;padding-top:13px">
       <label style="display:flex;align-items:center;gap:9px;cursor:pointer;margin:0;color:var(--ink);font-weight:600">
-        <input type="checkbox" id="k_acto_on" style="width:auto;margin:0" onchange="$('k_acto_box').style.display=this.checked?'block':'none'"/>
-        Registrar un acto facturable de esta consulta
+        <input type="checkbox" id="k_acto_on" checked style="width:auto;margin:0" onchange="$('k_acto_box').style.display=this.checked?'block':'none'"/>
+        💶 Cobrar esta consulta (se añade a Facturación)
       </label>
-      <div id="k_acto_box" style="display:none;margin-top:11px">
+      <div id="k_acto_box" style="display:block;margin-top:11px">
         <label>Concepto *</label>${selConOtra("k_acto_con","Consulta",(conceptosCache||[]).map(p=>p.nombre),"conceptoAutorellena('k_acto_con','k_acto_imp','k_acto_iva')")}
         <div class="grid-2"><div><label>Importe (base, €) *</label><input id="k_acto_imp" inputmode="decimal"/></div><div><label>IVA (%)</label><select id="k_acto_iva">${_ivaOpts(21)}</select></div></div>
-        <p class="muted" style="font-size:12px;margin:8px 0 0">El acto queda pendiente de facturar; podrás emitir factura o ticket desde Facturación.</p>
+        <p class="muted" style="font-size:12px;margin:8px 0 0">Queda pendiente de cobro; podrás emitir factura o ticket desde Facturación. Si esta consulta no se cobra, desmarca la casilla.</p>
       </div>
     </div>`;
   abrir(editar?"Editar consulta":"Nueva consulta", `
@@ -1550,6 +1556,8 @@ async function modalConsulta(animalId, opts){
       await refrescar();
       if(emitirReceta) setTimeout(()=>modalReceta(), 80);
     }, editar?"Guardar":undefined);
+  // Consulta nueva: autocompleta el importe del concepto por defecto ("Consulta") para no teclearlo.
+  if(!editar) conceptoAutorellena('k_acto_con','k_acto_imp','k_acto_iva');
 }
 function editarConsulta(id){ const c=(window._consultasById||{})[id]; if(!c){ toast("No se encontró la consulta.","err"); return; } modalConsulta(c.animalId, {consulta:c}); }
 function anularConsulta(id){
@@ -2207,9 +2215,10 @@ async function vFacturasPanel(){ cargando(); await conError(async()=>{
   try{ [facturas, clinica]=await Promise.all([api("/facturas"), api("/facturas-clinica").catch(()=>[])]); }
   catch(e){ view(vacio("🔒","Sin acceso","No tienes permiso para ver las facturas.")); return; }
   const cmap={}; (clinica||[]).forEach(c=>cmap[c.facturaId]=c);
-  const saldos={};
-  await Promise.all((facturas||[]).map(f=>api(`/facturas/${f.id}/saldo`).then(s=>{saldos[f.id]=s;}).catch(()=>{})));
-  _facPanel={facturas:facturas||[], clinica:cmap, saldos};
+  // Pintamos YA, sin esperar los saldos. Antes se pedia el saldo factura a factura y
+  // bloqueaba la pantalla (con muchas facturas iba lentisimo). Los saldos se cargan en
+  // segundo plano y se refresca el estado de cobro cuando llegan.
+  _facPanel={facturas:facturas||[], clinica:cmap, saldos:{}};
   const razasSet=new Set(); _facPanel.facturas.forEach(f=>((cmap[f.id]||{}).razas||[]).forEach(r=>razasSet.add(r)));
   const razaOpc=['<option value="">Todas las razas</option>'].concat([...razasSet].sort().map(r=>`<option value="${esc(r)}">${esc(r)}</option>`)).join("");
   view(`
@@ -2225,6 +2234,11 @@ async function vFacturasPanel(){ cargando(); await conError(async()=>{
     </div>
     <div id="fp_tabla"></div>`);
   facPanelRender();
+  // Saldos en segundo plano: no bloquea el pintado; al llegar, refresca el estado de cobro.
+  if((facturas||[]).length){
+    Promise.allSettled((facturas||[]).map(f=>api(`/facturas/${f.id}/saldo`).then(s=>{_facPanel.saldos[f.id]=s;})))
+      .then(()=>{ if($("fp_tabla")) facPanelRender(); });
+  }
 }); }
 function facPanelRender(){
   const box=$("fp_tabla"); if(!box) return;
@@ -2244,9 +2258,11 @@ function facPanelRender(){
   if(!rows.length){ box.innerHTML=vacio("🧾","Sin facturas","No hay facturas que coincidan con el filtro."); return; }
   const filas=rows.map(f=>{
     const c=_facPanel.clinica[f.id]||{}; const s=_facPanel.saldos[f.id];
-    const pagada=s?Number(s.pendiente)<=0:false; const pend=s?Number(s.pendiente):null;
+    const saldoOk = s!==undefined && s!==null;
+    const pagada=saldoOk?Number(s.pendiente)<=0:false; const pend=saldoOk?Number(s.pendiente):null;
     const chips=[...(c.especies||[]).map(e=>`<span class="pill b">${emojiEspecie(e)} ${esc(e)}</span>`),...(c.razas||[]).map(r=>`<span class="pill vet">${esc(r)}</span>`)].join(" ");
-    const estadoPago = pagada?'<span class="pill ok">Pagada</span>':`<span class="pill wait">Pendiente${pend!=null?` · ${eur(pend)}`:""}</span>`;
+    const estadoPago = !saldoOk ? '<span class="pill muted">· comprobando…</span>'
+      : pagada?'<span class="pill ok">Pagada</span>':`<span class="pill wait">Pendiente${pend!=null?` · ${eur(pend)}`:""}</span>`;
     const nota=c.nota?`<div class="muted" style="font-size:12px;margin-top:3px">📝 ${esc(c.nota)}</div>`:"";
     let acc=`<button class="btn tiny line" onclick="descargarPdf('/facturas/${f.id}/pdf',${esc(JSON.stringify('factura-'+f.numeroCompleto+'.pdf'))})">PDF</button>`;
     if(!pagada && pend!=null && pend>0) acc+=` <button class="btn tiny v" onclick="marcarCobrada('${f.id}',${pend})">Cobrada</button>`;
