@@ -2668,7 +2668,7 @@ function facSync(){
   _facLineas=_facLineas.map((l,i)=>{
     const con=$("fl_con_"+i), cant=$("fl_cant_"+i), imp=$("fl_imp_"+i), iva=$("fl_iva_"+i);
     if(!con) return l;
-    return {concepto:soVal("pl_con_"+i), cantidad:Number((cant.value||"").replace(",",".")), importe:imp.value===""?null:Number(imp.value.replace(",",".")), iva:Number(iva.value), productoId:l.productoId||null};
+    return {concepto:(con.value||""), cantidad:Number((cant.value||"").replace(",",".")), importe:imp.value===""?null:Number(imp.value.replace(",",".")), iva:Number(iva.value), productoId:l.productoId||null};
   });
 }
 function facConcepto(i){
