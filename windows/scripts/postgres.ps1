@@ -125,14 +125,18 @@ function Arrancar-Postgres {
     Escribir-Log "Arrancando PostgreSQL en el puerto $Puerto..."
     # IMPORTANTE: NO se canaliza la salida de pg_ctl con '| ForEach-Object'. El proceso
     # servidor (postgres) hereda el handle de la tuberia y esta no se cierra nunca, por
-    # lo que PowerShell se queda esperando para siempre (el cuelgue que veiamos tras
-    # "servidor iniciado"). Se arranca con Start-Process -Wait, que espera SOLO a que
-    # termine pg_ctl (no al servidor), y se redirige su salida a ficheros temporales.
+    # lo que PowerShell se queda esperando para siempre (el cuelgue tras "servidor
+    # iniciado"). Se usa Start-Process -Wait, que espera SOLO a que termine pg_ctl.
+    #
+    # Los argumentos van como UNA cadena con comillas explicitas: Start-Process NO
+    # entrecomilla los elementos de un array, y las rutas de datos y log contienen un
+    # espacio ("ALXOR Vet"), por lo que sin comillas pg_ctl las parte en dos.
     $salidaTmp = Join-Path $DirLogs 'pg_ctl.out.tmp'
     $errorTmp  = Join-Path $DirLogs 'pg_ctl.err.tmp'
-    $argumentos = @('-D', $DirDatos, '-l', $LogPostgres, '-o', "-p $Puerto -c listen_addresses=localhost", '-w', 'start')
+    $opcionesServidor = "-p $Puerto -c listen_addresses=localhost"
+    $lineaArgs = "-D `"$DirDatos`" -l `"$LogPostgres`" -o `"$opcionesServidor`" -w start"
     try {
-        Start-Process -FilePath $pgCtl -ArgumentList $argumentos -NoNewWindow -Wait `
+        Start-Process -FilePath $pgCtl -ArgumentList $lineaArgs -NoNewWindow -Wait `
             -RedirectStandardOutput $salidaTmp -RedirectStandardError $errorTmp | Out-Null
     } catch {
         Escribir-Log "No se pudo lanzar pg_ctl: $_" 'ERROR'
